@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Node / JS
+node_modules/
+
+# Code Review Graph
+.code-review-graph/
+
+# Runtime/local state - ADAPT TO YOUR REPOSITORY
+# data/
+logs/
+*.log
+
+# Build/cache
+build/
+dist/
+coverage/
+.cache/
+
+# Transient databases
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite-journal
+*.sqlite-wal
+
+# Secrets/local configuration
+.env
+.env.*
+!.env.example
+*.secret
+*.pem
+
+# Backups/temp
+*.bak
+*.old
+*.tmp
