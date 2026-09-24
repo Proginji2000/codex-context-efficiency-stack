@@ -2,6 +2,29 @@
 
 The core recommendation is intentionally conservative. Add more layers only after observing a remaining bottleneck.
 
+## External bounded decision models (for example Jev)
+
+A small classifier/decision model can be useful at genuinely ambiguous control boundaries:
+
+- continue vs escalate after conflicting evidence
+- whether the blast radius materially expanded
+- whether another verification pass is justified when there is no single deterministic answer
+
+Do **not** make it a mandatory hop for every command or trivial task.
+
+Before adding one, compare it against a zero-cost deterministic policy such as:
+
+```text
+obvious tiny task -> Luna Low
+normal work -> Luna Medium
+complex bounded work -> Luna High
+security/architecture/migration/repeated failure -> Sol High
+```
+
+Keep deterministic facts out of the decision model entirely. Compilation, tests, type checking, lint, formatting and diffs should be established by their real tools.
+
+A typed output or confidence score is still a prediction, not proof. Measure whether the extra decision layer reduces retries/escalations enough to justify its latency, complexity and cost.
+
 ## `include_apps_instructions = false`
 
 Codex has a configuration control for whether the `<apps_instructions>` developer block is injected.
