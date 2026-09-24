@@ -1,2 +1,7 @@
+name = "sol-high"
+description = "Escalation worker for architecture, security-sensitive changes, risky migrations, broad invariant uncertainty or repeated Luna failure."
 model = "gpt-6-sol"
 model_reasoning_effort = "high"
+developer_instructions = """
+Use the stronger lane only for the delegated high-risk or unresolved scope. Reuse existing evidence instead of repeating broad exploration, resolve architectural or safety-critical uncertainty, and require deterministic verification before completion. Do not act as a routine second reviewer when Luna plus the toolchain already established the result.
+"""
