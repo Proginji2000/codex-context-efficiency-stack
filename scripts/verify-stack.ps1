@@ -16,6 +16,7 @@ $laneFiles = [ordered]@{
     'luna-medium' = Join-Path $agentDir 'luna-medium.toml'
     'luna-high'   = Join-Path $agentDir 'luna-high.toml'
     'sol-high'    = Join-Path $agentDir 'sol-high.toml'
+    'astra-high'  = Join-Path $agentDir 'astra-high.toml'
 }
 
 Write-Host "`n[Files]"
@@ -100,12 +101,17 @@ foreach ($lane in $laneFiles.Keys) {
         continue
     }
 
-    $expectedModel = if ($lane -eq 'sol-high') { 'gpt-6-sol' } else { 'gpt-6-luna' }
+    $expectedModel = switch ($lane) {
+        'sol-high'   { 'gpt-6-sol' }
+        'astra-high' { 'gpt-6-astra' }
+        default      { 'gpt-6-luna' }
+    }
     $expectedEffort = switch ($lane) {
         'luna-low'    { 'low' }
         'luna-medium' { 'medium' }
         'luna-high'   { 'high' }
         'sol-high'    { 'high' }
+        'astra-high'  { 'high' }
     }
 
     $modelPattern = '^model\s*=\s*["'']{0}["'']\s*$' -f [regex]::Escape($expectedModel)
@@ -138,6 +144,12 @@ if (Test-Path $agents) {
         Write-Host '[OK] model-routing guidance found'
     } else {
         Write-Host '[--] model-routing guidance not found'
+    }
+
+    if (Select-String -Path $agents -Pattern 'Durable task state' -SimpleMatch -Quiet) {
+        Write-Host '[OK] durable task-state guidance found'
+    } else {
+        Write-Host '[--] durable task-state guidance not found'
     }
 }
 
