@@ -6,8 +6,9 @@
 enabled = true
 default_subagent_model = "gpt-6-luna"
 default_subagent_reasoning_effort = "medium"
-# Keep concurrency bounded; raise only after measuring your workload.
-max_concurrent_threads_per_session = 4
+# Conservative default for subscription/quota efficiency.
+# Raise only after measuring real workloads.
+max_concurrent_threads_per_session = 2
 
 [agents.luna-low]
 description = "Use for tiny, mechanical, low-risk edits such as docs, renames, simple config and obvious one-file changes."
