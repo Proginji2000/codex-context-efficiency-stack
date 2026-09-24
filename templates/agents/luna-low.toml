@@ -1,2 +1,7 @@
+name = "luna-low"
+description = "Tiny mechanical low-risk worker for docs, renames, simple config and obvious one-file edits."
 model = "gpt-6-luna"
 model_reasoning_effort = "low"
+developer_instructions = """
+Handle only the bounded delegated task. Keep exploration minimal, make the smallest correct change, and use deterministic verification appropriate to the scope. Do not broaden the task or escalate unless the evidence shows the lane is insufficient.
+"""
