@@ -1,63 +1,65 @@
 # Codex Context-Efficiency Stack (Windows)
 
-A quality-preserving setup for reducing unnecessary context and tool-output tokens in OpenAI Codex **without lowering the model or reasoning level**.
+A practical Codex setup for reducing wasted context, avoiding unnecessary model escalation, and keeping verification deterministic.
 
-> Tested on native Windows in September 2026. Some third-party integrations, especially Windows hooks, can change over time. Re-check upstream release notes before blindly copying a workaround.
+This repository now has two complementary layers:
 
-## Goals
+1. **Context efficiency** — RTK, concise `AGENTS.md`, `tool_output_token_limit`, Code Review Graph (CRG), targeted reads and bounded tool output.
+2. **Model routing v2** — GPT-6 Luna workers by default, explicit Luna Low/Medium/High roles, and GPT-6 Sol High only for work that actually warrants escalation.
 
-This stack is designed to reduce waste around a strong reasoning model, not to make the model "think less".
+> Tested and refreshed for native Windows in September 2026. Codex configuration and third-party integrations can change; verify current upstream behavior before blindly copying old workarounds.
 
-It targets four different sources of context bloat:
-
-1. **Shell output** → RTK (Rust Token Killer)
-2. **Agent behavior** → concise global `AGENTS.md`
-3. **Tool/function output retained by Codex** → `tool_output_token_limit`
-4. **Large-codebase exploration** → Code Review Graph (CRG) via MCP
-
-The result is a layered setup:
+## Architecture
 
 ```text
-Preferred Codex model + preferred reasoning effort
-                    │
-        ┌───────────┼───────────┐
-        │           │           │
-      AGENTS       RTK         CRG
-        │           │           │
- behavior rules  shell output  structural code map
-        │           │           │
-        └───────────┼───────────┘
-                    │
-        tool_output_token_limit
-                    │
-                    ▼
-            cleaner model context
+USER REQUEST
+    |
+    v
+PRIMARY CODEX THREAD
+    |
+    +-- bounded context / RTK / CRG / skills
+    |
+    +-- luna-low      tiny mechanical changes
+    +-- luna-medium   normal development work
+    +-- luna-high     complex but bounded reasoning
+    `-- sol-high      architecture / security / migration / repeated failure
+            |
+            v
+     IMPLEMENTATION
+            |
+            v
+ DETERMINISTIC VERIFICATION
+ tests / build / lint / typecheck / diff
+            |
+      +-----+-----+
+      |           |
+     PASS        FAIL
+      |           |
+  COMPLETE    retry / escalate
 ```
 
-## What this does *not* do
+The central rule is:
 
-- It does **not** switch you to a cheaper/smaller model.
-- It does **not** reduce reasoning effort.
-- It does **not** promise a fixed percentage reduction in total Codex quota usage.
-- It does **not** replace tests, source verification, or proper code review.
+> **If software can prove it, run the software. Use model judgment only for what remains uncertain.**
 
-RTK savings apply to the shell output it filters. CRG savings apply to codebase exploration/review context. The total effect depends on workload.
+A compiler decides whether code compiles. The test runner decides whether tests pass. `git diff` decides what changed. Models interpret evidence, choose implementations and handle ambiguity.
 
 ---
 
-# 1. Back up Codex configuration
+# Quick start
 
-On Windows, the default Codex home is:
+## 1. Back up Codex configuration
+
+Default Codex home on Windows:
 
 ```text
 %USERPROFILE%\.codex
 ```
 
-Back up the important files before changing integrations:
+Before changing anything:
 
 ```powershell
 $CodexHome = Join-Path $env:USERPROFILE '.codex'
-
 Copy-Item "$CodexHome\config.toml" "$CodexHome\config.toml.backup" -ErrorAction SilentlyContinue
 Copy-Item "$CodexHome\AGENTS.md" "$CodexHome\AGENTS.md.backup" -ErrorAction SilentlyContinue
 Copy-Item "$CodexHome\hooks.json" "$CodexHome\hooks.json.backup" -ErrorAction SilentlyContinue
@@ -65,284 +67,239 @@ Copy-Item "$CodexHome\hooks.json" "$CodexHome\hooks.json.backup" -ErrorAction Si
 
 If `CODEX_HOME` is set, use that path instead.
 
----
+## 2. Limit retained tool output
 
-# 2. Add a native Codex tool-output budget
-
-Add this near the top of `~/.codex/config.toml`:
+Add to `~/.codex/config.toml`:
 
 ```toml
 tool_output_token_limit = 4000
 ```
 
-Codex defines this as the token budget applied when storing tool/function outputs in its context manager.
-
-`4000` is a conservative starting point: small enough to prevent giant outputs from dominating context, but large enough to preserve useful diagnostics. If more data is needed, inspect another targeted range instead of dumping everything at once.
-
-This is intentionally different from a behavioral **byte** limit in `AGENTS.md`.
-
-- `AGENTS.md`: roughly 4 KB initial output for unknown/unoptimized commands.
-- `tool_output_token_limit`: 4,000 **tokens** retained per tool output.
+This limits tool/function output retained in Codex context. It does not replace selective reading: when more detail is required, inspect a targeted range rather than dumping everything.
 
 See [`templates/config.snippet.toml`](templates/config.snippet.toml).
 
+## 3. Use the global AGENTS template
+
+Use [`templates/AGENTS.md`](templates/AGENTS.md) as the basis for `~/.codex/AGENTS.md`.
+
+It enforces:
+
+- search before broad reads
+- concise terminal output
+- targeted tests during iteration
+- deterministic completion checks
+- targeted diffs
+- no repeated unchanged reads
+- bounded subagent context
+- evidence-based Luna -> Sol escalation
+- CRG-first navigation when a useful graph exists
+
+Keep project-specific conventions in repository-level `AGENTS.md` files or skills rather than growing the global file indefinitely.
+
+## 4. Install the optional Luna/Sol routing layer
+
+Codex supports multi-agent role declarations and role-specific config layers. This repository provides:
+
+```text
+templates/agents/luna-low.toml
+templates/agents/luna-medium.toml
+templates/agents/luna-high.toml
+templates/agents/sol-high.toml
+```
+
+Copy them to:
+
+```text
+~/.codex/agents/
+```
+
+Then merge:
+
+```text
+templates/config.routing.snippet.toml
+```
+
+into:
+
+```text
+~/.codex/config.toml
+```
+
+The recommended defaults are:
+
+```text
+spawned worker default -> GPT-6 Luna / medium
+small work             -> Luna / low
+hard bounded work      -> Luna / high
+architecture/security/
+migration/repeated fail -> Sol / high
+```
+
+Restart Codex after editing configuration.
+
+Full routing policy: [`docs/MODEL_ROUTING_V2.md`](docs/MODEL_ROUTING_V2.md).
+
+### Important limitation
+
+`AGENTS.md` can tell Codex *when* a lane should be used, but it does not magically mutate the model of an already-running primary turn.
+
+The provided custom roles make spawned-agent model selection explicit. If the current runtime does not have those roles loaded, the agent should continue with the active model rather than pretending a switch occurred.
+
+A fully external router that changes the primary session model dynamically is a separate orchestration layer, for example via the Agents API.
+
 ---
 
-# 3. Install RTK for Codex
+# Context layer
 
-RTK is a CLI proxy that compresses common shell-command output before it enters the model context.
+## RTK
+
+RTK compresses common shell-command output before it reaches model context.
 
 Upstream: <https://github.com/rtk-ai/rtk>
 
-After installing the RTK binary, initialize its Codex integration:
+After installing the binary:
 
 ```powershell
 rtk init -g --codex
-```
-
-For Codex, RTK uses prompt-level guidance rather than a transparent native-Windows shell rewrite. It installs/uses:
-
-```text
-~/.codex/RTK.md
-~/.codex/AGENTS.md  -> @RTK.md
-```
-
-Verify:
-
-```powershell
 rtk --version
 rtk gain
 ```
 
-`rtk gain` is useful after real development sessions to see how many shell-output tokens RTK actually removed.
+On native Windows, do not assume every command is transparently rewritten. The Codex integration is instruction-driven, so the agent should explicitly prefer RTK-supported commands where they preserve required evidence.
 
-### Native Windows caveat
+## Code Review Graph
 
-Do not assume every shell command is transparently rewritten on native Windows. The Codex integration is instruction-based, so the agent should explicitly prefer commands such as:
-
-```text
-rtk git status
-rtk git diff
-rtk pytest -q
-rtk rg ...
-```
-
-The global `AGENTS.md` template in this repository reinforces that behavior.
-
----
-
-# 4. Use a concise global AGENTS.md
-
-Codex reads global instructions from `~/.codex/AGENTS.md` (unless a global `AGENTS.override.md` exists), then layers project instructions on top.
-
-The goal is to encode reusable context discipline once instead of repeating it in every prompt.
-
-Copy or adapt:
-
-- [`templates/AGENTS.md`](templates/AGENTS.md)
-
-The template covers:
-
-- RTK-first terminal usage
-- quiet/concise output
-- search before reading
-- bounded source reads
-- targeted tests during iteration
-- broader validation only at meaningful checkpoints
-- targeted diffs
-- avoiding repeated unchanged reads/output
-- context compaction discipline
-- hard limits for unknown output
-- CRG-first code navigation when an index exists
-
-Keep global instructions concise. Put project-specific commands and conventions in repository-level `AGENTS.md` files instead.
-
----
-
-# 5. Install Code Review Graph (CRG)
-
-CRG builds a local structural knowledge graph of a repository with Tree-sitter, stores it locally in SQLite, and exposes graph queries through MCP.
+CRG builds a local structural graph of the repository and exposes code relationships through MCP.
 
 Upstream: <https://github.com/tirth8205/code-review-graph>
 
-Install the core package plus the two optional groups used in this stack:
+Install:
 
 ```powershell
 python.exe -m pip install -U "code-review-graph[communities,enrichment]"
-```
-
-This adds:
-
-- `igraph` → Leiden community detection
-- `Jedi` → additional Python call-resolution enrichment
-
-Then install the Codex integration:
-
-```powershell
 code-review-graph install --platform codex
 ```
 
-CRG may add:
-
-- an MCP entry to `~/.codex/config.toml`
-- Codex hooks
-- CRG guidance/instructions
-
-**Always inspect the resulting files after installation** so the installer does not leave redundant or misplaced instructions.
-
----
-
-# 6. Windows: Python Store / PATH issue
-
-A common Windows symptom is:
-
-```text
-code-review-graph : The term 'code-review-graph' is not recognized...
-```
-
-while this works:
-
-```powershell
-python.exe -m pip show code-review-graph
-```
-
-For a Microsoft Store Python install, find the user Scripts directory with:
-
-```powershell
-$Scripts = python.exe -c "import sysconfig; print(sysconfig.get_path('scripts', scheme='nt_user'))"
-$Scripts
-Get-ChildItem "$Scripts" -Filter "code-review-graph*"
-```
-
-Test the executable directly:
-
-```powershell
-& "$Scripts\code-review-graph.exe" --help
-```
-
-Add that Scripts directory to the user PATH:
-
-```powershell
-$UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-
-if (($UserPath -split ';') -notcontains $Scripts) {
-    [Environment]::SetEnvironmentVariable(
-        'Path',
-        "$UserPath;$Scripts",
-        'User'
-    )
-}
-
-$env:Path = "$Scripts;$env:Path"
-```
-
-Verify:
-
-```powershell
-Get-Command code-review-graph
-code-review-graph --help
-```
-
----
-
-# 7. Configure CRG MCP deterministically on Windows
-
-If Codex does not inherit the updated user PATH reliably, point the MCP server at the absolute CRG executable.
-
-Find it:
-
-```powershell
-(Get-Command code-review-graph).Source
-```
-
-Then adapt this block in `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.code-review-graph]
-command = 'C:\absolute\path\to\code-review-graph.exe'
-args = ["serve"]
-type = "stdio"
-startup_timeout_sec = 30
-
-[mcp_servers.code-review-graph.env]
-PYTHONUTF8 = "1"
-```
-
-A generic PATH-based alternative is included in [`templates/config.snippet.toml`](templates/config.snippet.toml).
-
-After changing MCP configuration, restart Codex.
-
-Verify from Codex with:
-
-```text
-/mcp
-```
-
-You should see `code-review-graph` among active servers.
-
----
-
-# 8. Windows CRG hooks: inspect before trusting
-
-CRG has historically generated Unix-style hook commands on Windows in some versions, e.g. commands containing:
-
-```text
-cat >/dev/null
->/dev/null 2>&1
-|| true
-```
-
-Those are not native PowerShell syntax.
-
-If your generated `~/.codex/hooks.json` still looks like that, use a Windows-specific command variant. A sanitized example matching the setup tested for this guide is provided here:
-
-- [`templates/hooks.windows.json`](templates/hooks.windows.json)
-
-Important properties of the workaround:
-
-- drain hook stdin first
-- fail open
-- only update CRG inside a Git repository
-- keep update output out of model context
-
-Because this is a third-party integration detail, check the current CRG release first: a newer version may have fixed the generator.
-
----
-
-# 9. Build one graph per repository
-
-Run a full build once per repository:
+For each repository:
 
 ```powershell
 cd C:\path\to\repo
 code-review-graph build
 code-review-graph status
+code-review-graph register C:\path\to\repo --alias repo-name
 ```
 
-A healthy status should contain non-zero nodes/edges and a real `Last updated` timestamp.
-
-Register repositories if you want multi-repo MCP queries:
-
-```powershell
-code-review-graph register C:\path\to\repo --alias repo-a
-code-review-graph repos
-```
-
-After the initial build, prefer incremental updates:
+After the first full build, prefer:
 
 ```powershell
 code-review-graph update
 ```
 
-Do **not** repeatedly run full builds unless necessary.
+Use CRG to narrow the search, then verify important conclusions in real source and tests. Source remains authoritative if the graph is stale or incomplete.
+
+### Windows PATH caveat
+
+If `code-review-graph` is installed but not found:
+
+```powershell
+$Scripts = python.exe -c "import sysconfig; print(sysconfig.get_path('scripts', scheme='nt_user'))"
+Get-ChildItem "$Scripts" -Filter "code-review-graph*"
+& "$Scripts\code-review-graph.exe" --help
+```
+
+If necessary, point the MCP configuration directly to the absolute executable path.
+
+See [`docs/WINDOWS_TROUBLESHOOTING.md`](docs/WINDOWS_TROUBLESHOOTING.md).
+
+### Windows hooks caveat
+
+Some CRG versions have generated Unix-style hook commands on Windows. Inspect `~/.codex/hooks.json` before trusting generated hooks. A sanitized Windows example is available at [`templates/hooks.windows.json`](templates/hooks.windows.json).
 
 ---
 
-# 10. Git hygiene matters a lot for CRG
+# Progressive disclosure instead of giant prompts
 
-In Git repositories, CRG indexes tracked files. This makes `.gitignore` one of the most effective ways to keep the graph focused.
+Do not turn `AGENTS.md` into a project encyclopedia.
 
-Before the first commit, exclude runtime/vendor/generated content such as:
+Prefer:
+
+```text
+AGENTS.md
+  -> short global/repository rules
+  -> conditional pointers
+
+.agents/skills/
+  -> detailed reusable workflows
+  -> scripts
+  -> references
+```
+
+A good repository instruction says *when* to load documentation rather than forcing every task to read everything.
+
+Example:
+
+```text
+Use architecture.md for service-boundary changes.
+Use database.md for schema or migration changes.
+Use deployment.md only when preparing a deployment.
+```
+
+This keeps typo fixes and small code changes from paying the context cost of unrelated architecture, database and deployment documentation.
+
+---
+
+# Routing policy
+
+Use the lowest sufficient lane.
+
+| Work | Preferred lane |
+| --- | --- |
+| docs, typo, obvious rename, simple config | Luna Low |
+| normal feature, tests, localized bug, ordinary SQL | Luna Medium |
+| complex bounded debugging, subtle state logic, non-trivial refactor | Luna High |
+| architecture, auth/security, risky migration, repeated Luna failure | Sol High |
+
+Do not call an AI judge after every tiny action. Route at meaningful boundaries only.
+
+A practical escalation sequence is:
+
+```text
+Luna Medium
+ -> verify
+ -> localized failure: retry once
+ -> verify
+ -> still difficult: Luna High
+ -> verify
+ -> unresolved/high-risk: Sol High
+```
+
+Jev or another external decision model is **optional**, not part of the required stack. Typed output and confidence scores are useful control signals, but they are not proof of correctness.
+
+---
+
+# Completion gate
+
+Before declaring a task complete, apply the checks that are relevant to the repository:
+
+```text
+requested behavior implemented
++ relevant tests pass
++ build/type/lint checks pass where applicable
++ final diff matches requested scope
++ no unresolved failure is hidden
+= completion
+```
+
+Do not invent a heavyweight full-suite requirement for a trivial change if the repository does not normally require it. Conversely, do not skip required validation merely to save quota.
+
+---
+
+# Git hygiene
+
+CRG and agents become noisier when repositories track generated/runtime content.
+
+Typical exclusions include:
 
 ```gitignore
 __pycache__/
@@ -350,22 +307,13 @@ __pycache__/
 .pytest_cache/
 .venv/
 node_modules/
-
 .code-review-graph/
-
-data/
 logs/
 *.log
-
 build/
 dist/
 coverage/
 .cache/
-
-*.db-journal
-*.db-wal
-*.sqlite-journal
-
 .env
 .env.*
 !.env.example
@@ -373,190 +321,100 @@ coverage/
 *.pem
 ```
 
-Do **not** blindly ignore a `data/` directory if it contains source-controlled fixtures/configuration. Adapt to the repository.
+Adapt this to the repository. Do not ignore source-controlled fixtures merely because they live in a directory named `data/`.
 
 See [`templates/gitignore.example`](templates/gitignore.example).
 
-### Anonymized real-world result
-
-In one large local workspace, CRG initially parsed roughly:
-
-```text
-2,057 files
-~73,800 graph nodes
-~596,000 graph edges
-```
-
-After initializing Git and excluding runtime environments, caches, backups, offline dependencies and generated state, the relevant graph dropped to roughly:
-
-```text
-86 files
-~3,500 graph nodes
-~40,000 graph edges
-```
-
-That is about **95.8% fewer files in the graph**, without changing the model or reasoning effort.
-
-The exact token savings are workload-dependent; the important point is that structural noise was removed before the model had to explore it.
-
 ---
 
-# 11. Keep CRG instructions compact
+# Existing sessions
 
-Do not blindly paste a long CRG instruction block globally.
-
-A concise version is enough:
-
-```text
-- If the current repo has a CRG index, use CRG first to narrow code scope.
-- Pass the Git repository root explicitly as repo_root.
-- Prefer graph queries for symbols, callers/callees, dependencies, impact, architecture and review context.
-- Verify non-trivial conclusions in source and tests.
-- Source code wins if the graph is stale/incomplete.
-```
-
-The provided [`templates/AGENTS.md`](templates/AGENTS.md) includes a slightly fuller version.
-
----
-
-# 12. Existing Codex sessions
-
-New Codex sessions should load the current global instructions and MCP configuration after restart.
-
-For a session that was already running before the global instructions changed, send this once:
+After changing global instructions, an already-running session can be told once to re-read them:
 
 ```text
 Re-read the global Codex instructions in ~/.codex/AGENTS.md and the RTK.md file they reference. Apply their current version to this session and all following steps.
 ```
 
-Do **not** repeat it on every prompt.
+Configuration-level features such as newly added MCP servers or custom agent roles may still require a Codex restart/new runtime.
 
-For CRG, check:
-
-```text
-/mcp
-```
-
-If `code-review-graph` is not listed, re-reading `AGENTS.md` cannot create a tool that the runtime never loaded. Restart Codex or start a fresh thread/runtime.
-
-More detail: [`docs/EXISTING_SESSIONS.md`](docs/EXISTING_SESSIONS.md).
+See [`docs/EXISTING_SESSIONS.md`](docs/EXISTING_SESSIONS.md).
 
 ---
 
-# 13. Measure before adding more layers
+# Measure instead of assuming
 
-After real development sessions, measure rather than assuming.
-
-RTK:
+Track actual behavior:
 
 ```powershell
 rtk gain
-```
-
-CRG:
-
-```powershell
 code-review-graph status
 code-review-graph detect-changes --brief
 ```
 
-Also watch behavior:
+For routing, track:
 
-- Does the agent use graph queries before broad source reads?
-- Are test runs targeted during iteration?
-- Are full validations reserved for meaningful checkpoints?
-- Are huge logs/diffs written to disk and sampled instead of dumped?
-- Are unchanged files repeatedly reopened?
+- tasks per lane
+- successful completions per lane
+- retries
+- escalations
+- failed verification passes
+- context/quota usage where visible
+- wall-clock latency
+
+The useful metric is **successful engineering work per unit of quota/cost**, not raw token volume alone.
 
 See [`docs/MEASUREMENT.md`](docs/MEASUREMENT.md).
 
 ---
 
-# 14. Optional / experimental items
-
-This stack intentionally stops before adding every possible optimizer.
-
-Potential experiments **after measuring the core stack**:
-
-- disabling `include_apps_instructions` in a code-only profile
-- A/B testing response-shaping plugins such as Ponytail
-- adding a separate large-log/context proxy only if large non-shell blobs remain a proven bottleneck
-
-Avoid stacking overlapping MCPs just because they all advertise token savings. Every MCP also adds tool schemas/instructions and can increase decision overhead.
-
-See [`docs/OPTIONAL_EXPERIMENTS.md`](docs/OPTIONAL_EXPERIMENTS.md).
-
----
-
-# 15. Privacy and publication hygiene
-
-Before publishing your setup, remove or replace:
-
-- usernames
-- local project names
-- absolute personal paths
-- private repository names
-- branch names that reveal internal work
-- API keys/tokens
-- MCP Bearer tokens
-- environment secrets
-- browser profile paths
-- database paths
-- machine-specific runtime IDs
-
-Do not publish raw CRG graph exports without inspection. They can contain absolute paths and structural metadata about source code.
-
-See [`SECURITY.md`](SECURITY.md).
-
----
-
 # Quick verification
 
-This repository includes a read-only PowerShell checker:
+The repository includes a read-only PowerShell checker:
 
 ```powershell
 .\scripts\verify-stack.ps1
 ```
 
-It checks for:
+It checks the original context-efficiency layer: Codex home/config, global AGENTS, RTK, `tool_output_token_limit`, CRG executable/MCP configuration, hooks and registered repositories.
 
-- Codex home/config
-- global AGENTS
-- RTK
-- `tool_output_token_limit`
-- Code Review Graph executable
-- CRG MCP config
-- Windows hooks file
-- registered CRG repositories
-
-It does not modify Codex or any repository.
+The v2 role configs are intentionally simple enough to inspect directly.
 
 ---
 
-# Recommended core stack
+# Recommended stack
 
 ```text
-High-quality Codex model / high reasoning effort
+Codex primary thread
+        +
+GPT-6 Luna spawned workers by default
+        +
+Luna Low / Medium / High explicit roles
+        +
+Sol High only on real escalation conditions
         +
 RTK
         +
-concise global AGENTS.md
+concise AGENTS.md
+        +
+repository skills / progressive disclosure
         +
 tool_output_token_limit = 4000
         +
-Code Review Graph
+Code Review Graph where useful
         +
-igraph (Leiden)
+clean Git tracking
         +
-Jedi enrichment for Python-heavy repositories
-        +
-clean Git tracking / .gitignore
+deterministic tests/build/lint/typecheck/diff
 ```
 
-Then **stop and measure**.
+Then stop adding layers until measurement shows a real bottleneck.
 
 ---
 
-# Sources
+# Sources and security
 
-Primary upstream references are collected in [`SOURCES.md`](SOURCES.md).
+Primary references are collected in [`SOURCES.md`](SOURCES.md).
+
+Before publishing local configuration, remove usernames, absolute personal paths, private repository names, secrets, tokens, browser-profile paths, database paths and raw CRG exports containing private structural metadata.
+
+See [`SECURITY.md`](SECURITY.md).

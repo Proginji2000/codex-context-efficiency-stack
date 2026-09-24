@@ -2,7 +2,18 @@
 
 ## Global context and token efficiency
 
-Preserve model quality and reasoning depth while minimizing unnecessary context and token usage.
+Preserve correctness while minimizing unnecessary context, tool-output tokens, repeated work, and unnecessary model escalation.
+
+### Model routing and delegation
+
+- If the configured custom Codex roles are available, use the lowest sufficient lane at meaningful task boundaries: `luna-low` for tiny mechanical low-risk work, `luna-medium` for normal development, `luna-high` for complex but bounded reasoning, and `sol-high` for architecture, security-sensitive work, risky migrations, broad invariant uncertainty, or repeated Luna failure.
+- Prefer `luna-medium` as the default spawned worker unless the task is obviously smaller or harder.
+- Do not spawn or switch lanes after every read, command, edit, or test. Route at task boundaries, after a materially different phase begins, or when verification evidence justifies escalation.
+- Never use another model to answer a fact that deterministic tooling can establish. Run the compiler, tests, type checker, linter, formatter/checker, `git diff`, or other authoritative tool instead.
+- A failed attempt does not automatically require Sol. Retry the same Luna lane once when the failure is localized and the corrective path is clear; otherwise move to `luna-high`. Escalate to `sol-high` when repeated attempts fail, the blast radius expands materially, or high-risk uncertainty remains.
+- If custom roles are unavailable in the current runtime, continue with the active model and follow the same verification discipline. Never claim a model switch or delegation occurred when it did not.
+- Give subagents bounded context: goal, constraints, relevant files/symbols, known evidence, and acceptance criteria. Do not copy the entire parent conversation unless it is genuinely required.
+- Avoid parallel agents that perform substantially overlapping exploration. Parallelism is useful only when branches of work are independent.
 
 ### Terminal output
 
@@ -20,13 +31,15 @@ Preserve model quality and reasoning depth while minimizing unnecessary context 
 - Do not recursively enumerate large directory trees unless required.
 - Read the minimum amount of code necessary to establish dependencies and behavior, then expand only when needed.
 
-### Tests
+### Tests and deterministic verification
 
 - During implementation, run the smallest relevant targeted test set first.
 - Do not rerun the complete test suite after every minor change.
 - Run broader or complete validation at meaningful checkpoints and before declaring the task complete.
 - Prefer quiet test output and expand details only for failures.
 - Do not reduce required validation quality merely to save tokens.
+- Before reporting completion, verify the requested behavior, inspect the relevant final diff, and ensure applicable build/test/type/lint checks pass.
+- Never hide or silently ignore failed verification.
 
 ### Git and diffs
 
@@ -42,6 +55,7 @@ Preserve model quality and reasoning depth while minimizing unnecessary context 
 - Compact or summarize completed investigation phases before moving to a substantially different phase when appropriate.
 - Preserve decisions, constraints, unresolved issues, file names, symbols, and validation evidence when compacting.
 - Never trade correctness, completeness, or necessary reasoning depth for token savings.
+- Prefer repository skills for detailed recurring workflows so their full instructions are loaded only when relevant.
 
 ### Hard output limits
 
