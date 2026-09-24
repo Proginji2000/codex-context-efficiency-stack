@@ -108,8 +108,10 @@ foreach ($lane in $laneFiles.Keys) {
         'sol-high'    { 'high' }
     }
 
-    $modelOk = Select-String -Path $path -Pattern "^model\s*=\s*[\"']$([regex]::Escape($expectedModel))[\"']\s*$" -Quiet
-    $effortOk = Select-String -Path $path -Pattern "^model_reasoning_effort\s*=\s*[\"']$expectedEffort[\"']\s*$" -Quiet
+    $modelPattern = '^model\s*=\s*["'']{0}["'']\s*$' -f [regex]::Escape($expectedModel)
+    $effortPattern = '^model_reasoning_effort\s*=\s*["'']{0}["'']\s*$' -f [regex]::Escape($expectedEffort)
+    $modelOk = Select-String -Path $path -Pattern $modelPattern -Quiet
+    $effortOk = Select-String -Path $path -Pattern $effortPattern -Quiet
 
     if ($modelOk -and $effortOk) {
         Write-Host "[OK] $lane -> $expectedModel / $expectedEffort"
@@ -132,7 +134,7 @@ if (Test-Path $agents) {
         Write-Host '[--] CRG guidance not found'
     }
 
-    if (Select-String -Path $agents -Pattern 'luna-medium' -Quiet -SimpleMatch) {
+    if (Select-String -Path $agents -Pattern 'luna-medium' -SimpleMatch -Quiet) {
         Write-Host '[OK] model-routing guidance found'
     } else {
         Write-Host '[--] model-routing guidance not found'
