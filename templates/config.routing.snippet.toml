@@ -25,3 +25,7 @@ config_file = "agents/luna-high.toml"
 [agents.sol-high]
 description = "Use for architecture, security-sensitive changes, risky migrations, broad invariant uncertainty or repeated Luna failure."
 config_file = "agents/sol-high.toml"
+
+[agents.astra-high]
+description = "Final escalation only for genuinely hard end-to-end work, unresolved Sol failure, or exceptional cross-system complexity."
+config_file = "agents/astra-high.toml"
