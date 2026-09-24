@@ -9,6 +9,14 @@ $config = Join-Path $CodexHome 'config.toml'
 $agents = Join-Path $CodexHome 'AGENTS.md'
 $rtkMd = Join-Path $CodexHome 'RTK.md'
 $hooks = Join-Path $CodexHome 'hooks.json'
+$agentDir = Join-Path $CodexHome 'agents'
+
+$laneFiles = [ordered]@{
+    'luna-low'    = Join-Path $agentDir 'luna-low.toml'
+    'luna-medium' = Join-Path $agentDir 'luna-medium.toml'
+    'luna-high'   = Join-Path $agentDir 'luna-high.toml'
+    'sol-high'    = Join-Path $agentDir 'sol-high.toml'
+}
 
 Write-Host "`n[Files]"
 @(
@@ -52,6 +60,62 @@ if (Test-Path $config) {
     } else {
         Write-Host '[--] code-review-graph MCP block not found'
     }
+
+    Write-Host "`n[Optional model-routing v2]"
+    if (Select-String -Path $config -Pattern '^\[agents\]\s*$' -Quiet) {
+        Write-Host '[OK] [agents] block found'
+    } else {
+        Write-Host '[--] [agents] block not found'
+    }
+
+    if (Select-String -Path $config -Pattern '^default_subagent_model\s*=\s*["'']gpt-6-luna["'']\s*$' -Quiet) {
+        Write-Host '[OK] default subagent model = gpt-6-luna'
+    } else {
+        Write-Host '[--] default subagent model gpt-6-luna not found'
+    }
+
+    if (Select-String -Path $config -Pattern '^default_subagent_reasoning_effort\s*=\s*["'']medium["'']\s*$' -Quiet) {
+        Write-Host '[OK] default subagent reasoning = medium'
+    } else {
+        Write-Host '[--] default subagent reasoning medium not found'
+    }
+
+    foreach ($lane in $laneFiles.Keys) {
+        $escapedLane = [regex]::Escape($lane)
+        if (Select-String -Path $config -Pattern "^\[agents\.$escapedLane\]\s*$" -Quiet) {
+            Write-Host "[OK] role configured: $lane"
+        } else {
+            Write-Host "[--] role block not found: $lane"
+        }
+    }
+} else {
+    Write-Host '[--] config.toml not found; config checks skipped'
+}
+
+Write-Host "`n[Routing role files]"
+foreach ($lane in $laneFiles.Keys) {
+    $path = $laneFiles[$lane]
+    if (-not (Test-Path $path)) {
+        Write-Host "[--] $lane : $path"
+        continue
+    }
+
+    $expectedModel = if ($lane -eq 'sol-high') { 'gpt-6-sol' } else { 'gpt-6-luna' }
+    $expectedEffort = switch ($lane) {
+        'luna-low'    { 'low' }
+        'luna-medium' { 'medium' }
+        'luna-high'   { 'high' }
+        'sol-high'    { 'high' }
+    }
+
+    $modelOk = Select-String -Path $path -Pattern "^model\s*=\s*[\"']$([regex]::Escape($expectedModel))[\"']\s*$" -Quiet
+    $effortOk = Select-String -Path $path -Pattern "^model_reasoning_effort\s*=\s*[\"']$expectedEffort[\"']\s*$" -Quiet
+
+    if ($modelOk -and $effortOk) {
+        Write-Host "[OK] $lane -> $expectedModel / $expectedEffort"
+    } else {
+        Write-Host "[--] $lane exists but model/reasoning does not match expected profile"
+    }
 }
 
 Write-Host "`n[AGENTS checks]"
@@ -66,6 +130,12 @@ if (Test-Path $agents) {
         Write-Host '[OK] CRG guidance found'
     } else {
         Write-Host '[--] CRG guidance not found'
+    }
+
+    if (Select-String -Path $agents -Pattern 'luna-medium' -Quiet -SimpleMatch) {
+        Write-Host '[OK] model-routing guidance found'
+    } else {
+        Write-Host '[--] model-routing guidance not found'
     }
 }
 
