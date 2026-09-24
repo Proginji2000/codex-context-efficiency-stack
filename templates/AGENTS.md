@@ -57,6 +57,14 @@ Preserve correctness while minimizing unnecessary context, tool-output tokens, r
 - Never trade correctness, completeness, or necessary reasoning depth for token savings.
 - Prefer repository skills for detailed recurring workflows so their full instructions are loaded only when relevant.
 
+### Durable task state
+
+- For long-running, multi-milestone, interruption-prone, or multi-agent work, maintain one concise durable task-state file so a fresh session can resume without replaying the full conversation.
+- Do not create or maintain task-state files for trivial edits or short self-contained tasks.
+- Update durable state only at meaningful milestones, decisions, failures, handoffs, and verification checkpoints; never after every command.
+- Keep only the current goal, definition of done, constraints, key decisions, relevant files/symbols, verification evidence, unresolved issues, and next action.
+- Source code, tests, build output, and Git remain authoritative. The state file is a compact resume index, not a replacement for deterministic evidence.
+
 ### Hard output limits
 
 - For commands not optimized by RTK and whose output size is unknown, never return unbounded output to the context.
