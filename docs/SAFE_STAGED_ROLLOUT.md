@@ -6,7 +6,7 @@ Use this mode when you have a sensitive or unfinished project whose current Code
 
 Codex configuration is layered. A selected user profile can override the normal user config, while trusted-project `.codex/config.toml` files can override profile and user settings. Global `~/.codex/AGENTS.md` is still injected into every project, with repository-local AGENTS instructions layered after it.
 
-Therefore, the safest migration path is to prepare the new stack without changing global instructions or default config.
+Therefore, the safest migration path is to prepare the new stack without changing global instructions, default config, global hooks or existing role files.
 
 ## Stage 1 — prepare only
 
@@ -14,16 +14,21 @@ From this repository on Windows PowerShell:
 
 ```powershell
 $CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
-New-Item -ItemType Directory -Force (Join-Path $CodexHome 'agents') | Out-Null
+$ProfileRoot = Join-Path $CodexHome 'profiles\context-efficiency'
+$ProfileAgents = Join-Path $ProfileRoot 'agents'
 
-Copy-Item '.\templates\agents\luna-low.toml'    (Join-Path $CodexHome 'agents\luna-low.toml') -Force
-Copy-Item '.\templates\agents\luna-medium.toml' (Join-Path $CodexHome 'agents\luna-medium.toml') -Force
-Copy-Item '.\templates\agents\luna-high.toml'   (Join-Path $CodexHome 'agents\luna-high.toml') -Force
-Copy-Item '.\templates\agents\sol-high.toml'    (Join-Path $CodexHome 'agents\sol-high.toml') -Force
-Copy-Item '.\templates\agents\astra-high.toml'  (Join-Path $CodexHome 'agents\astra-high.toml') -Force
+New-Item -ItemType Directory -Force $ProfileAgents | Out-Null
+
+Copy-Item '.\templates\agents\luna-low.toml'    (Join-Path $ProfileAgents 'luna-low.toml') -Force
+Copy-Item '.\templates\agents\luna-medium.toml' (Join-Path $ProfileAgents 'luna-medium.toml') -Force
+Copy-Item '.\templates\agents\luna-high.toml'   (Join-Path $ProfileAgents 'luna-high.toml') -Force
+Copy-Item '.\templates\agents\sol-high.toml'    (Join-Path $ProfileAgents 'sol-high.toml') -Force
+Copy-Item '.\templates\agents\astra-high.toml'  (Join-Path $ProfileAgents 'astra-high.toml') -Force
 
 Copy-Item '.\templates\context-efficiency.config.toml' (Join-Path $CodexHome 'context-efficiency.config.toml') -Force
 ```
+
+This deliberately does not write to `~/.codex/agents`, so existing project-specific or user-level role files cannot be overwritten by the staged setup.
 
 At this stage, do **not** replace or merge into:
 
@@ -31,11 +36,12 @@ At this stage, do **not** replace or merge into:
 ~/.codex/config.toml
 ~/.codex/AGENTS.md
 ~/.codex/hooks.json
+~/.codex/agents/*
 ```
 
 Do not run RTK global initialization or change project-local `.codex/` files in the protected project yet.
 
-The copied role files are inert unless referenced by an active config layer. The profile is opt-in and is used only when Codex is launched with:
+The isolated role files are inert unless the profile is explicitly selected. The profile is opt-in and is used only when Codex is launched with:
 
 ```powershell
 codex --profile context-efficiency
@@ -62,6 +68,8 @@ codex
 ```
 
 Do not alter its existing `AGENTS.md`, `.codex/config.toml`, hooks, role configuration, branch/worktree strategy or task state as part of the general-stack migration.
+
+Also avoid upgrading the Codex CLI solely for this migration while a sensitive milestone is unfinished. Record the current version first; upgrade after the milestone unless a separate bug/security reason requires it.
 
 ## Stage 4 — migrate after the milestone
 
