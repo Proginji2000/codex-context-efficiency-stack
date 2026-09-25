@@ -5,6 +5,8 @@
 # This file intentionally does NOT configure global AGENTS.md, hooks, MCPs,
 # approval/sandbox policy, or a primary model. Existing projects therefore keep
 # their normal user/project configuration unless this profile is explicitly used.
+# Role files are also isolated under profiles/context-efficiency/ so this staged
+# setup cannot overwrite pre-existing ~/.codex/agents roles.
 
 tool_output_token_limit = 4000
 
@@ -16,20 +18,20 @@ max_concurrent_threads_per_session = 2
 
 [agents.luna-low]
 description = "Use for tiny, mechanical, low-risk edits such as docs, renames, simple config and obvious one-file changes."
-config_file = "agents/luna-low.toml"
+config_file = "profiles/context-efficiency/agents/luna-low.toml"
 
 [agents.luna-medium]
 description = "Default worker for normal feature work, tests, localized debugging, ordinary SQL changes and clear multi-file changes."
-config_file = "agents/luna-medium.toml"
+config_file = "profiles/context-efficiency/agents/luna-medium.toml"
 
 [agents.luna-high]
 description = "Use for complex bounded debugging, subtle multi-file logic, state transitions and non-trivial refactors."
-config_file = "agents/luna-high.toml"
+config_file = "profiles/context-efficiency/agents/luna-high.toml"
 
 [agents.sol-high]
 description = "Use for architecture, security-sensitive changes, risky migrations, broad invariant uncertainty or repeated Luna failure."
-config_file = "agents/sol-high.toml"
+config_file = "profiles/context-efficiency/agents/sol-high.toml"
 
 [agents.astra-high]
 description = "Final escalation only for genuinely hard end-to-end work, unresolved Sol failure, or exceptional cross-system complexity."
-config_file = "agents/astra-high.toml"
+config_file = "profiles/context-efficiency/agents/astra-high.toml"
