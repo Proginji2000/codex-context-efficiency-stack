@@ -1,0 +1,35 @@
+# Opt-in Codex profile for staged adoption.
+# Install as: ~/.codex/context-efficiency.config.toml
+# Activate only when desired with: codex --profile context-efficiency
+#
+# This file intentionally does NOT configure global AGENTS.md, hooks, MCPs,
+# approval/sandbox policy, or a primary model. Existing projects therefore keep
+# their normal user/project configuration unless this profile is explicitly used.
+
+tool_output_token_limit = 4000
+
+[agents]
+enabled = true
+default_subagent_model = "gpt-6-luna"
+default_subagent_reasoning_effort = "medium"
+max_concurrent_threads_per_session = 2
+
+[agents.luna-low]
+description = "Use for tiny, mechanical, low-risk edits such as docs, renames, simple config and obvious one-file changes."
+config_file = "agents/luna-low.toml"
+
+[agents.luna-medium]
+description = "Default worker for normal feature work, tests, localized debugging, ordinary SQL changes and clear multi-file changes."
+config_file = "agents/luna-medium.toml"
+
+[agents.luna-high]
+description = "Use for complex bounded debugging, subtle multi-file logic, state transitions and non-trivial refactors."
+config_file = "agents/luna-high.toml"
+
+[agents.sol-high]
+description = "Use for architecture, security-sensitive changes, risky migrations, broad invariant uncertainty or repeated Luna failure."
+config_file = "agents/sol-high.toml"
+
+[agents.astra-high]
+description = "Final escalation only for genuinely hard end-to-end work, unresolved Sol failure, or exceptional cross-system complexity."
+config_file = "agents/astra-high.toml"
