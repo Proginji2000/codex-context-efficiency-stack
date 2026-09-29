@@ -1,6 +1,6 @@
 # Upstream references
 
-Checked 24 September 2026.
+Checked 29 September 2026.
 
 ## OpenAI Codex
 
@@ -37,6 +37,23 @@ Checked 24 September 2026.
 - OpenAI Codex source (`tool_output_token_limit`)  
   https://github.com/openai/codex/blob/main/codex-rs/core/src/config/mod.rs
 
+## Anthropic Claude Code
+
+- Model aliases, model selection, effort levels, Fable usage-credit behavior and auto-compaction  
+  https://code.claude.com/docs/en/model-config
+
+- Custom subagents, per-agent `model` / `effort`, isolated contexts, concurrency limits and spawn-depth controls  
+  https://code.claude.com/docs/en/sub-agents
+
+- Settings files and precedence  
+  https://code.claude.com/docs/en/settings
+
+- CLAUDE.md / AGENTS.md, imports, progressive disclosure and path-scoped rules  
+  https://code.claude.com/docs/en/memory
+
+- Claude model lifecycle / deprecations  
+  https://docs.anthropic.com/en/docs/about-claude/model-deprecations
+
 ## RTK
 
 - RTK repository  
@@ -45,10 +62,19 @@ Checked 24 September 2026.
 - Codex integration notes  
   https://github.com/rtk-ai/rtk/tree/develop/hooks/codex
 
+- Claude Code integration notes  
+  https://github.com/rtk-ai/rtk/tree/develop/hooks/claude
+
+- RTK installation guide, including Claude Code global initialization  
+  https://github.com/rtk-ai/rtk/blob/develop/INSTALL.md
+
 ## Code Review Graph
 
 - CRG repository  
   https://github.com/tirth8205/code-review-graph
+
+- CRG usage and platform installation (`--platform claude-code`)  
+  https://github.com/tirth8205/code-review-graph/blob/main/docs/USAGE.md
 
 - CRG FAQ  
   https://github.com/tirth8205/code-review-graph/blob/main/docs/FAQ.md
