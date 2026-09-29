@@ -47,8 +47,16 @@ foreach ($lane in $laneFiles.Keys) {
 
 Write-Host "`n[AGENTS]"
 if (Test-Path $agents) {
-    foreach ($text in @('@RTK.md','gpt-6.1-sol','sol-xhigh','Quota discipline','Code Review Graph')) {
-        if (Select-String -Path $agents -Pattern ([regex]::Escape($text)) -Quiet) { Write-Host "[OK] guidance: $text" } else { Write-Host "[--] guidance missing: $text" }
+    $agentChecks = [ordered]@{
+        '@RTK.md'          = '@RTK.md'
+        'GPT-6.1 Sol'      = 'GPT-6.1 Sol'
+        'sol-xhigh'        = 'sol-xhigh'
+        'Quota discipline' = 'Quota discipline'
+        'Code Review Graph'= 'Code Review Graph'
+    }
+    foreach ($label in $agentChecks.Keys) {
+        $text = $agentChecks[$label]
+        if (Select-String -Path $agents -Pattern ([regex]::Escape($text)) -Quiet) { Write-Host "[OK] guidance: $label" } else { Write-Host "[--] guidance missing: $label" }
     }
 }
 

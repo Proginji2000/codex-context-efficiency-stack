@@ -78,4 +78,4 @@ if (-not $SkipStagedProfile) {
 Write-Host '[OK] Global AGENTS and role files refreshed.'
 Write-Host '[INFO] Existing project-local .codex/config.toml files are intentionally untouched.'
 Write-Host '[INFO] Restart Codex to load new role definitions.'
-Write-Host "[INFO] Run: pwsh -ExecutionPolicy Bypass -File .\scripts\verify-stack.ps1"
+Write-Host "[INFO] Verify from this repository with: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-stack.ps1"
