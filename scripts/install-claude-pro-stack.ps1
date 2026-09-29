@@ -47,6 +47,16 @@ Write-Host '=== Claude Pro Context-Efficiency Stack Installer ==='
 Write-Host "Claude home: $ClaudeHome"
 Write-Host "Backup: $BackupRoot"
 
+# Back up the pre-install state before RTK or this stack changes Claude files.
+Backup-File $SettingsPath
+Backup-File $ClaudeMdPath
+Backup-File $EfficiencyPath
+
+$agentNames = @('Explore','haiku-low','sonnet-medium','sonnet-high','opus-high','opus-xhigh')
+foreach ($name in $agentNames) {
+    Backup-File (Join-Path $AgentsHome "$name.md")
+}
+
 if (-not $SkipRtk) {
     $rtk = Get-Command rtk -ErrorAction SilentlyContinue
     if (-not $rtk -and $InstallDependencies) {
@@ -65,15 +75,6 @@ if (-not $SkipRtk) {
     } else {
         Write-Warning 'RTK not found. Install rtk-ai/rtk, then run: rtk init -g --auto-patch'
     }
-}
-
-Backup-File $SettingsPath
-Backup-File $ClaudeMdPath
-Backup-File $EfficiencyPath
-
-$agentNames = @('Explore','haiku-low','sonnet-medium','sonnet-high','opus-high','opus-xhigh')
-foreach ($name in $agentNames) {
-    Backup-File (Join-Path $AgentsHome "$name.md")
 }
 
 Copy-Item (Join-Path $SourceRoot 'CLAUDE_CONTEXT_EFFICIENCY.md') $EfficiencyPath -Force
@@ -140,7 +141,7 @@ if ($ConfigureCurrentRepository -and -not $SkipCrg) {
 Write-Host ''
 Write-Host '[OK] Claude context-efficiency files installed.'
 Write-Host '[OK] Default model: Sonnet; concurrent subagents: 2; nested spawning: disabled.'
-Write-Host '[OK] Existing files replaced by this installer were backed up.'
+Write-Host '[OK] Pre-install Claude files replaced by this installer were backed up.'
 Write-Host "Backup location: $BackupRoot"
 Write-Host ''
 Write-Host 'Next: run scripts\verify-claude-pro-stack.ps1 and restart Claude Code if the agents directory did not exist before this install.'
