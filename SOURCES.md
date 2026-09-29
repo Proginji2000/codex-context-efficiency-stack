@@ -10,6 +10,9 @@ Checked 29 September 2026 after OpenAI DevDay 2026.
 - GPT-6.1 Sol announcement, benchmarks, pricing and availability  
   https://openai.com/index/introducing-gpt-6-1-sol/
 
+- GPT-6.1 Sol API model reference (`low`, `medium`, `high`, `xhigh`, `max`; $2/M input, $0.10/M cached input, $10/M output)  
+  https://developers.openai.com/api/docs/models/gpt-6.1-sol
+
 - GPT-6 Sol model reference and pricing baseline  
   https://developers.openai.com/api/docs/models/gpt-6-sol
 
