@@ -1,251 +1,80 @@
-# Model Routing v2: Luna-first, evidence-based escalation
+# Model Routing v3 (DevDay 2026 refresh): Luna-first, GPT-6.1 Sol escalation
 
-This optional v2 layer sits on top of the original context-efficiency stack.
+This layer keeps the original context-efficiency design but updates the strong-model path after OpenAI DevDay on 29 September 2026.
 
-The core idea is simple:
+Core rules:
 
 1. Use deterministic software for facts.
-2. Use the cheapest sufficient coding lane for generation.
+2. Use the cheapest sufficient lane for generation.
 3. Escalate only when evidence justifies it.
 4. Keep context bounded with targeted reads, concise tool output, skills and subagents.
+5. Preserve subscription quota by inserting GPT-6.1 Sol High and XHigh before Astra.
 
-## Important implementation detail
+## Why GPT-6.1 Sol replaces GPT-6 Sol in the normal path
 
-`AGENTS.md` can express routing policy, but it does not magically change the model of the already-running primary Codex turn.
+OpenAI describes GPT-6.1 Sol as a major upgrade to GPT-6 Sol for agentic coding, computer use and professional work. Its standard API input/output prices remain $2/$10 per million tokens, while cached input falls from $0.20 to $0.10. OpenAI reports GPT-6.1 Sol exceeding GPT-6 Sol's best DeepSWE v1.1 score by 6.4 percentage points at lower reasoning effort and cost.
 
-For deterministic model selection, use Codex multi-agent roles backed by separate TOML config layers. Codex supports:
+API pricing is not a direct measurement of ChatGPT Plus/Pro subscription quota burn. Therefore this stack keeps a `sol6-legacy-high` lane only for controlled A/B measurements while routing normal strong work to GPT-6.1 Sol.
 
-- `agents.default_subagent_model`
-- `agents.default_subagent_reasoning_effort`
-- custom roles via `agents.<name>.config_file`
-
-The role config can set its own `model` and `model_reasoning_effort`.
-
-This repository provides four lanes:
+## Lanes
 
 | Lane | Model | Reasoning | Intended work |
 | --- | --- | --- | --- |
-| `luna-low` | `gpt-6-luna` | `low` | tiny edits, renames, docs, simple config |
-| `luna-medium` | `gpt-6-luna` | `medium` | normal feature work, localized debugging, tests |
-| `luna-high` | `gpt-6-luna` | `high` | complex debugging, multi-file logic, non-trivial refactors |
-| `sol-high` | `gpt-6-sol` | `high` | architecture, security-sensitive changes, migrations, repeated failure |
+| `luna-low` | `gpt-6-luna` | `low` | tiny mechanical work |
+| `luna-medium` | `gpt-6-luna` | `medium` | normal development, tests, localized bugs |
+| `luna-high` | `gpt-6-luna` | `high` | complex but bounded debugging/refactors |
+| `sol-high` | `gpt-6.1-sol` | `high` | architecture, security-sensitive changes, risky migrations, repeated Luna failure |
+| `sol-xhigh` | `gpt-6.1-sol` | `xhigh` | very hard bounded work after Sol High remains unresolved |
+| `astra-high` | `gpt-6-astra` | `high` | exceptional end-to-end difficulty / unresolved Sol XHigh |
+| `sol6-legacy-high` | `gpt-6-sol` | `high` | A/B quota/performance measurement or compatibility fallback only |
 
-Luna supports `none`, `low`, `medium`, `high`, `xhigh` and `max`; `medium` is its default. The lane names above are policy choices, not model limitations.
-
-## Recommended architecture
-
-```text
-USER REQUEST
-    |
-    v
-PRIMARY CODEX ORCHESTRATOR
-    |
-    +-- deterministic classification when obvious
-    |
-    +-- luna-low
-    +-- luna-medium
-    +-- luna-high
-    `-- sol-high
-            |
-            v
-     IMPLEMENTATION PASS
-            |
-            v
-   DETERMINISTIC VERIFICATION
-   tests / build / lint / typecheck / diff
-            |
-      +-----+-----+
-      |           |
-     PASS        FAIL
-      |           |
- scope check   retry budget
-      |           |
-  COMPLETE     Luna higher lane
-                  |
-              repeated failure /
-              high-risk uncertainty
-                  |
-               Sol High
-```
-
-## Routing policy
-
-Use the lowest lane that is clearly sufficient.
-
-### `luna-low`
-
-Prefer for:
-
-- spelling or documentation edits
-- renames with obvious scope
-- small configuration changes
-- one-file mechanical edits
-- adding a straightforward field or assertion
-
-Do not use it when the task requires architectural inference, security review, risky migration logic or broad debugging.
-
-### `luna-medium`
-
-Default worker lane for most development tasks:
-
-- small and medium features
-- well-scoped endpoints
-- tests
-- ordinary SQL changes
-- validation logic
-- localized bugs
-- multi-file changes with clear boundaries
-
-### `luna-high`
-
-Use when the task has significant reasoning load but remains well bounded:
-
-- complex debugging
-- unfamiliar multi-file control flow
-- subtle state transitions
-- large refactors with known acceptance criteria
-- concurrency logic that is not security critical
-
-### `sol-high`
-
-Escalate directly or after failed Luna attempts for:
-
-- architecture decisions with multiple plausible designs
-- authentication, authorization, crypto or other security-sensitive code
-- destructive or difficult-to-reverse migrations
-- repeated failed implementation attempts
-- broad uncertainty about invariants or blast radius
-- tasks where the acceptance criteria cannot be established confidently from the current evidence
-
-## Deterministic verification first
-
-Never spend model judgment on facts software can establish.
-
-Use the repository's actual toolchain:
+## Recommended escalation
 
 ```text
-Compilation  -> compiler/build command
-Tests        -> test runner
-Types        -> type checker
-Formatting   -> formatter/check mode
-Lint         -> linter
-Changed code -> git diff / git status
+Luna Medium
+  -> deterministic checks
+  -> localized failure: one retry
+  -> deterministic checks
+  -> Luna High
+  -> deterministic checks
+  -> unresolved/high-risk: GPT-6.1 Sol High
+  -> deterministic checks
+  -> still unresolved but bounded: GPT-6.1 Sol XHigh
+  -> deterministic checks
+  -> exceptional end-to-end difficulty only: Astra High
 ```
 
-A model may interpret failures, but it should not replace the command that proves whether the check passed.
+The extra Sol XHigh step is deliberate: GPT-6.1 Sol is positioned much closer to Astra than GPT-6 Sol was, while Astra remains substantially more expensive in API terms. Subscription quota behavior must still be measured empirically.
 
-## Retry and escalation budget
+## GPT-6 Sol legacy benchmark lane
 
-A practical default:
+Use `sol6-legacy-high` only when explicitly testing whether GPT-6.1 Sol is more quota-efficient on the user's subscription. Keep the paired tasks comparable:
 
-```text
-Luna Medium attempt 1
-  -> deterministic checks
-  -> if fixable/localized: Luna Medium attempt 2
-  -> deterministic checks
-  -> if still failing or blast radius expanded: Luna High
-  -> deterministic checks
-  -> if unresolved/high-risk: Sol High
-```
+- same repository and similar scope
+- similar context size
+- same reasoning effort where possible
+- same verification gate
+- record quota before/after when visible
+- record retries, wall-clock time and pass/fail outcome
 
-Do not escalate merely because a stronger model exists.
+Do not make the legacy lane part of normal automatic routing.
 
-Do not keep retrying the same lane indefinitely either.
+## DevDay Codex features relevant to this stack
+
+- `/agents` improves visibility into delegated work and is useful with the stack's conservative concurrency policy.
+- Reusable Codex cloud environments are valuable for remote/cloud workflows, but they do not replace the local Windows routing layer.
+- The new Code Review experience and Codex Security Cloud are complementary product surfaces, not reasons to duplicate routine reviews locally.
+- Decisions API is promising for future routing/classification, but it launched in limited preview; it is not a mandatory dependency of this stack.
+- GPT-6.1 Sol Ultrafast is intentionally not part of the endurance route. It is a speed tier, not a quota-saving mechanism.
 
 ## Completion gate
 
-Report completion only when all applicable items are true:
+A task is complete only when the requested behavior is implemented, relevant deterministic checks pass, the final diff matches scope, and no known failure is hidden. Use model judgment to interpret ambiguity, not to replace compiler/tests/type/lint/diff evidence.
 
-- requested behavior is implemented
-- relevant tests pass
-- build/type/lint checks pass where applicable
-- final diff matches requested scope
-- no known failure is hidden or ignored
-- risky assumptions are either verified or explicitly reported
+## Context efficiency
 
-For tiny changes, do not invent heavyweight validation that the repository does not normally require.
+Keep the original rules: search before broad reads, use CRG when it materially narrows scope, bound tool output, avoid repeated unchanged reads, use narrow subagent context, and compact completed investigation phases.
 
-## Context efficiency rules
+## External decision models
 
-Routing saves model capacity, but context discipline usually saves more.
-
-Keep these rules from the original stack:
-
-- search before broad reads
-- bound file reads to relevant ranges
-- use CRG when it narrows the search materially
-- keep tool output concise
-- inspect targeted diffs during iteration
-- avoid rereading unchanged material
-- compact completed investigation phases
-- use subagents with narrow tasks instead of copying the whole parent history
-
-For repository-specific workflows, prefer skills under `.agents/skills/` with concise `name` and `description` metadata. Load their full instructions only when the task triggers them.
-
-## Jev or another external decision model
-
-Optional only.
-
-Do not make an external decision model a mandatory hop for every task. Most routing decisions can be made from deterministic rules, and most completion facts come from the toolchain.
-
-A bounded decision model can still help at genuinely ambiguous boundaries, for example:
-
-- continue vs escalate after conflicting evidence
-- whether the blast radius has materially increased
-- whether verification coverage is sufficient when no deterministic single answer exists
-
-A typed response or confidence score is not proof of correctness. Tests, build output and source evidence remain authoritative.
-
-## Install the lane configs
-
-Copy the role files from:
-
-```text
-templates/agents/
-```
-
-to a stable location under your Codex home, for example:
-
-```text
-~/.codex/agents/
-```
-
-Then merge the contents of:
-
-```text
-templates/config.routing.snippet.toml
-```
-
-into:
-
-```text
-~/.codex/config.toml
-```
-
-Restart Codex after editing the configuration.
-
-## Suggested first deployment
-
-Start conservatively:
-
-```text
-primary thread: your current preferred model
-spawned workers: Luna Medium by default
-small obvious work: Luna Low
-hard bounded work: Luna High
-Sol High: architecture / security / migration / repeated failure
-```
-
-Measure real tasks before making the router more aggressive.
-
-Track at least:
-
-- tasks per lane
-- successful completion by lane
-- retries
-- escalations
-- failed verification passes
-- context/token usage where visible
-- wall-clock latency
-
-The useful metric is successful work per unit of quota/cost, not raw token count alone.
+Jev or another bounded decision model remains optional. It can classify genuinely ambiguous task boundaries, but the deterministic scheduler should retain authority over quota, cooldowns, retries, provider availability and hard safety/verification rules.

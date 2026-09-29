@@ -6,14 +6,23 @@ Preserve correctness while minimizing unnecessary context, tool-output tokens, r
 
 ### Model routing and delegation
 
-- If the configured custom Codex roles are available, use the lowest sufficient lane at meaningful task boundaries: `luna-low` for tiny mechanical low-risk work, `luna-medium` for normal development, `luna-high` for complex but bounded reasoning, `sol-high` for architecture, security-sensitive work, risky migrations, broad invariant uncertainty, or repeated Luna failure, and `astra-high` only as a final escalation for genuinely hard end-to-end work or unresolved Sol failure.
+- Use the lowest sufficient lane at meaningful task boundaries: `luna-low` for tiny mechanical low-risk work, `luna-medium` for normal development, `luna-high` for complex but bounded reasoning, `sol-high` for strong GPT-6.1 Sol escalation, `sol-xhigh` for a deeper GPT-6.1 Sol pass when High remains unresolved, and `astra-high` only as a final escalation for exceptional end-to-end difficulty.
 - Prefer `luna-medium` as the default spawned worker unless the task is obviously smaller or harder.
+- GPT-6 Sol is legacy in this stack. Use `sol6-legacy-high` only for explicit A/B quota/performance measurement, regression investigation, or temporary compatibility fallback. Do not route normal work to it.
 - Do not spawn or switch lanes after every read, command, edit, or test. Route at task boundaries, after a materially different phase begins, or when verification evidence justifies escalation.
 - Never use another model to answer a fact that deterministic tooling can establish. Run the compiler, tests, type checker, linter, formatter/checker, `git diff`, or other authoritative tool instead.
-- A failed attempt does not automatically require Sol. Retry the same Luna lane once when the failure is localized and the corrective path is clear; otherwise move to `luna-high`. Escalate to `sol-high` when repeated attempts fail, the blast radius expands materially, or high-risk uncertainty remains. Escalate beyond Sol to `astra-high` only when the unresolved scope genuinely requires the strongest end-to-end reasoning; do not use Astra as a routine reviewer.
-- If custom roles are unavailable in the current runtime, continue with the active model and follow the same verification discipline. Never claim a model switch or delegation occurred when it did not.
+- A localized failure does not automatically require escalation. Retry the same Luna lane once when the corrective path is clear; otherwise move to `luna-high`. Escalate to `sol-high` when repeated attempts fail, the blast radius expands materially, or high-risk uncertainty remains. Escalate to `sol-xhigh` only if Sol High remains unresolved or the reasoning load genuinely warrants it. Escalate to `astra-high` only after Sol XHigh or for exceptional cross-system difficulty.
 - Give subagents bounded context: goal, constraints, relevant files/symbols, known evidence, and acceptance criteria. Do not copy the entire parent conversation unless it is genuinely required.
 - Avoid parallel agents that perform substantially overlapping exploration. Parallelism is useful only when branches of work are independent.
+- Keep the default concurrency conservative for subscription endurance. Use the `/agents` view when available to monitor delegated work rather than spawning redundant workers.
+
+### Quota discipline
+
+- Optimize for successful engineering work per unit of quota, not maximum model strength per task.
+- Preserve stronger-model capacity by keeping routine work on Luna and escalating only with evidence.
+- When quota information is visible, treat it as a routing signal, not as proof that a stronger model is required.
+- Do not burn quota on duplicate reviews when deterministic verification already establishes correctness.
+- When comparing GPT-6 Sol and GPT-6.1 Sol, keep scope and context comparable and record quota/latency/retry evidence; do not infer subscription burn solely from API token prices.
 
 ### Terminal output
 

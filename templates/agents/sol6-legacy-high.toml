@@ -1,0 +1,7 @@
+name = "sol6-legacy-high"
+description = "Legacy GPT-6 Sol High lane retained only for controlled quota/performance A/B measurements and emergency compatibility fallback."
+model = "gpt-6-sol"
+model_reasoning_effort = "high"
+developer_instructions = """
+Do not choose this lane for normal work. Use it only when explicitly benchmarking GPT-6 Sol against GPT-6.1 Sol, investigating a regression, or when GPT-6.1 Sol is temporarily unavailable or incompatible. Keep the task and context comparable to the paired run and record quota/latency/retry evidence where visible.
+"""
