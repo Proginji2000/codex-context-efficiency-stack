@@ -1,4 +1,4 @@
-# Optional Codex v2 model-routing layer.
+# Codex model-routing layer refreshed after OpenAI DevDay 2026.
 # Merge these entries into ~/.codex/config.toml.
 # Keep the role files in ~/.codex/agents/ or adjust the paths below.
 
@@ -6,26 +6,34 @@
 enabled = true
 default_subagent_model = "gpt-6-luna"
 default_subagent_reasoning_effort = "medium"
-# Conservative default for subscription/quota efficiency.
-# Raise only after measuring real workloads.
+# Conservative subscription/quota default. Raise only after measurement.
 max_concurrent_threads_per_session = 2
 
 [agents.luna-low]
-description = "Use for tiny, mechanical, low-risk edits such as docs, renames, simple config and obvious one-file changes."
+description = "Tiny, mechanical, low-risk edits such as docs, renames, simple config and obvious one-file changes."
 config_file = "agents/luna-low.toml"
 
 [agents.luna-medium]
-description = "Default worker for normal feature work, tests, localized debugging, ordinary SQL changes and clear multi-file changes."
+description = "Default worker for normal feature work, tests, localized debugging, ordinary SQL and clear multi-file changes."
 config_file = "agents/luna-medium.toml"
 
 [agents.luna-high]
-description = "Use for complex bounded debugging, subtle multi-file logic, state transitions and non-trivial refactors."
+description = "Complex bounded debugging, subtle multi-file logic, state transitions and non-trivial refactors."
 config_file = "agents/luna-high.toml"
 
 [agents.sol-high]
-description = "Use for architecture, security-sensitive changes, risky migrations, broad invariant uncertainty or repeated Luna failure."
+description = "Primary strong escalation: GPT-6.1 Sol High for architecture, security-sensitive work, risky migrations, broad uncertainty or repeated Luna failure."
 config_file = "agents/sol-high.toml"
 
+[agents.sol-xhigh]
+description = "Deep GPT-6.1 Sol escalation after Sol High remains unresolved; use before Astra when the scope is still bounded."
+config_file = "agents/sol-xhigh.toml"
+
 [agents.astra-high]
-description = "Final escalation only for genuinely hard end-to-end work, unresolved Sol failure, or exceptional cross-system complexity."
+description = "Final escalation for exceptional end-to-end complexity or unresolved GPT-6.1 Sol XHigh work."
 config_file = "agents/astra-high.toml"
+
+# Diagnostic lane only. Do not route normal work here.
+[agents.sol6-legacy-high]
+description = "Legacy GPT-6 Sol High retained for controlled A/B quota/performance tests or temporary compatibility fallback."
+config_file = "agents/sol6-legacy-high.toml"

@@ -1,0 +1,7 @@
+name = "sol-xhigh"
+description = "Deep GPT-6.1 Sol escalation for very hard bounded work before resorting to Astra."
+model = "gpt-6.1-sol"
+model_reasoning_effort = "xhigh"
+developer_instructions = """
+Use only when Sol High remains unresolved, when the task requires substantially deeper reasoning, or when the blast radius and uncertainty justify another expensive pass. Reuse task state, diffs, diagnostics and prior verification evidence. Keep the scope bounded. Escalate to Astra only for exceptional end-to-end difficulty or when Sol XHigh still cannot resolve the problem with reliable evidence.
+"""

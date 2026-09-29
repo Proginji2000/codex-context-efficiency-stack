@@ -5,8 +5,7 @@
 # This file intentionally does NOT configure global AGENTS.md, hooks, MCPs,
 # approval/sandbox policy, or a primary model. Existing projects therefore keep
 # their normal user/project configuration unless this profile is explicitly used.
-# Role files are also isolated under profiles/context-efficiency/ so this staged
-# setup cannot overwrite pre-existing ~/.codex/agents roles.
+# Role files are isolated under profiles/context-efficiency/.
 
 tool_output_token_limit = 4000
 
@@ -17,21 +16,29 @@ default_subagent_reasoning_effort = "medium"
 max_concurrent_threads_per_session = 2
 
 [agents.luna-low]
-description = "Use for tiny, mechanical, low-risk edits such as docs, renames, simple config and obvious one-file changes."
+description = "Tiny, mechanical, low-risk edits."
 config_file = "profiles/context-efficiency/agents/luna-low.toml"
 
 [agents.luna-medium]
-description = "Default worker for normal feature work, tests, localized debugging, ordinary SQL changes and clear multi-file changes."
+description = "Default worker for normal development work."
 config_file = "profiles/context-efficiency/agents/luna-medium.toml"
 
 [agents.luna-high]
-description = "Use for complex bounded debugging, subtle multi-file logic, state transitions and non-trivial refactors."
+description = "Complex but bounded reasoning and debugging."
 config_file = "profiles/context-efficiency/agents/luna-high.toml"
 
 [agents.sol-high]
-description = "Use for architecture, security-sensitive changes, risky migrations, broad invariant uncertainty or repeated Luna failure."
+description = "GPT-6.1 Sol High escalation for architecture, security, risky migrations, broad uncertainty or repeated Luna failure."
 config_file = "profiles/context-efficiency/agents/sol-high.toml"
 
+[agents.sol-xhigh]
+description = "GPT-6.1 Sol XHigh escalation before Astra."
+config_file = "profiles/context-efficiency/agents/sol-xhigh.toml"
+
 [agents.astra-high]
-description = "Final escalation only for genuinely hard end-to-end work, unresolved Sol failure, or exceptional cross-system complexity."
+description = "Final escalation for exceptional end-to-end work or unresolved Sol XHigh failure."
 config_file = "profiles/context-efficiency/agents/astra-high.toml"
+
+[agents.sol6-legacy-high]
+description = "Legacy GPT-6 Sol High for controlled A/B quota/performance measurement only."
+config_file = "profiles/context-efficiency/agents/sol6-legacy-high.toml"
