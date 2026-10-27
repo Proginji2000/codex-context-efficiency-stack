@@ -95,3 +95,31 @@ Checked 27 October 2026.
 ## External decision models
 
 External decision models such as Jev remain optional. If one is added later, pin its API contract and pricing source here, keep its input bounded, and treat confidence as a routing signal rather than proof of correctness. The Decisions API is now GA and remains a candidate for bounded classification, but API calls are billed separately from Work/Codex subscription usage.
+
+
+## Optional tools and skill provenance (reviewed 27 October 2026)
+
+- GitHub Spec Kit, official upstream and Codex integration:
+  https://github.com/github/spec-kit
+  https://github.com/github/spec-kit/blob/main/docs/integrations/codex.md
+  https://github.com/github/spec-kit/blob/main/docs/installation.md
+
+- Anthropic frontend-design skill; Apache License 2.0, skill + license copied unchanged into this repository:
+  https://github.com/anthropics/skills/blob/main/skills/frontend-design/SKILL.md
+  https://github.com/anthropics/skills/blob/main/skills/frontend-design/LICENSE.txt
+  Upstream Git blob SHA-1 of SKILL.md: `a5333457c414d20d625f307df945842c0952ecc3`
+  Upstream Git blob SHA-1 of LICENSE.txt: `f433b1a53f5b830a205fd2df78e2b34974656c7b`
+
+- Codex official skill discovery locations and user-wide `$HOME/.agents/skills`:
+  https://learn.chatgpt.com/docs/build-skills
+
+- Keygraph Shannon active authorized-only penetration testing, Pi/Codex subscription path, AGPL-3.0:
+  https://github.com/KeygraphHQ/shannon
+  https://github.com/KeygraphHQ/shannon/blob/main/docs/ai-providers.md
+
+- HatchZip in-place archive extraction and original archive consumption:
+  https://hatchzip.dev/
+  https://github.com/xevrion/hatchzip
+
+- Optional tool assessment, installation and safeguards:
+  docs/OPTIONAL_INTEGRATIONS.md
