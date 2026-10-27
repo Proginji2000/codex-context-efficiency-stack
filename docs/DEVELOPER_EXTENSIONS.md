@@ -13,6 +13,22 @@ Reviewed 27 October 2026. These are task-triggered complements to Luna's orchest
 
 No install, log-in, network service, secret scan or browser is triggered by `git pull` or `update-codex-global.ps1`. The global updater refreshes instructions and existing role definitions only; it deliberately leaves project-specific configs and working trees untouched.
 
+## One-command optional Windows installation
+
+After updating the **stack repository only**, the following PowerShell installer can register Playwright + Context7 MCP servers and install Gitleaks (it does **not** alter a project or launch scans):
+
+```powershell
+cd C:\Dev\codex-context-efficiency-stack
+git pull --ff-only
+.\scripts\update-codex-global.ps1
+.\scripts\Install-DevExtensions.ps1 -WhatIf
+.\scripts\Install-DevExtensions.ps1
+```
+
+The installer's default selects all three; select just one or two with `-Components Playwright,Context7` or `-Components Gitleaks`. Existing MCP registrations are **left unchanged**, an existing Codex config is backed up, and WinGet may ask for normal installation approval. `-WhatIf` previews the intended changes. The initial npm server startup can fetch packages later; this is not a fully offline install.
+
+Alternatively, follow the **manual installation commands below**. **Do not run both paths blindly**: inspect `codex mcp list` for existing registrations first. The read-only resume helper and project state template require no installation.
+
 ## 1. Resume projects without replaying the chat
 
 From the stack directory:
