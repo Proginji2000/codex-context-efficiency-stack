@@ -40,6 +40,28 @@ OpenAI explicitly says the same Work/Codex allowance covers substantially more t
 | `astra-high` | `gpt-6-astra` | `high` | exceptional end-to-end difficulty / unresolved Sol XHigh |
 | `sol6-legacy-high` | `gpt-6-sol` | `high` | explicit regression/A-B fallback only |
 
+## Orchestrator-only execution contract
+
+The primary session owns routing, dependency tracking, worker assignment, coordination, evidence review, and the final user-facing summary. It must not independently perform substantive repository exploration, research, editing, tests, or review.
+
+- One actionable engineering task: assign **one** worker.
+- Several independent engineering tasks: assign separate workers up to the concurrency cap, without conflicting writes.
+- Dependent tasks: delegate each phase sequentially, reusing compact handoffs and verified evidence.
+- A tiny engineering edit is still delegated: the user prefers a pure orchestrator over saving the cost of a single spawn.
+- Conversational responses and coordination overhead (for example, minimal read-only Git status to assign ownership) do not require delegation.
+- If no subagent can be started, do not silently execute the task in the parent. Report the blocker and obtain explicit permission to switch operating mode.
+- Summaries must identify **actual** worker roles and verification results. Never infer successful delegation just because roles exist in config.
+
+**Evidence and limit:** an AGENTS.md rule is behavioral guidance, not a tool-permission interlock. Verify execution traces or the Codex agents view to confirm subagent starts and outcomes. A future hard enforcement wrapper would need to restrict the parent tool surface and audit dispatch events; that wrapper is not implemented in this repository.
+
+### Practical acceptance tests
+
+1. Ask the primary Luna thread for a one-file README edit: expect at least one delegated worker, not a direct parent edit.
+2. Ask for unrelated docs and tests: expect two scoped workers (parallel if safe), with outputs collected by the parent.
+3. Ask for implementation then tests dependent on it: expect two **sequentially** delegated phases, never two simultaneous writers.
+4. Make agent creation unavailable: expect a truthful blocked status, not parent execution.
+5. Inspect the agents view/event trace and final worker summary. Passing static policy checks alone does not establish runtime compliance.
+
 ## Routing is not a single rigid ladder
 
 Use task shape first.
