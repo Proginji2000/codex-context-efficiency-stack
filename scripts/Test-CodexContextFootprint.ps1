@@ -9,11 +9,11 @@ if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
 }
 
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('codex-footprint-fixture-' + [guid]::NewGuid().ToString('N'))
-$home = Join-Path $tmp 'codexhome'
+$codexRoot = Join-Path $tmp 'codexhome'
 $project = Join-Path $tmp 'repo'
 $nested = Join-Path $project 'src'
-$roles = Join-Path $home 'agents'
-foreach ($dir in @($tmp, $home, $project, $nested, $roles, (Join-Path $project '.git'))) {
+$roles = Join-Path $codexRoot 'agents'
+foreach ($dir in @($tmp, $codexRoot, $project, $nested, $roles, (Join-Path $project '.git'))) {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
 }
 
@@ -22,8 +22,8 @@ try {
     $repoText = 'repository rules'
     $childText = 'child override rules'
     $candidateText = 'shorter'
-    Set-Content -LiteralPath (Join-Path $home 'AGENTS.md') -Value $globalText -NoNewline -Encoding ASCII
-    Set-Content -LiteralPath (Join-Path $home 'RTK.md') -Value 'optional rtk' -NoNewline -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $codexRoot 'AGENTS.md') -Value $globalText -NoNewline -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $codexRoot 'RTK.md') -Value 'optional rtk' -NoNewline -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $project 'AGENTS.md') -Value $repoText -NoNewline -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $nested 'AGENTS.md') -Value 'shadowed' -NoNewline -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $nested 'AGENTS.override.md') -Value $childText -NoNewline -Encoding ASCII
@@ -37,9 +37,9 @@ try {
         'url = "https://PRIVATE_URL_SENTINEL.invalid"'
         '[agents.luna-low]'
         'config_file = "PRIVATE_PATH_SENTINEL"'
-    ) | Set-Content -LiteralPath (Join-Path $home 'config.toml') -Encoding ASCII
+    ) | Set-Content -LiteralPath (Join-Path $codexRoot 'config.toml') -Encoding ASCII
 
-    $raw = (& $scriptPath -CodexHome $home -ProjectDirectory $nested -CandidatePath $candidate -AsJson | Out-String)
+    $raw = (& $scriptPath -CodexHome $codexRoot -ProjectDirectory $nested -CandidatePath $candidate -AsJson | Out-String)
     $r = $raw | ConvertFrom-Json
     if ($r.kind -ne 'static_file_inventory_not_live_prompt_or_token_count' -or
         $r.global_agents.characters -ne $globalText.Length -or
@@ -61,7 +61,7 @@ try {
 
     $rejected = $false
     try {
-        $null = & $scriptPath -CodexHome $home -ProjectDirectory $nested -CandidatePath (Join-Path $tmp 'missing.md') -AsJson
+        $null = & $scriptPath -CodexHome $codexRoot -ProjectDirectory $nested -CandidatePath (Join-Path $tmp 'missing.md') -AsJson
     } catch {
         $rejected = $true
     }
