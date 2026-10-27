@@ -26,16 +26,20 @@ Preserve correctness while minimizing unnecessary context, tool-output tokens, r
 - Keep the default concurrency conservative for subscription endurance. Use the `/agents` view when available to monitor delegated work rather than spawning redundant workers.
 
 
-### Orchestration first
+### Orchestrator-only contract
 
-- On a multi-part prompt or a broad task, first identify independent workstreams before doing deep implementation/reasoning in the parent thread.
-- If two or more meaningful workstreams are independent enough to run without conflicting writes, delegate them. Typical candidates are repository exploration, documentation research, test/diagnostic work, independent review, and separate implementation scopes.
-- The parent thread is primarily the orchestrator for delegated work: define scopes, choose lanes, preserve dependencies, wait for results, synthesize evidence, and own final acceptance. Do not duplicate a delegated investigation unless its evidence is insufficient.
-- Keep short, tightly dependent sequential steps in the parent when delegation would add more handoff cost than value.
-- Prefer read-only parallelism. For writes, assign one writer per file/scope or use isolated worktrees; never allow competing agents to edit the same mutable scope concurrently.
-- For prompts containing several distinct requested tasks, delegate each independent non-trivial task up to the concurrency cap instead of solving the whole prompt serially in the parent.
-- Delegation is not optional merely because the parent model can reason through the task. If decomposition materially improves context isolation, specialization, validation, or wall-clock time, use subagents.
-- Avoid quota-amplifying fan-out: do not spawn agents for trivial subtasks, overlapping exploration, or dependent micro-steps.
+- **The parent is a dispatcher and integrator, not an execution worker.** For every actionable engineering task requiring repository exploration, research, implementation, tests, debugging, review, or documentation changes, delegate the substantive work to at least one appropriately scoped subagent. This applies even if the request contains only one non-trivial task.
+- **Before doing task work**, identify requested outcomes, dependencies, write ownership, acceptance checks, and suitable specialist lanes. Keep the task graph proportional to the request; do not split dependent micro-steps into unnecessary agents.
+- For multiple independent non-trivial workstreams, delegate them concurrently up to the configured cap. For dependent workstreams, delegate sequentially, passing concise verified outputs and acceptance criteria to the next worker.
+- The parent may perform only orchestration overhead: classify and route tasks, spawn/message/wait for agents, establish non-mutating repository/worktree status if needed for ownership, compare returned evidence, request corrections, decide acceptance, and report the result. **Do not have the parent perform substantive source analysis, edit source/docs/config, execute tests/builds, or run reviews as a substitute for a worker.**
+- Assign narrow work to the lowest sufficient worker model. Match specialized roles to code, tests, docs, risk, security, and other requested activities. Delegating does not mean escalating model strength.
+- Every subagent assignment must include outcome, constraints, permitted files/scope, known context, verification criteria, and the required concise report. Do not delegate a raw full conversation when a bounded brief suffices.
+- Keep one writer per mutable scope. Parallel read-only work is preferred; use separate worktrees for genuinely independent concurrent writers. A reviewer should not self-approve its own critical implementation.
+- Collect concrete worker evidence (files changed, tests run and outcomes, blockers). If evidence is missing or conflicting, ask a worker to investigate or rerun checks. The parent synthesizes and verifies *the evidence chain*, not by redoing the work itself.
+- Report the worker role(s) used and the returned verification result. Do not claim delegation occurred unless a subagent was actually started and returned evidence.
+- **No silent parent takeover:** if subagent tools are missing, disabled, blocked, or quota-exhausted, state that execution is blocked and request an explicit change of mode. Do not silently work around the missing delegation by doing the implementation in the parent.
+- Only pure conversation, a simple clarification/approval, and task-routing/administrative operations require no worker. For any actionable file/code/research task, delegate even when spawning one worker adds overhead. The user's preference is orchestrator-only rather than mandatory minimum-token fan-out.
+- These are instruction-level rules, not a technical access-control boundary. Real enforcement requires a dispatch wrapper/harness or tool permissions; validate observed behavior through subagent activity, not by checking AGENTS.md alone.
 
 ### Quota discipline
 
