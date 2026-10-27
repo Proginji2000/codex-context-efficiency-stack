@@ -43,24 +43,23 @@ process {
             $missingUsageTurns++
         } else {
             $usageTurns++
-            foreach ($pair in @(
-                @('input_tokens', 'inputTokens'),
-                @('cached_input_tokens', 'cachedInputTokens'),
-                @('output_tokens', 'outputTokens'),
-                @('reasoning_output_tokens', 'reasoningOutputTokens')
+            foreach ($field in @(
+                'input_tokens',
+                'cached_input_tokens',
+                'output_tokens',
+                'reasoning_output_tokens'
             )) {
-                $field = $pair[0]
                 $raw = $usage.$field
                 if ($null -eq $raw) { continue }
                 $value = [long]0
                 if (-not [long]::TryParse([string]$raw, [ref]$value) -or $value -lt 0) {
                     throw 'Invalid token count in completion usage (event contents omitted).'
                 }
-                switch ($pair[1]) {
-                    'inputTokens' { $inputTokens += $value }
-                    'cachedInputTokens' { $cachedInputTokens += $value }
-                    'outputTokens' { $outputTokens += $value }
-                    'reasoningOutputTokens' { $reasoningOutputTokens += $value }
+                switch ($field) {
+                    'input_tokens' { $inputTokens += $value }
+                    'cached_input_tokens' { $cachedInputTokens += $value }
+                    'output_tokens' { $outputTokens += $value }
+                    'reasoning_output_tokens' { $reasoningOutputTokens += $value }
                 }
             }
         }
