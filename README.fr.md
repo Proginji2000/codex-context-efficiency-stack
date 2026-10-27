@@ -232,6 +232,17 @@ Le test du 27 octobre a affiche **108 273 tokens d'entree, dont 80 384 en cache*
 
 Le script ne divulgue aucun contenu de config, nom de serveur MCP, secret ou historique de conversation. L'optimisation AGENTS.md de la PR #14 reste experimentale et non installee.
 
+## Audit securise des 9 configurations MCP
+
+L'inventaire du 27 octobre a compte **9 serveurs MCP declares**, sans prouver qu'ils soient demarres, accessibles ou exposes au modele. Le [diagnostic des politiques MCP](docs/CODEX_MCP_AUDIT.md) examine les indicateurs d'activation, types de transport, allowlists et denylists sans lancer Codex, ni imprimer identifiants ou secrets.
+
+```powershell
+python .\\scripts\\Test-CodexMcpPolicyAudit.py
+python .\\scripts\\Get-CodexMcpPolicyAudit.py
+```
+
+Python >= 3.11 suffit (3.13 est deja installe). Aucune commande n'edite `config.toml`; l'audit ne prouve pas les economies de tokens. L'optimisation du contexte global en PR #14 reste independante.
+
 ## Vérification et mesure
 
 ```powershell
