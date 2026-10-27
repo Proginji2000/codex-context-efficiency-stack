@@ -44,7 +44,7 @@ Preserve correctness while minimizing unnecessary context, tool-output tokens, r
 
 ### Optional specialized workflows
 
-- For a substantial new feature, consider the project's Spec Kit workflow **only if it is already installed/approved**. Do not bootstrap Spec Kit or overwrite project files merely because a prompt is complex.
+- For a substantial new feature in a project **already initialized and approved for Spec Kit**, automatically delegate a planning/specification workstream to a suitable worker that follows the installed Spec Kit skills, preserving their staged acceptance checkpoints. If Spec Kit is not initialized in that project, do not bootstrap it, install tools, or overwrite files; report that optional integration is unavailable and continue with bounded normal planning.
 - On any substantive visual/frontend UI task, automatically delegate the UI scope to `ui-implementer`. The UI worker must automatically load and apply `$frontend-design` when installed, even when the user never mentions that skill. On mixed frontend+backend requests, delegate the UI work to this worker and route backend/tests independently. Do not use this skill for non-visual backends, SQL, or routine docs. If the skill is missing, report the dependency rather than claiming it ran. Design guidance never replaces build, accessibility, responsive or visual checks.
 - Never automatically invoke Shannon (active exploit-capable pentester) or HatchZip (source-archive-consuming extraction utility). Both require an explicit separate user decision and a safe target/artifact.
 - RTK and Code Review Graph stay the default supporting tools. Optional skills must not weaken the orchestrator-only parent contract or increase automatic model escalation.
