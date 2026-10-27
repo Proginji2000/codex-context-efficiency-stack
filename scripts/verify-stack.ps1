@@ -60,6 +60,8 @@ if (Test-Path $agents) {
         'Quota discipline' = 'Quota discipline'
         'Code Review Graph'= 'Code Review Graph'
         'Orchestrator-only contract' = '### Orchestrator-only contract'
+        'Automatic project resumption' = '### Automatic project resumption (delegated, bounded)'
+        'Conditional tools and quality gates' = '### Conditional tools and quality gates'
     }
     foreach ($label in $agentChecks.Keys) {
         $text = $agentChecks[$label]
