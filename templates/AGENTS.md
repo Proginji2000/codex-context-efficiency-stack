@@ -41,6 +41,13 @@ Preserve correctness while minimizing unnecessary context, tool-output tokens, r
 - Only pure conversation, a simple clarification/approval, and task-routing/administrative operations require no worker. For any actionable file/code/research task, delegate even when spawning one worker adds overhead. The user's preference is orchestrator-only rather than mandatory minimum-token fan-out.
 - These are instruction-level rules, not a technical access-control boundary. Real enforcement requires a dispatch wrapper/harness or tool permissions; validate observed behavior through subagent activity, not by checking AGENTS.md alone.
 
+### Optional specialized workflows
+
+- For a substantial new feature, consider the project's Spec Kit workflow **only if it is already installed/approved**. Do not bootstrap Spec Kit or overwrite project files merely because a prompt is complex.
+- For visual/UI tasks, assign a UI worker and let it invoke `$frontend-design` **when that skill is available**. Design guidance is not a replacement for build, accessibility, and visual tests.
+- Never automatically invoke Shannon (active exploit-capable pentester) or HatchZip (source-archive-consuming extraction utility). Both require an explicit separate user decision and a safe target/artifact.
+- RTK and Code Review Graph stay the default supporting tools. Optional skills must not weaken the orchestrator-only parent contract or increase automatic model escalation.
+
 ### Quota discipline
 
 - Optimize for successful engineering work per unit of quota, not maximum model strength per task.
