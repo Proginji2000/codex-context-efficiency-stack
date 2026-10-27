@@ -90,6 +90,17 @@ One-time, user-wide Windows skill installation after cloning/updating this repos
 
 The frontend skill needs no Node.js, Python, uv, Docker, or extra API subscription. Confirm actual use through the delegated worker's activity and result; static file checks do not prove automatic activation. [Integration policy](docs/OPTIONAL_INTEGRATIONS.md).
 
+## Project resumption, browser checks, current docs and secret protection
+
+Four worker-side extensions have been added:
+
+- **Automatic project resume policy:** on an actionable resume request, Luna delegates a read-only worker to reconcile live Git worktrees/status with existing `STATE.md`, `PLANS.md`, PRs and test evidence. The `scripts/Get-ProjectResume.ps1` read-only helper and `templates/PROJECT_STATE.md` handoff template are included.
+- **Playwright MCP:** the UI worker performs isolated browser smoke checks on authorized local/staging web applications when the MCP is registered.
+- **Context7 MCP:** a worker retrieves bounded, version-specific **public** library documentation only when relevant.
+- **Gitleaks:** the `scripts/Test-SecretGate.ps1` read-only, redacted gate checks for accidental secrets before publishing substantial work.
+
+Playwright, Context7 and Gitleaks remain **per-machine opt-in installations**; `git pull` does not enable them. Shannon remains paused and is never auto-invoked. See [Windows setup and runtime checks](docs/DEVELOPER_EXTENSIONS.md). Policy presence is not runtime proof.
+
 ## Global Windows update
 
 After `git pull`:
