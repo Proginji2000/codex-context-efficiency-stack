@@ -28,7 +28,7 @@ $checks = [ordered]@{
     'Interrupt is not a replacement for close' = @('interrupt_agent', 'does not free a thread slot')
     'Bounded retry after saturation' = @('agent thread limit reached', 'at most once', 'capacity change')
     'No dangerous recovery or parent takeover' = @('Never force recovery', 'silently switching Luna')
-    'Honest final evidence' = @('Traceability', 'not runtime thread reclamation')
+    'Honest final evidence' = @('Traceability', 'Policy checks validate these instructions', 'runtime thread reclamation')
 }
 
 function Get-PolicyFailures([string]$Policy) {
