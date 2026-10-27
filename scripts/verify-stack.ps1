@@ -14,6 +14,7 @@ $laneFiles = [ordered]@{
     'luna-high'        = @((Join-Path $agentDir 'luna-high.toml'),'gpt-6-luna','high')
     'terra-medium'     = @((Join-Path $agentDir 'terra-medium.toml'),'gpt-6.1-terra','medium')
     'terra-high'       = @((Join-Path $agentDir 'terra-high.toml'),'gpt-6.1-terra','high')
+    'ui-implementer'   = @((Join-Path $agentDir 'ui-implementer.toml'),'gpt-6.1-terra','medium')
     'sol-high'         = @((Join-Path $agentDir 'sol-high.toml'),'gpt-6.1-sol','high')
     'sol-xhigh'        = @((Join-Path $agentDir 'sol-xhigh.toml'),'gpt-6.1-sol','xhigh')
     'astra-high'       = @((Join-Path $agentDir 'astra-high.toml'),'gpt-6-astra','high')
@@ -53,6 +54,7 @@ if (Test-Path $agents) {
         '@RTK.md'          = '@RTK.md'
         'GPT-6.1 Terra'    = 'GPT-6.1 Terra'
         'terra-medium'     = 'terra-medium'
+        'ui-implementer'   = 'ui-implementer'
         'GPT-6.1 Sol'      = 'GPT-6.1 Sol'
         'sol-xhigh'        = 'sol-xhigh'
         'Quota discipline' = 'Quota discipline'
@@ -65,5 +67,14 @@ if (Test-Path $agents) {
     }
 }
 
+Write-Host "`n[Frontend design skill]"
+$frontendSkill = Join-Path $HOME '.agents\skills\frontend-design\SKILL.md'
+$frontendLicense = Join-Path $HOME '.agents\skills\frontend-design\LICENSE.txt'
+if ((Test-Path -LiteralPath $frontendSkill -PathType Leaf) -and (Test-Path -LiteralPath $frontendLicense -PathType Leaf)) {
+    Write-Host "[OK] frontend-design globally installed: $frontendSkill"
+} else {
+    Write-Host '[--] frontend-design is not installed user-wide. Run .\scripts\install-frontend-design.ps1 from the stack repository.'
+}
 Write-Host '[INFO] Policy presence is a static check, not proof that Codex spawned subagents.'
+Write-Host '[INFO] This verifier cannot prove implicit skill activation; confirm via a delegated UI task.'
 Write-Host "`nDone. This script is read-only."
