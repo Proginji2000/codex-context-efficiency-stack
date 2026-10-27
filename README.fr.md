@@ -119,7 +119,7 @@ Avant d'exécuter le vérificateur, analyser en lecture seule **tous** les scrip
 .\scripts\verify-stack.ps1
 ```
 
-Ce contrôle a été ajouté après une erreur de génération dans `verify-stack.ps1` sur la PR #10 ; il prévient les mêmes erreurs de syntaxe à l'avenir, mais ne remplace pas les tests fonctionnels.
+Ce contrôle a été ajouté après une erreur de génération dans `verify-stack.ps1` sur la PR #10 ; il prévient les mêmes erreurs de syntaxe à l'avenir, mais ne remplace pas les tests fonctionnels. Sous **Windows PowerShell 5.1**, les scripts UTF-8 sans BOM contenant des caractères non ASCII peuvent être lus comme du texte ANSI et provoquer des erreurs de guillemets. Le contrôle rejette désormais ces encodages non sûrs ; une CI Windows PowerShell 5.1 applique la même vérification sur les PR.
 
 ## Mise à jour globale Windows
 
