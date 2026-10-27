@@ -1,0 +1,26 @@
+name: Windows PowerShell 5.1 syntax
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/powershell-syntax.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/powershell-syntax.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  parse:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Parse all scripts under Windows PowerShell 5.1
+        shell: powershell
+        run: .\scripts\Test-PowerShellSyntax.ps1
