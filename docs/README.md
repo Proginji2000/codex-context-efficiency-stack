@@ -13,6 +13,7 @@ Start here when installing, updating, troubleshooting or extending the Codex Con
 | Add Spec Kit / frontend-design, consider Shannon or HatchZip | [Optional integrations](OPTIONAL_INTEGRATIONS.md) |
 | Resume long autonomous sessions without context replay | [Long-running tasks](LONG_RUNNING_TASKS.md) · [Existing sessions](EXISTING_SESSIONS.md) |
 | Measure quotas, retries and completed work | [Measurement](MEASUREMENT.md) |
+| Save common Codex CLI 0.164 workflows in presets | [CLI 0.164 preset templates](CODEX_0164_PRESETS.md) |
 | Troubleshoot Codex and PowerShell on Windows | [Windows troubleshooting](WINDOWS_TROUBLESHOOTING.md) |
 | Review the Claude Pro layer | [Claude Pro stack](CLAUDE_PRO_STACK.md) · [Claude Pro quick start](../CLAUDE_PRO.md) |
 | Review older release decisions | [DevDay 2026](DEVDAY_2026_UPDATE.md) · [Optional experiments](OPTIONAL_EXPERIMENTS.md) |
