@@ -55,6 +55,7 @@ try {
 
     $raw = (& $scriptPath -CodexHome $codexRoot -ProjectDirectory $nested -CandidatePath $candidate -AsJson | Out-String)
     $r = $raw | ConvertFrom-Json
+    Write-Host ("[INFO] Synthetic MCP servers={0}; headers incl. nested={1}; agent tables={2}." -f $r.configured_mcp_server_blocks, $r.mcp_config_table_headers_including_subtables, $r.configured_agent_role_blocks)
     if ($r.kind -ne 'static_file_inventory_not_live_prompt_or_token_count' -or
         $r.global_agents.characters -ne $globalText.Length -or
         $r.project_agent_files.Count -ne 2 -or
