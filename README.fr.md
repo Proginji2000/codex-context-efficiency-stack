@@ -198,6 +198,19 @@ Le code source et les tests restent toujours autoritaires si le graphe est incom
 
 Voir [`docs/DEVDAY_2026_UPDATE.md`](docs/DEVDAY_2026_UPDATE.md) et [`docs/MODEL_ROUTING_V4.md`](docs/MODEL_ROUTING_V4.md).
 
+## Raccourcis Codex 0.164 et mesure opt-in
+
+Codex CLI 0.164.0 prend en charge dix emplacements `/presets` pour les prompts et commandes courants. Six modeles de presets sont documentes pour la reprise de projet, le statut, les tests, les PR, les UI et les comparaisons A/B dans [le guide 0.164](docs/CODEX_0164_PRESETS.md). **Aucun emplacement n'est installe ou ecrase automatiquement** : leur creation se fait par le menu CLI `/presets`, si disponible. La disponibilite du menu dans Codex Desktop n'est pas etablie.
+
+Un [rapport de metriques](docs/MEASUREMENT.md#optional-csv-metrics-aggregation-codex-cli-0164) permet de consolider des taches anonymisees sans lire les conversations ni inventer des chiffres de quota :
+
+```powershell
+.\scripts\Test-CodexRunMetrics.ps1
+.\scripts\Get-CodexRunMetrics.ps1 -InputPath C:\Path\To\codex-runs.csv
+```
+
+Ce suivi est opt-in et base sur des observations declarees ; ce n'est **pas** une telemetrie automatique.
+
 ## Vérification et mesure
 
 ```powershell
