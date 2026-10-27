@@ -81,6 +81,30 @@ successful tasks per unit of quota/cost
 
 Do not optimize for the lowest Sol percentage by itself. If overly aggressive Luna routing causes repeated retries, the system may consume more quota and more wall-clock time overall.
 
+## Optional CSV metrics aggregation (Codex CLI 0.164)
+
+The CLI exposes `/usage` and `/status` in compatible sessions. These can show account/session figures, but **the stack does not have a verified read-only per-worker usage API**. Therefore `scripts/Get-CodexRunMetrics.ps1` deliberately reads only a CSV supplied by the user or a permitted worker, **never** Codex chat transcripts, credential stores, home-directory telemetry or usage caches.
+
+The existing CSV shape is supported:
+
+```csv
+date,task,lane_initial,retries,escalated,lane_final,verification,result,elapsed_s
+2026-10-27,example-a,luna-low,0,false,luna-low,passed,pass,8
+2026-10-27,example-b,terra-medium,1,false,terra-medium,passed,pass,20
+```
+
+Use anonymized task identifiers; do not store source code, paths to private projects, session IDs or secrets in this file. `result` must be `pass`, `fail`, or `blocked`; `escalated` must be `true`/`false`, and `retries` and `elapsed_s` nonnegative. Each row is one **task**, not one worker; the `lane_initial` grouping therefore reports task-level outcomes, not exact per-model token consumption for mixed-agent sessions.
+
+```powershell
+.\scripts\Get-CodexRunMetrics.ps1 -InputPath C:\Path\To\codex-runs.csv
+.\scripts\Get-CodexRunMetrics.ps1 -InputPath C:\Path\To\codex-runs.csv -AsJson
+.\scripts\Test-CodexRunMetrics.ps1
+```
+
+The report includes completed/blocked tasks, pass rate, first-pass rate, escalation rate, retries and mean elapsed seconds **per initial lane**. This is *local and opt-in*, with no account synchronization, ingestion hooks, background monitoring or fabricated token/quota totals. If reliable per-task usage is exposed in a future Codex API, add collection separately with explicit scopes, sanitization and tests.
+
+The CLI 0.164 `/presets` templates, which help standardize those tasks, are documented in [Codex 0.164 preset workflows](CODEX_0164_PRESETS.md).
+
 ## Escalation-quality check
 
 Review escalations periodically.
