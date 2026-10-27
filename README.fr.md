@@ -90,6 +90,19 @@ Sur le PC principal, après `git pull` et l'installation du stack, installer une
 
 Aucune dépendance Node.js, Python, uv, Docker ou API payante n'est nécessaire pour frontend-design. L'installation ne prouve pas l'usage réel : vérifier le rôle et le skill dans le rapport du sous-agent. [Détails et limites](docs/OPTIONAL_INTEGRATIONS.md).
 
+## Reprise automatique, navigation et sécurité
+
+Quatre extensions sont prévues pour les sous-agents :
+
+- **Reprise du projet :** au premier travail de reprise, Luna délègue un diagnostic Git/état existant à un worker Luna en lecture seule ; le worker réconcilie les worktrees, PR, tests, `STATE.md` et `PLANS.md` avant toute modification. Un script compact `scripts/Get-ProjectResume.ps1` est fourni.
+- **Playwright MCP :** sur une interface web possédée ou de test, le worker `ui-implementer` peut réaliser les contrôles navigateur (interactions, responsive, accessibilité) avec une session isolée.
+- **Context7 MCP :** consultation ciblée de documentation **publique** versionnée par les workers, seulement lorsqu'une API externe le justifie.
+- **Gitleaks :** contrôle local des secrets, avec sortie masquée, avant publication d'une PR significative et après changement sensible. `scripts/Test-SecretGate.ps1` est fourni.
+
+Les extensions Playwright/Context7/Gitleaks requièrent une **installation facultative sur chaque PC** ; elles ne sont pas activées par `git pull`. **Shannon reste en pause** (accès cyber non autorisé), sans intégration automatique.
+
+Voir les [commandes Windows et tests d'acceptation](docs/DEVELOPER_EXTENSIONS.md). Une règle `AGENTS.md` guide les sous-agents mais ne prouve pas que les MCP seront utilisés.
+
 ## Mise à jour globale Windows
 
 Après `git pull` :
