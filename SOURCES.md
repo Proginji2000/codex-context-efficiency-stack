@@ -1,8 +1,24 @@
 # Upstream references
 
-Checked 29 September 2026 after OpenAI DevDay 2026.
+Checked 27 October 2026.
 
-## OpenAI Codex / DevDay 2026
+## OpenAI Codex / model routing
+
+- GPT-6.1 Terra announcement: availability, coding/computer-use positioning, and Work/Codex allowance guidance  
+  https://openai.com/index/introducing-gpt-6-1-terra/
+
+- GPT-6.1 Terra model reference: reasoning through max; $1/M input, $0.05/M cached input, $5/M output  
+  https://developers.openai.com/api/docs/models/gpt-6.1-terra
+
+- OpenAI model-selection guide: Luna for scoped/high-volume work, Terra for scoped code fixes/computer use, Sol for complex projects, Astra for frontier work  
+  https://developers.openai.com/api/docs/guides/model-selection
+
+- Codex subagents: current local clients delegate after direct requests or applicable AGENTS.md/skill instructions  
+  https://learn.chatgpt.com/docs/agent-configuration/subagents
+
+- Codex 0.164.0 release notes: presets and richer inline /model and /permissions controls  
+  https://github.com/openai/codex/releases
+
 
 - DevDay 2026 recap: GPT-6.1 Sol, Ultrafast, Codex cloud environments, refreshed CLI `/agents`, Code Review, Security Cloud, Decisions API and Agents API updates  
   https://openai.com/index/devday-2026-recap/
@@ -78,4 +94,4 @@ Checked 29 September 2026 after OpenAI DevDay 2026.
 
 ## External decision models
 
-External decision models such as Jev remain optional. If one is added later, pin its API contract and pricing source here, keep its input bounded, and treat confidence as a routing signal rather than proof of correctness. The DevDay Decisions API may become another bounded classifier/routing option after broad availability and evaluation.
+External decision models such as Jev remain optional. If one is added later, pin its API contract and pricing source here, keep its input bounded, and treat confidence as a routing signal rather than proof of correctness. The Decisions API is now GA and remains a candidate for bounded classification, but API calls are billed separately from Work/Codex subscription usage.
