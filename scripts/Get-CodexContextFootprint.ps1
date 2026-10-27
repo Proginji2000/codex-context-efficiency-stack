@@ -27,7 +27,7 @@ $global = Get-FileSize (Join-Path $CodexHome 'AGENTS.md')
 $rtk = Get-FileSize (Join-Path $CodexHome 'RTK.md')
 
 # Find the closest Git repository root without invoking git (which may hang).
-$cursor = New-Object System.IO.DirectoryInfo($cwd)
+$cursor = [System.IO.DirectoryInfo]::new($cwd)
 $root = $null
 while ($null -ne $cursor) {
     if (Test-Path -LiteralPath (Join-Path $cursor.FullName '.git')) {
@@ -40,7 +40,7 @@ if ($null -eq $root) { $root = $cwd }
 
 # Only visit the Git root -> requested working-directory chain.
 $chain = New-Object 'System.Collections.Generic.List[string]'
-$cursor = New-Object System.IO.DirectoryInfo($cwd)
+$cursor = [System.IO.DirectoryInfo]::new($cwd)
 while ($null -ne $cursor) {
     $chain.Insert(0, $cursor.FullName)
     if ([string]::Equals($cursor.FullName, $root, [StringComparison]::OrdinalIgnoreCase)) {
