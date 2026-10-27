@@ -25,6 +25,10 @@ config_file = "agents/luna-high.toml"
 description = "GPT-6.1 Terra Medium for scoped code fixes, everyday agentic coding, visual/UI tasks and bounded computer use."
 config_file = "agents/terra-medium.toml"
 
+[agents.ui-implementer]
+description = "Use automatically for any UI, dashboard, web frontend, responsive layout or visual design task. Terra Medium worker that loads frontend-design skill when installed."
+config_file = "agents/ui-implementer.toml"
+
 [agents.terra-high]
 description = "GPT-6.1 Terra High for difficult but bounded implementation/debugging or computer-use work before Sol."
 config_file = "agents/terra-high.toml"
