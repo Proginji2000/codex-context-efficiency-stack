@@ -54,6 +54,30 @@ The primary session owns routing, dependency tracking, worker assignment, coordi
 
 **Evidence and limit:** an AGENTS.md rule is behavioral guidance, not a tool-permission interlock. Verify execution traces or the Codex agents view to confirm subagent starts and outcomes. A future hard enforcement wrapper would need to restrict the parent tool surface and audit dispatch events; that wrapper is not implemented in this repository.
 
+### Subagent lifecycle: version-aware operational policy
+
+Keep Luna as an orchestrator. The parent may inspect agent statuses, collect worker results and make routing decisions, but must not inspect or change project source as a fallback when worker creation fails.
+
+| Condition | Authorized parent action | What not to infer |
+| --- | --- | --- |
+| A compatible, reachable worker completed its last scoped assignment | Send a bounded follow-up if the current tool contract supports worker reuse | A completed UI badge alone does not prove the worker is reusable |
+| Several independent tasks are ready | Spawn only the necessary workers within current concurrency and single-writer limits | The maximum is a throughput target to fill automatically |
+| A V1 runtime exposes `close_agent` and a worker's evidence was collected | Close completed no-longer-needed workers once, when safe, and check result | `interrupt_agent` is equivalent to close, or stale shutdown always succeeds |
+| A V2 runtime does not expose `close_agent` | Let the runtime evict finished children as designed; reuse reachable workers where appropriate | Missing `close_agent` is a reason to invent a cleanup command |
+| `agent thread limit reached` | Reconcile available statuses once; reuse compatible workers, wait for truly active work, or safely close eligible V1 workers; retry spawning once only if capacity demonstrably changed | "0 active" means the spawn limit was reclaimed |
+| The failure persists or cleanup is unsafe | Stop spawning, capture status/decisions/verified results and recommend a fresh thread with a concise checkpoint | Luna may silently take over implementation or reset/kill agent state |
+
+**Why the distinction matters.** Current Codex multi-agent V1 can expose `close_agent` and count completed but open workers; V2 has different lifecycle semantics and does not expose the same close tool. Do not assume one surface's operations exist in another. Upstream issue reports also describe stale workers and potentially hanging shutdown calls, so repeated forced close/retry loops are unsafe.
+
+Sources: [OpenAI plugin Codex tool guidance](https://github.com/openai/plugins/blob/main/plugins/superpowers/skills/using-superpowers/references/codex-tools.md), [multi-agent API specifications](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/multi_agents_spec.rs), [thread-limit report](https://github.com/openai/codex/issues/22779).
+
+**Acceptance tests (small isolated test project, no active worktrees):**
+- A simple task uses one worker; a compatible follow-up reuses a reachable worker when supported, without new speculative spawns.
+- Independent work uses bounded concurrency with one writer per mutable scope; dependent steps hand off evidence sequentially.
+- On completed V1 workers, closure is attempted only when safe and `close_agent` is actually callable; on V2, the parent does not attempt nonexistent closure.
+- With a simulated or genuine thread-limit error, the parent performs one bounded reconciliation and **does not** enter retry loops or implement the task itself. Do **not** deliberately exhaust production sessions to test this.
+- Compare actual spawn/close/status traces with the policy. `scripts/Test-SubagentLifecyclePolicy.ps1` is a **static policy regression guard**, not evidence of runtime correctness.
+
 ### Practical acceptance tests
 
 1. Ask the primary Luna thread for a one-file README edit: expect at least one delegated worker, not a direct parent edit.

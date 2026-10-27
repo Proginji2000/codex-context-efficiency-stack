@@ -1,15 +1,19 @@
-name: Windows PowerShell 5.1 syntax
+name: Windows PowerShell 5.1 syntax and lifecycle policy
 
 on:
   pull_request:
     paths:
       - 'scripts/**'
+      - 'templates/AGENTS.md'
+      - 'docs/MODEL_ROUTING_V4.md'
       - '.github/workflows/powershell-syntax.yml'
   push:
     branches:
       - main
     paths:
       - 'scripts/**'
+      - 'templates/AGENTS.md'
+      - 'docs/MODEL_ROUTING_V4.md'
       - '.github/workflows/powershell-syntax.yml'
 
 permissions:
@@ -24,3 +28,6 @@ jobs:
       - name: Parse all scripts under Windows PowerShell 5.1
         shell: powershell
         run: .\scripts\Test-PowerShellSyntax.ps1
+      - name: Validate orchestrator lifecycle policy (static regression)
+        shell: powershell
+        run: .\scripts\Test-SubagentLifecyclePolicy.ps1

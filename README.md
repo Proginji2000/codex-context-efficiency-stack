@@ -90,6 +90,20 @@ One-time, user-wide Windows skill installation after cloning/updating this repos
 
 The frontend skill needs no Node.js, Python, uv, Docker, or extra API subscription. Confirm actual use through the delegated worker's activity and result; static file checks do not prove automatic activation. [Integration policy](docs/OPTIONAL_INTEGRATIONS.md).
 
+## Subagent lifecycle and thread-limit recovery
+
+The Luna parent now follows a **version-aware** worker lifecycle protocol: check available workers before another delegation wave, reuse compatible workers when reachable, gather results, close completed workers only when V1 exposes `close_agent`, and rely on V2 runtime eviction when no close tool exists.
+
+On `agent thread limit reached`, reconcile once, recover only through available safe operations, and retry at most once after confirmed capacity changes. Never escalate thread limits or silently switch Luna into implementation. A persistent failure results in a concise checkpoint and a new-session recommendation.
+
+Run the static (non-runtime) regression guard locally:
+
+```powershell
+.\scripts\Test-SubagentLifecyclePolicy.ps1
+```
+
+The Windows CI runs the same check. See [worker lifecycle policy](docs/MODEL_ROUTING_V4.md#subagent-lifecycle-version-aware-operational-policy).
+
 ## Project resumption, browser checks, current docs and secret protection
 
 Four worker-side extensions have been added:

@@ -90,6 +90,20 @@ Sur le PC principal, après `git pull` et l'installation du stack, installer une
 
 Aucune dépendance Node.js, Python, uv, Docker ou API payante n'est nécessaire pour frontend-design. L'installation ne prouve pas l'usage réel : vérifier le rôle et le skill dans le rapport du sous-agent. [Détails et limites](docs/OPTIONAL_INTEGRATIONS.md).
 
+## Gestion des sous-agents et limites de threads
+
+Luna reste orchestrateur, mais gere maintenant explicitement le cycle de vie des workers : inspection avant nouvelle vague, reutilisation d'un agent compatible, collecte des preuves, fermeture **uniquement si `close_agent` existe** (V1) et recuperation bornee lorsque `agent thread limit reached` apparait. En V2, les workers termines sont normalement evinces par le runtime; `interrupt_agent` ne libere pas un emplacement.
+
+Ce protocole **ne modifie pas la limite des threads**, ne tente pas de tuer des processus, et ne permet jamais a Luna de remplacer un worker bloque. En cas de saturation persistante, une reprise dans une nouvelle conversation avec un checkpoint est privilegiee.
+
+Controle statique, sans lancer de workers :
+
+```powershell
+.\scripts\Test-SubagentLifecyclePolicy.ps1
+```
+
+Ce test confirme la presence des regles, pas le fonctionnement interne de Codex. Voir [routage et reprise sur saturation](docs/MODEL_ROUTING_V4.md#subagent-lifecycle-version-aware-operational-policy).
+
 ## Reprise automatique, navigation et sécurité
 
 Quatre extensions sont prévues pour les sous-agents :
