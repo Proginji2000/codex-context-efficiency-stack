@@ -243,6 +243,17 @@ python .\\scripts\\Get-CodexMcpPolicyAudit.py
 
 Python >= 3.11 suffit (3.13 est deja installe). Aucune commande n'edite `config.toml`; l'audit ne prouve pas les economies de tokens. L'optimisation du contexte global en PR #14 reste independante.
 
+## Profils MCP par tache (facultatifs)
+
+Quatre MCP sont declares sur le PC : code-review-graph, context7, node_repl et playwright. Le lanceur [a apercu sans quota](docs/CODEX_MCP_SCOPES.md) permet de les limiter par appel CLI en conservant intacte la configuration globale :
+
+```powershell
+.\scripts\Test-CodexScopedMcp.ps1
+.\scripts\Invoke-CodexScopedMcp.ps1 -Scope git -AsJson
+```
+
+Seul l'ajout explicite de `-Run -Prompt "..."` lance Codex et consomme du quota. Par defaut, le mode `git` desactive les quatre MCP **pour cet appel uniquement**, tandis que le mode `ui` les conserve. Aucune economie de tokens n'est encore prouvee.
+
 ## Vérification et mesure
 
 ```powershell
