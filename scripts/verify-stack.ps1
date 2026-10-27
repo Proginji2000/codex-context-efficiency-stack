@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Continue'
 
-Write-Host '=== Codex Context-Efficiency Stack Verification (DevDay 2026) ==='
+Write-Host '=== Codex Context-Efficiency Stack Verification (Terra 6.1 refresh) ==='
 
 $CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
 $config = Join-Path $CodexHome 'config.toml'
@@ -12,6 +12,8 @@ $laneFiles = [ordered]@{
     'luna-low'         = @((Join-Path $agentDir 'luna-low.toml'),'gpt-6-luna','low')
     'luna-medium'      = @((Join-Path $agentDir 'luna-medium.toml'),'gpt-6-luna','medium')
     'luna-high'        = @((Join-Path $agentDir 'luna-high.toml'),'gpt-6-luna','high')
+    'terra-medium'     = @((Join-Path $agentDir 'terra-medium.toml'),'gpt-6.1-terra','medium')
+    'terra-high'       = @((Join-Path $agentDir 'terra-high.toml'),'gpt-6.1-terra','high')
     'sol-high'         = @((Join-Path $agentDir 'sol-high.toml'),'gpt-6.1-sol','high')
     'sol-xhigh'        = @((Join-Path $agentDir 'sol-xhigh.toml'),'gpt-6.1-sol','xhigh')
     'astra-high'       = @((Join-Path $agentDir 'astra-high.toml'),'gpt-6-astra','high')
@@ -49,6 +51,8 @@ Write-Host "`n[AGENTS]"
 if (Test-Path $agents) {
     $agentChecks = [ordered]@{
         '@RTK.md'          = '@RTK.md'
+        'GPT-6.1 Terra'    = 'GPT-6.1 Terra'
+        'terra-medium'     = 'terra-medium'
         'GPT-6.1 Sol'      = 'GPT-6.1 Sol'
         'sol-xhigh'        = 'sol-xhigh'
         'Quota discipline' = 'Quota discipline'
