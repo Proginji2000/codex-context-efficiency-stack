@@ -101,7 +101,14 @@ Quatre extensions sont prévues pour les sous-agents :
 
 Les extensions Playwright/Context7/Gitleaks requièrent une **installation facultative sur chaque PC** ; elles ne sont pas activées par `git pull`. **Shannon reste en pause** (accès cyber non autorisé), sans intégration automatique.
 
-Voir les [commandes Windows et tests d'acceptation](docs/DEVELOPER_EXTENSIONS.md). Une règle `AGENTS.md` guide les sous-agents mais ne prouve pas que les MCP seront utilisés.
+Voir les [commandes Windows et tests d'acceptation](docs/DEVELOPER_EXTENSIONS.md). Installation facultative en une commande après `git pull` :
+
+```powershell
+.\scripts\Install-DevExtensions.ps1 -WhatIf
+.\scripts\Install-DevExtensions.ps1
+```
+
+ Une règle `AGENTS.md` guide les sous-agents mais ne prouve pas que les MCP seront utilisés.
 
 ## Mise à jour globale Windows
 
