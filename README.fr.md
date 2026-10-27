@@ -211,6 +211,16 @@ Un [rapport de metriques](docs/MEASUREMENT.md#optional-csv-metrics-aggregation-c
 
 Ce suivi est opt-in et base sur des observations declarees ; ce n'est **pas** une telemetrie automatique.
 
+## Collecte des tokens CLI sans historiques prives
+
+Le filtre opt-in `scripts/Convert-CodexExecUsage.ps1` prend uniquement les evenements JSONL d'une **nouvelle** execution `codex exec --json`, puis renvoie des compteurs de tokens agreges. Il ne lit ni anciennes conversations ni donnees Codex Desktop. Aucun export automatique ni acces aux fichiers de sessions : voir [le guide et ses limites](docs/CODEX_EXEC_USAGE.md).
+
+Test local sans lancer Codex :
+
+```powershell
+.\scripts\Test-CodexExecUsage.ps1
+```
+
 ## Vérification et mesure
 
 ```powershell
