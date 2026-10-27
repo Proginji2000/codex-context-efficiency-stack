@@ -6,12 +6,21 @@ Preserve correctness while minimizing unnecessary context, tool-output tokens, r
 
 ### Model routing and delegation
 
-- Use the lowest sufficient lane at meaningful task boundaries: `luna-low` for tiny mechanical low-risk work, `luna-medium` for normal development, `luna-high` for complex but bounded reasoning, `sol-high` for strong GPT-6.1 Sol escalation, `sol-xhigh` for a deeper GPT-6.1 Sol pass when High remains unresolved, and `astra-high` only as a final escalation for exceptional end-to-end difficulty.
-- Prefer `luna-medium` as the default spawned worker unless the task is obviously smaller or harder.
-- GPT-6 Sol is legacy in this stack. Use `sol6-legacy-high` only for explicit A/B quota/performance measurement, regression investigation, or temporary compatibility fallback. Do not route normal work to it.
+- Use the lowest sufficient lane at meaningful task boundaries.
+- `luna-low`: tiny mechanical low-risk work.
+- `luna-medium`: default routine/high-volume development, tests, exploration, triage, and localized fixes.
+- `luna-high`: cost-first deeper reasoning on bounded work when Luna remains sufficient.
+- `terra-medium`: scoped code fixes, everyday agentic coding, visual/UI work, and bounded computer-use tasks with clear acceptance criteria.
+- `terra-high`: difficult but still bounded implementation/debugging, visual reasoning, or computer-use work before Sol escalation.
+- `sol-high`: complex coding, architecture, security-sensitive changes, risky migrations, broad cross-module uncertainty, or repeated Luna/Terra failure.
+- `sol-xhigh`: a deeper GPT-6.1 Sol pass when Sol High remains unresolved.
+- `astra-high`: final escalation for exceptional end-to-end difficulty.
+- Prefer `luna-medium` as the default spawned worker. Terra is an intermediate capability tier, not a new default.
+- GPT-6 Sol is legacy in this stack. Use `sol6-legacy-high` only for explicit A/B quota/performance measurement, regression investigation, or temporary compatibility fallback.
+- Route by task shape, not by a rigid ladder. A scoped code/UI/computer-use task may go directly from Luna to Terra; architecture/security/high-risk work may go directly to Sol.
 - Do not spawn or switch lanes after every read, command, edit, or test. Route at task boundaries, after a materially different phase begins, or when verification evidence justifies escalation.
 - Never use another model to answer a fact that deterministic tooling can establish. Run the compiler, tests, type checker, linter, formatter/checker, `git diff`, or other authoritative tool instead.
-- A localized failure does not automatically require escalation. Retry the same Luna lane once when the corrective path is clear; otherwise move to `luna-high`. Escalate to `sol-high` when repeated attempts fail, the blast radius expands materially, or high-risk uncertainty remains. Escalate to `sol-xhigh` only if Sol High remains unresolved or the reasoning load genuinely warrants it. Escalate to `astra-high` only after Sol XHigh or for exceptional cross-system difficulty.
+- A localized failure does not automatically require escalation. Retry the same cheap lane once when the corrective path is clear. Prefer Terra for a scoped task that needs stronger agentic/tool/visual capability; prefer Sol when the uncertainty becomes complex, broad, architectural, security-sensitive, or high-risk.
 - Give subagents bounded context: goal, constraints, relevant files/symbols, known evidence, and acceptance criteria. Do not copy the entire parent conversation unless it is genuinely required.
 - Avoid parallel agents that perform substantially overlapping exploration. Parallelism is useful only when branches of work are independent.
 - Keep the default concurrency conservative for subscription endurance. Use the `/agents` view when available to monitor delegated work rather than spawning redundant workers.
@@ -19,10 +28,14 @@ Preserve correctness while minimizing unnecessary context, tool-output tokens, r
 ### Quota discipline
 
 - Optimize for successful engineering work per unit of quota, not maximum model strength per task.
-- Preserve stronger-model capacity by keeping routine work on Luna and escalating only with evidence.
+- Keep routine/high-volume work on Luna.
+- Use Terra when its extra capability is likely to avoid retries while the task remains scoped; do not promote routine Luna work to Terra merely because Terra is available.
+- Use Sol/Astra only when task complexity or evidence justifies them.
+- OpenAI states that GPT-6.1 Terra allows substantially more Work/Codex tasks per allowance than GPT-6.1 Sol or GPT-6 Astra, but no exact Terra-vs-Luna subscription multiplier is assumed here.
+- API price is not subscription quota accounting. Terra is $1/$5 per million standard API input/output tokens, versus Luna $0.10/$0.50 and Sol $2/$10; use these only as relative cost signals, not as quota formulas.
 - When quota information is visible, treat it as a routing signal, not as proof that a stronger model is required.
 - Do not burn quota on duplicate reviews when deterministic verification already establishes correctness.
-- When comparing GPT-6 Sol and GPT-6.1 Sol, keep scope and context comparable and record quota/latency/retry evidence; do not infer subscription burn solely from API token prices.
+- When comparing model lanes, keep scope/context/effort comparable and record quota/latency/retry evidence.
 
 ### Terminal output
 
