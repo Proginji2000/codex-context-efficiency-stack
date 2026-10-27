@@ -20,7 +20,7 @@ if (Test-Path $localAgents) { Write-Host '[INFO] Repository AGENTS.md exists: gl
 if (Test-Path $localConfig) {
     Write-Host '[WARN] Project-local .codex/config.toml exists and may override global routing/model settings.'
     $raw = Get-Content $localConfig -Raw
-    foreach ($model in @('gpt-6-sol','gpt-6.1-sol','gpt-6-astra','gpt-6-luna')) {
+    foreach ($model in @('gpt-6-sol','gpt-6.1-sol','gpt-6.1-terra','gpt-6-astra','gpt-6-luna')) {
         $count = ([regex]::Matches($raw,[regex]::Escape($model))).Count
         if ($count -gt 0) { Write-Host "[INFO] local config references $model ($count)" }
     }
@@ -36,7 +36,7 @@ if (Test-Path $localCodexDir -PathType Container) {
 
 Write-Host "`n[Conclusion]"
 if (Test-Path $localConfig) {
-    Write-Host 'AUDIT REQUIRED: do not assume GPT-6.1 Sol routing is inherited. Compare the local roles/config before migration.'
+    Write-Host 'AUDIT REQUIRED: do not assume global Luna/Terra/Sol/Astra routing is inherited. Compare the local roles/config before migration.'
 } else {
     Write-Host 'GLOBAL ROUTING INHERITED: project-specific AGENTS/rules may still add instructions, but no local Codex config shadows the global model routing.'
 }
