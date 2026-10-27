@@ -77,7 +77,7 @@ if ((Test-Path -LiteralPath $frontendSkill -PathType Leaf) -and (Test-Path -Lite
 } else {
     Write-Host '[--] frontend-design is not installed user-wide. Run .\scripts\install-frontend-design.ps1 from the stack repository.'
 }
-Write-Host "`n[Optional tools — not required for core stack]"
+Write-Host "`n[Optional tools - not required for core stack]"
 foreach ($name in @('gitleaks','node','npm')) {
     $optionalCommand = Get-Command $name -ErrorAction SilentlyContinue
     if ($optionalCommand) {
