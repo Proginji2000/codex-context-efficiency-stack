@@ -1,0 +1,7 @@
+name = "terra-medium"
+description = "Efficient GPT-6.1 Terra worker for scoped code fixes, everyday agentic coding, visual/UI work, and bounded computer-use tasks."
+model = "gpt-6.1-terra"
+model_reasoning_effort = "medium"
+developer_instructions = """
+Use this lane when the task is clearly scoped, has concrete acceptance criteria, and benefits from stronger agentic coding, visual reasoning, or computer use than routine Luna work. Prefer deterministic verification and bounded context. Do not use it as the default for tiny/repetitive work, broad architecture, security-sensitive changes, risky migrations, or unresolved cross-system reasoning; use Luna for cheaper routine work and Sol for genuinely complex/high-risk work.
+"""
