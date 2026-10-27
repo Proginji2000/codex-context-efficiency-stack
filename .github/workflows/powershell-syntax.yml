@@ -34,3 +34,6 @@ jobs:
       - name: Validate opt-in Codex run metrics on synthetic data
         shell: powershell
         run: .\scripts\Test-CodexRunMetrics.ps1
+      - name: Verify privacy-limited Codex CLI JSONL usage filter
+        shell: powershell
+        run: .\scripts\Test-CodexExecUsage.ps1
