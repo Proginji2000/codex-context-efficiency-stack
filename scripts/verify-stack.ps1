@@ -86,13 +86,10 @@ foreach ($name in @('gitleaks','node','npm')) {
         Write-Host "[--] $name not found (optional; see docs/DEVELOPER_EXTENSIONS.md)"
     }
 }
-if (Test-Path $config -PathType Leaf) {
+if (Test-Path -LiteralPath $config -PathType Leaf) {
     foreach ($serverName in @('playwright','context7')) {
-        $needle = '^\[mcp_servers\.' + [regex]::Escape($serverName) + '\]\s*
-Write-Host '[INFO] This verifier cannot prove implicit skill activation; confirm via a delegated UI task.'
-Write-Host "`nDone. This script is read-only."
-
-        if (Select-String -Path $config -Pattern $needle -Quiet) {
+        $needle = '^\[mcp_servers\.' + [regex]::Escape($serverName) + '\]\s*$'
+        if (Select-String -LiteralPath $config -Pattern $needle -Quiet) {
             Write-Host "[OK] MCP $serverName configured (connection NOT verified)"
         } else {
             Write-Host "[--] MCP $serverName not registered globally (optional)"

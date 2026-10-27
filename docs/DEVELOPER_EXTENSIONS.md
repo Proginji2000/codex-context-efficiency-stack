@@ -105,6 +105,14 @@ Worker protocol: run before publishing a substantial PR, or on a credential-rela
 
 Maintainer status: upstream Gitleaks is feature-complete and now prioritizes security patches, so periodically review maintenance/alternatives before relying on it for a long-term security baseline.
 
+## PowerShell syntax regression guard
+
+`scripts/Test-PowerShellSyntax.ps1` uses the PowerShell language parser to inspect every `scripts/*.ps1` file without executing those scripts. Run it on Windows PowerShell 5.1 after updates; a parser error is **not** an installation failure.
+
+```powershell
+.\scripts\Test-PowerShellSyntax.ps1
+```
+
 ## Final verification
 
 ```powershell

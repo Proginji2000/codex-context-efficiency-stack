@@ -110,6 +110,17 @@ Voir les [commandes Windows et tests d'acceptation](docs/DEVELOPER_EXTENSIONS.md
 
  Une règle `AGENTS.md` guide les sous-agents mais ne prouve pas que les MCP seront utilisés.
 
+## Vérification de syntaxe PowerShell
+
+Avant d'exécuter le vérificateur, analyser en lecture seule **tous** les scripts PowerShell du stack avec le parseur Windows PowerShell 5.1 :
+
+```powershell
+.\scripts\Test-PowerShellSyntax.ps1
+.\scripts\verify-stack.ps1
+```
+
+Ce contrôle a été ajouté après une erreur de génération dans `verify-stack.ps1` sur la PR #10 ; il prévient les mêmes erreurs de syntaxe à l'avenir, mais ne remplace pas les tests fonctionnels.
+
 ## Mise à jour globale Windows
 
 Après `git pull` :
