@@ -40,6 +40,9 @@ jobs:
       - name: Verify static Codex context footprint inventory
         shell: powershell
         run: .\scripts\Test-CodexContextFootprint.ps1
+      - name: Verify preview-only MCP scope selection
+        shell: powershell
+        run: .\scripts\Test-CodexScopedMcp.ps1
       - name: Install Python 3.13 for TOML MCP policy checks
         uses: actions/setup-python@v6
         with:
