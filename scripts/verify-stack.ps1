@@ -57,6 +57,7 @@ if (Test-Path $agents) {
         'sol-xhigh'        = 'sol-xhigh'
         'Quota discipline' = 'Quota discipline'
         'Code Review Graph'= 'Code Review Graph'
+        'Orchestrator-only contract' = '### Orchestrator-only contract'
     }
     foreach ($label in $agentChecks.Keys) {
         $text = $agentChecks[$label]
@@ -64,4 +65,5 @@ if (Test-Path $agents) {
     }
 }
 
+Write-Host '[INFO] Policy presence is a static check, not proof that Codex spawned subagents.'
 Write-Host "`nDone. This script is read-only."
