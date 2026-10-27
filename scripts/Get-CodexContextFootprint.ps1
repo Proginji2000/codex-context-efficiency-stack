@@ -65,7 +65,7 @@ foreach ($folder in $chain) {
     if ($null -ne $path) {
         $size = Get-FileSize $path
         $projectInstructions += [pscustomobject]@{
-            scope = if ($level -eq 0) { 'project_root' } else { 'project_subdirectory' }
+            scope = $(if ($level -eq 0) { 'project_root' } else { 'project_subdirectory' })
             depth = $level
             file_kind = $kind
             characters = $size.characters
@@ -113,9 +113,9 @@ if ($null -ne $global -and $null -ne $candidate) {
         current_global_characters = $global.characters
         candidate_global_characters = $candidate.characters
         character_difference = $candidate.characters - $global.characters
-        percent_reduction = if ($global.characters -gt 0) {
+        percent_reduction = $(if ($global.characters -gt 0) {
             [math]::Round(100 * ($global.characters - $candidate.characters) / $global.characters, 2)
-        } else { $null }
+        } else { $null })
     }
 }
 
