@@ -10,7 +10,7 @@ A practical stack for reducing wasted context, preserving Codex quota, and keepi
 USER REQUEST
     |
     v
-PRIMARY CODEX THREAD
+PRIMARY CODEX THREAD (Luna orchestrator only)
     |
     +-- RTK / CRG / skills / bounded context
     |
@@ -67,6 +67,17 @@ Luna Medium
  -> Astra High only when justified
 ```
 
+## Documentation & curated optional tools
+
+Start with the [documentation index](docs/README.md), including [optional integrations](docs/OPTIONAL_INTEGRATIONS.md).
+
+- **GitHub Spec Kit**: opt-in specification -> plan -> tasks -> implementation for non-trivial feature work, integrated per project (not global).
+- **Anthropic frontend-design**: included as an Apache-2.0 skill in `.agents/skills/frontend-design/`. For user-wide Codex use, explicitly run `.\scripts\install-frontend-design.ps1` once.
+- **Shannon**: manual and explicitly authorized staging web/API pentesting only, never a default agent step.
+- **HatchZip**: separate manual disk-space utility; archive contents are progressively removed from the source archive.
+
+These additions do not replace RTK, Code Review Graph, or deterministic acceptance checks. The global updater does not silently install or run them.
+
 ## Global Windows update
 
 After `git pull`:
@@ -95,7 +106,7 @@ Global `~/.codex/AGENTS.md` applies broadly. Repository `AGENTS.md` adds project
 Audit from a project directory:
 
 ```powershell
-pwsh -ExecutionPolicy Bypass -File C:\Dev\codex-context-efficiency-stack\scripts\audit-project-inheritance.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Dev\codex-context-efficiency-stack\scripts\audit-project-inheritance.ps1
 ```
 
 Use this before migrating a project with custom routing.
@@ -125,10 +136,10 @@ Source and tests remain authoritative if the graph is incomplete or stale.
 - **`/agents`**: useful for tracking delegated work; no special stack config required.
 - **Reusable cloud environments**: complementary to this local Windows stack.
 - **Code Review / Security Cloud**: complementary surfaces; do not duplicate every local verification pass.
-- **Decisions API**: promising for future bounded routing/classification, but not a core dependency while it remains preview/newly released.
+- **Decisions API**: promising for future bounded routing/classification, but not a core dependency because API usage is separate from the Codex subscription.
 - **GPT-6.1 Sol Ultrafast**: excluded from the endurance route by default because it targets speed, not quota preservation.
 
-See [`docs/DEVDAY_2026_UPDATE.md`](docs/DEVDAY_2026_UPDATE.md) and [`docs/MODEL_ROUTING_V2.md`](docs/MODEL_ROUTING_V2.md).
+See [`docs/DEVDAY_2026_UPDATE.md`](docs/DEVDAY_2026_UPDATE.md) and [`docs/MODEL_ROUTING_V4.md`](docs/MODEL_ROUTING_V4.md).
 
 ## Verification and measurement
 
