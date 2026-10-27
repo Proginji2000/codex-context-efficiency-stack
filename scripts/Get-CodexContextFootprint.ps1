@@ -23,6 +23,36 @@ function Get-FileSize([string]$File) {
     return [pscustomobject]@{ characters = $text.Length; bytes = [long]$info.Length }
 }
 
+# Nested TOML headings such as [mcp_servers.example.env] are not additional
+# MCP servers. Identify the first TOML key, including quoted names with dots.
+# This is a static header approximation; Python tomllib is authoritative.
+function Get-McpHeaderSummary([string]$Configuration) {
+    $headings = [regex]::Matches(
+        $Configuration,
+        '(?m)^[ \t]*\[\s*mcp_servers\.(?<rest>[^\]\r\n]+)\][ \t]*(?:#.*)?\r?$'
+    )
+    $serverIds = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $firstKeyPattern = '^(?:"(?<dq>(?:\\.|[^"\\])*)"|''(?<sq>[^'']*)''|(?<bare>[A-Za-z0-9_-]+))(?=\s*(?:\.|$))'
+    foreach ($header in $headings) {
+        $firstKey = [regex]::Match($header.Groups['rest'].Value.Trim(), $firstKeyPattern)
+        if (-not $firstKey.Success) {
+            throw 'Unrecognized MCP table header; use the Python TOML audit for accurate counts.'
+        }
+        $key = if ($firstKey.Groups['dq'].Success) {
+            $firstKey.Groups['dq'].Value
+        } elseif ($firstKey.Groups['sq'].Success) {
+            $firstKey.Groups['sq'].Value
+        } else {
+            $firstKey.Groups['bare'].Value
+        }
+        [void]$serverIds.Add($key)
+    }
+    return [pscustomobject]@{
+        servers = $serverIds.Count
+        headers_including_subtables = $headings.Count
+    }
+}
+
 $global = Get-FileSize (Join-Path $CodexHome 'AGENTS.md')
 $rtk = Get-FileSize (Join-Path $CodexHome 'RTK.md')
 
@@ -77,11 +107,14 @@ foreach ($folder in $chain) {
 
 $config = Join-Path $CodexHome 'config.toml'
 $mcpCount = $null
+$mcpHeaderCount = $null
 $agentConfigCount = $null
 if (Test-Path -LiteralPath $config -PathType Leaf) {
     # Never return or print raw config; may contain secrets or private MCP URLs.
     $configuration = [System.IO.File]::ReadAllText($config, [System.Text.Encoding]::UTF8)
-    $mcpCount = [regex]::Matches($configuration, '(?m)^\s*\[mcp_servers\.[^\]\r\n]+\]\s*$').Count
+    $mcpSummary = Get-McpHeaderSummary $configuration
+    $mcpCount = $mcpSummary.servers
+    $mcpHeaderCount = $mcpSummary.headers_including_subtables
     $agentConfigCount = [regex]::Matches($configuration, '(?m)^\s*\[agents\.[^\]\r\n]+\]\s*$').Count
     $configuration = $null
 }
@@ -129,9 +162,10 @@ $report = [pscustomobject]@{
     role_toml_files_installed = $roleCount
     role_toml_total_bytes = $roleBytes
     configured_mcp_server_blocks = $mcpCount
+    mcp_config_table_headers_including_subtables = $mcpHeaderCount
     configured_agent_role_blocks = $agentConfigCount
     candidate_comparison = $comparison
-    limitations = 'Files and TOML blocks only: cannot establish runtime injection, MCP schemas, actual token counts, subagent usage, prompt cache, quota or performance.'
+    limitations = 'Static TOML header approximation, Python tomllib remains authoritative. Cannot establish runtime injection, MCP schemas, actual token counts, subagent usage, prompt cache, quota or performance.'
 }
 if ($AsJson) {
     $report | ConvertTo-Json -Depth 6

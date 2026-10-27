@@ -271,3 +271,7 @@ Codex principal
 ```
 
 Le dépôt contient aussi une couche Claude Pro séparée documentée dans [`CLAUDE_PRO.md`](CLAUDE_PRO.md). Le futur dual-stack sera traité séparément afin de ne pas mélanger son scheduler avec le cœur Codex.
+
+### Correction du comptage MCP
+
+Le rapport TOML a confirme **4 serveurs MCP declares et actives** (tous `stdio`), au lieu des 9 en-tetes comptes precedemment. Les sous-sections `[mcp_servers.nom.env]` ne sont pas des serveurs supplementaires. `Get-CodexContextFootprint.ps1` distingue desormais les serveurs et les en-tetes, avec test de regression. Le Python TOML fait autorite sur la structure.

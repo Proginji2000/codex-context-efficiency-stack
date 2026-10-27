@@ -47,3 +47,7 @@ Do not assume Responses API `tool_search`/`defer_loading` applies automatically 
 - [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference): `mcp_servers.<id>.enabled`, `enabled_tools`, `disabled_tools`; plugin policies and project trust.
 - [OpenAI API tool search](https://developers.openai.com/api/docs/guides/tools-tool-search): how deferral works in the **API/Agents API**, not a guarantee about Codex CLI.
 - [MCP allowlist issue #47102](https://github.com/openai/codex/issues/47102): reported unexpected tool disappearance on prior CLI builds; check current status before any policy changes.
+
+## Observed local snapshot (2026-10-27)
+
+The user ran the privacy-limited Python audit successfully: **4 configured servers, 4 declared enabled, 0 declared disabled, 4 stdio, 0 HTTP, no allowlist or denylist**, and no review flags. Actual runtime connectivity and model-visible tool schemas remain unknown. The older PowerShell footprint reported 9 because it included nested TOML headings, not 9 distinct servers. The corrected footprint diagnostic distinguishes these concepts; its header approximation does not supersede Python `tomllib`.
