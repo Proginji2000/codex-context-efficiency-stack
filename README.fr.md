@@ -10,7 +10,7 @@ Stack pratique pour réduire le contexte inutile, économiser le quota Codex et 
 DEMANDE
    |
    v
-THREAD CODEX PRINCIPAL
+THREAD CODEX PRINCIPAL (Luna orchestrateur uniquement)
    |
    +-- RTK / CRG / skills / contexte borné
    |
@@ -67,6 +67,17 @@ Luna Medium
  -> Astra High seulement si nécessaire
 ```
 
+## Documentation et outils complémentaires
+
+Voir l'[index documentaire](docs/README.md) et le [guide des intégrations facultatives](docs/OPTIONAL_INTEGRATIONS.md).
+
+- **GitHub Spec Kit** : spécifications, planification et découpage en tâches pour les nouveaux projets ou fonctionnalités structurées ; activation **par projet**, non globale.
+- **Anthropic frontend-design** : skill Apache 2.0 inclus dans `.agents/skills/frontend-design/`. Pour tous les projets Codex de l'utilisateur, exécuter explicitement `.\scripts\install-frontend-design.ps1`.
+- **Shannon** : pentest actif uniquement sur environnement de test autorisé et isolé ; aucun lancement automatique.
+- **HatchZip** : utilitaire séparé pour extraire avec peu d'espace disque ; consomme progressivement l'archive originale, donc usage manuel.
+
+Ces outils ne remplacent ni RTK, ni Code Review Graph, ni les vérifications déterministes. L'installateur global ne les active pas silencieusement.
+
 ## Mise à jour globale Windows
 
 Après `git pull` :
@@ -95,7 +106,7 @@ Les instructions globales `~/.codex/AGENTS.md` s’appliquent aux projets. Un `A
 Audit rapide depuis un projet :
 
 ```powershell
-pwsh -ExecutionPolicy Bypass -File C:\Dev\codex-context-efficiency-stack\scripts\audit-project-inheritance.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Dev\codex-context-efficiency-stack\scripts\audit-project-inheritance.ps1
 ```
 
 C’est la commande à utiliser avant de migrer un projet à routing spécifique comme CryptoLab.
@@ -128,7 +139,7 @@ Le code source et les tests restent toujours autoritaires si le graphe est incom
 - **Decisions API** : intéressante pour un futur routeur borné, mais pas dépendance du stack tant que la disponibilité/évaluation n’est pas suffisante.
 - **GPT‑6.1 Sol Ultrafast** : non utilisé par défaut ; objectif vitesse, pas endurance quota.
 
-Voir [`docs/DEVDAY_2026_UPDATE.md`](docs/DEVDAY_2026_UPDATE.md) et [`docs/MODEL_ROUTING_V2.md`](docs/MODEL_ROUTING_V2.md).
+Voir [`docs/DEVDAY_2026_UPDATE.md`](docs/DEVDAY_2026_UPDATE.md) et [`docs/MODEL_ROUTING_V4.md`](docs/MODEL_ROUTING_V4.md).
 
 ## Vérification et mesure
 
