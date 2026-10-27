@@ -64,9 +64,32 @@ cd C:\Dev\codex-context-efficiency-stack
 
 Target: `$HOME\.agents\skills\frontend-design\`. If a conflicting user skill is present, the installer stops. An intentional replacement uses `-Force` after reviewing the changes; a timestamped backup is saved first.
 
-In Codex, ask an implementation/UI worker to use `$frontend-design` for a new dashboard, web page, landing page, or major UI redesign. For nonvisual Rust, CLI, SQL, or tests, don't load it. The skill is visual/design guidance, **not** a UI test framework; still run accessibility, build and responsive screenshot checks.
+With the UI worker role installed, Luna automatically dispatches dashboard, web page, landing page, or major UI redesign requests to `ui-implementer`, which implicitly loads `$frontend-design` when present; no special user prompt is necessary. For nonvisual Rust, CLI, SQL, or tests, don't load it. The skill is visual/design guidance, **not** a UI test framework; still run accessibility, build and responsive screenshot checks.
 
 **Licensing and provenance:** this copy comes from Anthropic's `anthropics/skills`, `skills/frontend-design`, Apache 2.0. Preserve `LICENSE.txt` if redistributing. The stack does not claim authorship of the upstream skill.
+
+### Automatic frontend-design dispatch
+
+The global `AGENTS.md` now instructs **Luna (the parent orchestrator)** to delegate all substantive frontend/UI work to the dedicated `ui-implementer` subagent (GPT-6.1 Terra Medium). The worker's own TOML instructions require it to find and load the `frontend-design` skill automatically when available: the user never has to type `$frontend-design`.
+
+- Triggers: website, page, dashboard, UI component, layout, visual redesign, CSS/styling, responsive interface, or frontend design.
+- Non-triggers: backend-only Rust, SQL, CLI, nonvisual infrastructure, routine docs, or tests unrelated to UI.
+- Mixed task: split frontend and backend into nonoverlapping worker scopes.
+- Missing skill: the worker reports it explicitly rather than silently saying design guidance was used.
+- After a substantive UI change: run relevant build/tests, check accessibility and responsive layouts, and report which evidence was actually obtained.
+- Scope: automatic **selection** does not mean automatic software installation, arbitrary network downloads, or a guarantee that every model will obey instructions.
+
+**Windows one-time installation for all repositories:**
+
+```powershell
+cd C:\Dev\codex-context-efficiency-stack
+.\scripts\install-frontend-design.ps1
+Test-Path "$HOME\.agents\skills\frontend-design\SKILL.md"
+```
+
+The stack updater registers the `ui-implementer` role; the separate opt-in skill installer copies the already-vendored instructions and license into the Codex user-wide skills directory. No Python, Node.js, uv, Docker or paid API is required for this skill.
+
+**Runtime acceptance test:** open Codex after installation and ask only "Build a responsive dashboard UI for a fictitious inventory tracker; use a UI worker, create a minimal mock if needed, and report which skill was loaded." Confirm a subagent `ui-implementer` was started and the worker explicitly reports loading frontend-design. A static verifier can only confirm file presence, not actual use.
 
 ## 3. Keygraph Shannon — restricted, manual security audit only
 
