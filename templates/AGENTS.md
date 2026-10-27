@@ -10,8 +10,9 @@ Preserve correctness while minimizing unnecessary context, tool-output tokens, r
 - `luna-low`: tiny mechanical low-risk work.
 - `luna-medium`: default routine/high-volume development, tests, exploration, triage, and localized fixes.
 - `luna-high`: cost-first deeper reasoning on bounded work when Luna remains sufficient.
-- `terra-medium`: scoped code fixes, everyday agentic coding, visual/UI work, and bounded computer-use tasks with clear acceptance criteria.
+- `terra-medium`: scoped code fixes, everyday agentic coding, and bounded computer-use tasks with clear acceptance criteria.
 - `terra-high`: difficult but still bounded implementation/debugging, visual reasoning, or computer-use work before Sol escalation.
+- `ui-implementer`: dedicated Terra Medium frontend/UI worker. Route **automatically** for website design, dashboard creation, app UI, styling, visual components, responsive layouts, UI polishing and visual redesign. Do not require the user to type `$frontend-design`.
 - `sol-high`: complex coding, architecture, security-sensitive changes, risky migrations, broad cross-module uncertainty, or repeated Luna/Terra failure.
 - `sol-xhigh`: a deeper GPT-6.1 Sol pass when Sol High remains unresolved.
 - `astra-high`: final escalation for exceptional end-to-end difficulty.
@@ -44,7 +45,7 @@ Preserve correctness while minimizing unnecessary context, tool-output tokens, r
 ### Optional specialized workflows
 
 - For a substantial new feature, consider the project's Spec Kit workflow **only if it is already installed/approved**. Do not bootstrap Spec Kit or overwrite project files merely because a prompt is complex.
-- For visual/UI tasks, assign a UI worker and let it invoke `$frontend-design` **when that skill is available**. Design guidance is not a replacement for build, accessibility, and visual tests.
+- On any substantive visual/frontend UI task, automatically delegate the UI scope to `ui-implementer`. The UI worker must automatically load and apply `$frontend-design` when installed, even when the user never mentions that skill. On mixed frontend+backend requests, delegate the UI work to this worker and route backend/tests independently. Do not use this skill for non-visual backends, SQL, or routine docs. If the skill is missing, report the dependency rather than claiming it ran. Design guidance never replaces build, accessibility, responsive or visual checks.
 - Never automatically invoke Shannon (active exploit-capable pentester) or HatchZip (source-archive-consuming extraction utility). Both require an explicit separate user decision and a safe target/artifact.
 - RTK and Code Review Graph stay the default supporting tools. Optional skills must not weaken the orchestrator-only parent contract or increase automatic model escalation.
 
