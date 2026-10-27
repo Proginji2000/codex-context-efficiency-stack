@@ -196,6 +196,12 @@ Source and tests remain authoritative if the graph is incomplete or stale.
 
 See [`docs/DEVDAY_2026_UPDATE.md`](docs/DEVDAY_2026_UPDATE.md) and [`docs/MODEL_ROUTING_V4.md`](docs/MODEL_ROUTING_V4.md).
 
+## Codex CLI 0.164: optional presets and task metrics
+
+Six reusable workflow prompts can be saved manually in the CLI `/presets` menu; slots 6-9 remain free. No `tui.presets`, global config, role, permission or model is overwritten by the stack. See [Codex 0.164 preset guide](docs/CODEX_0164_PRESETS.md).
+
+A read-only [task metrics aggregator](docs/MEASUREMENT.md#optional-csv-metrics-aggregation-codex-cli-0164) summarizes anonymized, explicitly supplied CSV rows by initial worker lane. It **does not** scrape Codex chats or provide automatic per-worker quota figures. Validate with `scripts/Test-CodexRunMetrics.ps1`.
+
 ## Verification and measurement
 
 ```powershell
