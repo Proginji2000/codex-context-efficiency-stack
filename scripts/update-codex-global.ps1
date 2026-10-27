@@ -29,7 +29,7 @@ Write-Host "Backup: $BackupRoot"
 Backup-IfExists $ConfigPath
 Backup-IfExists $GlobalAgentsPath
 
-$roleNames = @('luna-low','luna-medium','luna-high','terra-medium','terra-high','sol-high','sol-xhigh','astra-high','sol6-legacy-high')
+$roleNames = @('luna-low','luna-medium','luna-high','terra-medium','terra-high','ui-implementer','sol-high','sol-xhigh','astra-high','sol6-legacy-high')
 foreach ($role in $roleNames) { Backup-IfExists (Join-Path $AgentHome "$role.toml") }
 
 Copy-Item (Join-Path $RepoRoot 'templates\AGENTS.md') $GlobalAgentsPath -Force
@@ -57,6 +57,12 @@ config_file = "agents/terra-medium.toml"
 [agents.terra-high]
 description = "GPT-6.1 Terra High for difficult but bounded implementation/debugging or computer-use work before Sol."
 config_file = "agents/terra-high.toml"
+'@
+            'ui-implementer' = @'
+
+[agents.ui-implementer]
+description = "Use automatically for frontend, UI, dashboards, visual design and responsive layouts. Loads frontend-design skill when installed."
+config_file = "agents/ui-implementer.toml"
 '@
             'sol-xhigh' = @'
 
