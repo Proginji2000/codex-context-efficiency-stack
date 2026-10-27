@@ -31,3 +31,6 @@ jobs:
       - name: Validate orchestrator lifecycle policy (static regression)
         shell: powershell
         run: .\scripts\Test-SubagentLifecyclePolicy.ps1
+      - name: Validate opt-in Codex run metrics on synthetic data
+        shell: powershell
+        run: .\scripts\Test-CodexRunMetrics.ps1
