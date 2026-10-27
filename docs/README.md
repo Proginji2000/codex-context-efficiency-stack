@@ -22,6 +22,10 @@ Start here when installing, updating, troubleshooting or extending the Codex Con
 
 After the global stack update and one-time `install-frontend-design.ps1` installation, Luna routes substantive UI/frontend work to the `ui-implementer` Terra Medium worker. The worker is configured to use `frontend-design` implicitly when available; the user does not need to mention the skill. See [integration details](OPTIONAL_INTEGRATIONS.md#automatic-frontend-design-dispatch).
 
+## Project continuation and developer checks
+
+[Project resume, Playwright MCP, Context7 and Gitleaks](DEVELOPER_EXTENSIONS.md) describes the read-only handoff, optional Windows MCP registration, local secret scan and acceptance tests. Shannon remains paused and no application scan is started by these tools.
+
 ## Required vs. opt-in
 
 **Default foundation:** global routing config, orchestrator-only `AGENTS.md`, RTK where installed, Code Review Graph where indexed, and deterministic tests/checks.
