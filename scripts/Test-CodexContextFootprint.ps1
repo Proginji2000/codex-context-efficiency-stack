@@ -1,0 +1,76 @@
+[CmdletBinding()]
+param()
+
+# Synthetic, local-only inventory test. No Codex binary or account calls.
+$ErrorActionPreference = 'Stop'
+$scriptPath = Join-Path $PSScriptRoot 'Get-CodexContextFootprint.ps1'
+if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+    throw 'Static context footprint inventory script missing.'
+}
+
+$tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('codex-footprint-fixture-' + [guid]::NewGuid().ToString('N'))
+$home = Join-Path $tmp 'codexhome'
+$project = Join-Path $tmp 'repo'
+$nested = Join-Path $project 'src'
+$roles = Join-Path $home 'agents'
+foreach ($dir in @($tmp, $home, $project, $nested, $roles, (Join-Path $project '.git'))) {
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+}
+
+try {
+    $globalText = 'global agent policy'
+    $repoText = 'repository rules'
+    $childText = 'child override rules'
+    $candidateText = 'shorter'
+    Set-Content -LiteralPath (Join-Path $home 'AGENTS.md') -Value $globalText -NoNewline -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $home 'RTK.md') -Value 'optional rtk' -NoNewline -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $project 'AGENTS.md') -Value $repoText -NoNewline -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $nested 'AGENTS.md') -Value 'shadowed' -NoNewline -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $nested 'AGENTS.override.md') -Value $childText -NoNewline -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $roles 'luna-low.toml') -Value 'model = "fake"' -NoNewline -Encoding ASCII
+    $candidate = Join-Path $tmp 'candidate.md'
+    Set-Content -LiteralPath $candidate -Value $candidateText -NoNewline -Encoding ASCII
+    @(
+        '[mcp_servers.private_alpha]'
+        'api_key = "NEVER_DISCLOSE_SECRET_SENTINEL"'
+        '[mcp_servers.private_beta]'
+        'url = "https://PRIVATE_URL_SENTINEL.invalid"'
+        '[agents.luna-low]'
+        'config_file = "PRIVATE_PATH_SENTINEL"'
+    ) | Set-Content -LiteralPath (Join-Path $home 'config.toml') -Encoding ASCII
+
+    $raw = (& $scriptPath -CodexHome $home -ProjectDirectory $nested -CandidatePath $candidate -AsJson | Out-String)
+    $r = $raw | ConvertFrom-Json
+    if ($r.kind -ne 'static_file_inventory_not_live_prompt_or_token_count' -or
+        $r.global_agents.characters -ne $globalText.Length -or
+        $r.project_agent_files.Count -ne 2 -or
+        $r.project_agent_files[0].file_kind -ne 'AGENTS.md' -or
+        $r.project_agent_files[1].file_kind -ne 'AGENTS.override.md' -or
+        $r.project_instruction_characters -ne ($repoText.Length + $childText.Length) -or
+        $r.global_plus_project_instruction_characters -ne ($globalText.Length + $repoText.Length + $childText.Length) -or
+        $r.role_toml_files_installed -ne 1 -or
+        $r.configured_mcp_server_blocks -ne 2 -or
+        $r.configured_agent_role_blocks -ne 1 -or
+        $r.candidate_comparison.character_difference -ne ($candidateText.Length - $globalText.Length)) {
+        throw 'Unexpected static footprint inventory or comparison results.'
+    }
+
+    foreach ($private in @('NEVER_DISCLOSE_SECRET_SENTINEL','PRIVATE_URL_SENTINEL','PRIVATE_PATH_SENTINEL','private_alpha','private_beta',$tmp)) {
+        if ($raw.Contains($private)) { throw 'Private config detail or path leaked in the inventory.' }
+    }
+
+    $rejected = $false
+    try {
+        $null = & $scriptPath -CodexHome $home -ProjectDirectory $nested -CandidatePath (Join-Path $tmp 'missing.md') -AsJson
+    } catch {
+        $rejected = $true
+    }
+    if (-not $rejected) { throw 'Nonexistent optional candidate was not rejected.' }
+
+    Write-Host '[OK] Global, inherited project and override-file sizes.'
+    Write-Host '[OK] MCP/role counts without leaking secrets, server names or local paths.'
+    Write-Host '[OK] Candidate comparison and missing-file negative case.'
+    Write-Host 'PASS: Static Codex context footprint inventory regression.'
+} finally {
+    Remove-Item -LiteralPath $tmp -Recurse -Force
+}
