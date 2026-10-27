@@ -81,6 +81,10 @@ successful tasks per unit of quota/cost
 
 Do not optimize for the lowest Sol percentage by itself. If overly aggressive Luna routing causes repeated retries, the system may consume more quota and more wall-clock time overall.
 
+## Audit the static context without consuming quota
+
+Use [the privacy-limited local context inventory](CODEX_STATIC_CONTEXT_AUDIT.md) to count only applicable local AGENTS files, a referenced RTK file, installed agent role TOMLs, and configured MCP/role blocks. It runs no Codex process or Git command. These **file and configuration sizes are not actual runtime token attribution**. This can guide which layer to inspect before a later controlled A/B.
+
 ## Live token counters from a new CLI exec invocation
 
 The separate [Codex CLI JSONL filter](CODEX_EXEC_USAGE.md) reads the stdout stream of a new opt-in `codex exec --json` run and returns only aggregated turn/token counters. It does **not** read existing Codex Desktop/TUI histories, and its counters are not subscription quota. Use the explicit CSV tracker below for success/retry/latency outcomes.
