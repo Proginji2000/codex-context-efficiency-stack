@@ -2,7 +2,7 @@
 
 A practical stack for reducing wasted context, preserving Codex quota, and keeping completion verification deterministic.
 
-> DevDay refresh — 29 September 2026: the normal strong-model path now uses **GPT-6.1 Sol**, with **Sol High -> Sol XHigh -> Astra High**. GPT-6 Sol is retained only as a legacy benchmark/fallback lane.
+> 27 October 2026 refresh: **GPT-6.1 Terra** is now an intermediate capability tier between Luna and Sol. Luna remains the default endurance worker; Sol/Astra remain the complex-work escalations.
 
 ## Recommended architecture
 
@@ -16,7 +16,9 @@ PRIMARY CODEX THREAD
     |
     +-- luna-low       tiny mechanical work
     +-- luna-medium    normal development
-    +-- luna-high      complex but bounded debugging/refactors
+    +-- luna-high      bounded cost-first reasoning
+    +-- terra-medium   scoped fixes / UI / computer use
+    +-- terra-high     difficult but bounded implementation/debugging
     +-- sol-high       GPT-6.1 Sol / high
     +-- sol-xhigh      GPT-6.1 Sol / xhigh
     `-- astra-high     final escalation
@@ -42,8 +44,10 @@ API pricing is not a direct measurement of Plus/Pro subscription quota. Therefor
 | --- | --- |
 | docs, typo, obvious rename, simple config | `luna-low` |
 | normal feature, tests, localized bug, ordinary SQL | `luna-medium` |
-| complex bounded debugging, subtle state, non-trivial refactor | `luna-high` |
-| architecture, security, risky migration, repeated Luna failure | `sol-high` |
+| bounded reasoning where Luna remains sufficient | `luna-high` |
+| scoped code fix, UI, visual/computer-use work | `terra-medium` |
+| difficult but bounded implementation/debugging | `terra-high` |
+| complex coding, architecture, security, risky migration | `sol-high` |
 | Sol High still unresolved but scope remains bounded | `sol-xhigh` |
 | exceptional end-to-end difficulty | `astra-high` |
 | GPT-6 Sol benchmark/fallback | `sol6-legacy-high` |
@@ -54,8 +58,8 @@ Recommended escalation:
 Luna Medium
  -> deterministic verification
  -> localized retry
- -> Luna High
- -> verification
+ -> Luna High or Terra Medium (task-shaped)
+ -> Terra High when still bounded
  -> GPT-6.1 Sol High
  -> verification
  -> GPT-6.1 Sol XHigh
@@ -69,15 +73,15 @@ After `git pull`:
 
 ```powershell
 cd C:\Dev\codex-context-efficiency-stack
-pwsh -ExecutionPolicy Bypass -File .\scripts\update-codex-global-devday-2026.ps1
-pwsh -ExecutionPolicy Bypass -File .\scripts\verify-stack.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\update-codex-global.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-stack.ps1
 ```
 
 The updater:
 
 - creates timestamped backups under `~/.codex/backups/`;
 - refreshes `~/.codex/AGENTS.md`;
-- installs Luna / GPT-6.1 Sol / Astra role files;
+- installs Luna / GPT-6.1 Terra / GPT-6.1 Sol / Astra role files;
 - adds `sol-xhigh` and the legacy lane when missing;
 - refreshes the opt-in `context-efficiency` profile;
 - intentionally leaves project-local `.codex/config.toml` files untouched.
@@ -141,6 +145,7 @@ Track tasks per lane, successful completion, retries, escalations, failed checks
 ```text
 Codex primary
 + Luna Low / Medium / High
++ GPT-6.1 Terra Medium / High
 + GPT-6.1 Sol High / XHigh
 + Astra High only as final escalation
 + GPT-6 Sol legacy only for A/B
