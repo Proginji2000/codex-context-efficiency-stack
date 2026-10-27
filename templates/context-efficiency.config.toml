@@ -20,15 +20,23 @@ description = "Tiny, mechanical, low-risk edits."
 config_file = "profiles/context-efficiency/agents/luna-low.toml"
 
 [agents.luna-medium]
-description = "Default worker for normal development work."
+description = "Default worker for routine/high-volume development work."
 config_file = "profiles/context-efficiency/agents/luna-medium.toml"
 
 [agents.luna-high]
-description = "Complex but bounded reasoning and debugging."
+description = "Cost-first deeper reasoning on bounded work."
 config_file = "profiles/context-efficiency/agents/luna-high.toml"
 
+[agents.terra-medium]
+description = "GPT-6.1 Terra Medium for scoped code fixes, everyday agentic coding, visual/UI tasks and bounded computer use."
+config_file = "profiles/context-efficiency/agents/terra-medium.toml"
+
+[agents.terra-high]
+description = "GPT-6.1 Terra High for difficult but bounded implementation/debugging or computer-use work."
+config_file = "profiles/context-efficiency/agents/terra-high.toml"
+
 [agents.sol-high]
-description = "GPT-6.1 Sol High escalation for architecture, security, risky migrations, broad uncertainty or repeated Luna failure."
+description = "GPT-6.1 Sol High escalation for complex coding, architecture, security, risky migrations, broad uncertainty or repeated Terra/Luna failure."
 config_file = "profiles/context-efficiency/agents/sol-high.toml"
 
 [agents.sol-xhigh]
