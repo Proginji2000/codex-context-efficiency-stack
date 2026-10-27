@@ -8,4 +8,3 @@ if (-not (Test-Path $replacement -PathType Leaf)) {
 
 Write-Host '[INFO] This compatibility entrypoint now forwards to scripts\update-codex-global.ps1.'
 & $replacement -SkipStagedProfile:$SkipStagedProfile
-exit $LASTEXITCODE
