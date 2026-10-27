@@ -22,6 +22,10 @@ Start here when installing, updating, troubleshooting or extending the Codex Con
 
 After the global stack update and one-time `install-frontend-design.ps1` installation, Luna routes substantive UI/frontend work to the `ui-implementer` Terra Medium worker. The worker is configured to use `frontend-design` implicitly when available; the user does not need to mention the skill. See [integration details](OPTIONAL_INTEGRATIONS.md#automatic-frontend-design-dispatch).
 
+## Global context budget
+
+The [27 October 2026 global AGENTS audit](CONTEXT_AUDIT_20261027.md) documents the static instruction reduction, preserved worker-only constraints and a controlled runtime A/B validation plan. `scripts/Test-GlobalContextPolicy.ps1` protects essential global routing and safety clauses in Windows CI.
+
 ## Multi-agent lifecycle and saturated threads
 
 [Subagent lifecycle, V1/V2 cleanup and safe recovery](MODEL_ROUTING_V4.md#subagent-lifecycle-version-aware-operational-policy) documents bounded worker reuse, result collection and thread-limit handling. `scripts/Test-SubagentLifecyclePolicy.ps1` statically guards the instructions in Windows CI, without spawning workers.

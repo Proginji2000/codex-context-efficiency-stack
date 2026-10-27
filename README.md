@@ -90,6 +90,17 @@ One-time, user-wide Windows skill installation after cloning/updating this repos
 
 The frontend skill needs no Node.js, Python, uv, Docker, or extra API subscription. Confirm actual use through the delegated worker's activity and result; static file checks do not prove automatic activation. [Integration policy](docs/OPTIONAL_INTEGRATIONS.md).
 
+## Global agent context audit
+
+The always-loaded `templates/AGENTS.md` is statically reduced from 19,846 to 12,977 characters (-34.6%) while retaining the ten model lanes, Luna-only-orchestration contract and unchanged V1/V2 worker lifecycle section.
+
+```powershell
+.\scripts\Test-GlobalContextPolicy.ps1
+.\scripts\Test-SubagentLifecyclePolicy.ps1
+```
+
+The checks are static, not evidence of model-token, quota or task-quality gains. See [audit and controlled A/B acceptance plan](docs/CONTEXT_AUDIT_20261027.md) before claiming a runtime improvement.
+
 ## Subagent lifecycle and thread-limit recovery
 
 The Luna parent now follows a **version-aware** worker lifecycle protocol: check available workers before another delegation wave, reuse compatible workers when reachable, gather results, close completed workers only when V1 exposes `close_agent`, and rely on V2 runtime eviction when no close tool exists.
