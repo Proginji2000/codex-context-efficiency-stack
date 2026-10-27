@@ -62,6 +62,14 @@ The primary session owns routing, dependency tracking, worker assignment, coordi
 4. Make agent creation unavailable: expect a truthful blocked status, not parent execution.
 5. Inspect the agents view/event trace and final worker summary. Passing static policy checks alone does not establish runtime compliance.
 
+## Resume and conditional tooling
+
+The main Luna session remains **orchestrator only**. On resuming interrupted project work it delegates one bounded read-only worker to reconcile actual Git state, worktrees, authoritative project documents, and verification evidence. The project's state checkpoint belongs to the project, not to the stack repository.
+
+Playwright MCP is routed to frontend/browser testing workers on explicitly controlled applications, Context7 to version-specific public-doc research, and Gitleaks to local redacted pre-publication secret checks. None requires switching the parent to Sol; a missing optional tool does not become a phantom pass. Shannon remains paused.
+
+See [setup and acceptance tests](DEVELOPER_EXTENSIONS.md).
+
 ## Frontend design worker — automatic skill selection
 
 A visual/UI frontend request is delegated by Luna to `ui-implementer` (GPT-6.1 Terra Medium) even when the user does not name a skill. The worker loads `$frontend-design` from its available user/project skills at the beginning of the visual work. Examples: responsive websites, dashboard layouts, app UI, styling or visual polish.

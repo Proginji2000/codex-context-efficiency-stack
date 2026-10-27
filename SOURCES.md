@@ -123,3 +123,22 @@ External decision models such as Jev remain optional. If one is added later, pin
 
 - Optional tool assessment, installation and safeguards:
   docs/OPTIONAL_INTEGRATIONS.md
+
+
+## Developer extensions (reviewed 27 October 2026)
+
+- Playwright MCP (Microsoft): Codex MCP install, isolated profile, headless mode, browser selection:
+  https://github.com/microsoft/playwright-mcp
+  https://github.com/microsoft/playwright/blob/main/docs/src/getting-started-mcp.md
+- Official Codex MCP configuration:
+  https://learn.chatgpt.com/docs/extend/mcp
+- Context7 upstream and its Codex integration, optional authentication/rate limits:
+  https://github.com/upstash/context7
+  https://context7.com/docs/clients/codex
+  https://context7.com/docs/api-guide
+- Gitleaks official source and supported `dir`, `git`, `--redact` flags:
+  https://github.com/gitleaks/gitleaks
+- Gitleaks Windows package ID:
+  https://github.com/microsoft/winget-pkgs/tree/master/manifests/g/Gitleaks/Gitleaks
+- Integration notes and installation:
+  docs/DEVELOPER_EXTENSIONS.md
