@@ -81,6 +81,10 @@ successful tasks per unit of quota/cost
 
 Do not optimize for the lowest Sol percentage by itself. If overly aggressive Luna routing causes repeated retries, the system may consume more quota and more wall-clock time overall.
 
+## Live token counters from a new CLI exec invocation
+
+The separate [Codex CLI JSONL filter](CODEX_EXEC_USAGE.md) reads the stdout stream of a new opt-in `codex exec --json` run and returns only aggregated turn/token counters. It does **not** read existing Codex Desktop/TUI histories, and its counters are not subscription quota. Use the explicit CSV tracker below for success/retry/latency outcomes.
+
 ## Optional CSV metrics aggregation (Codex CLI 0.164)
 
 The CLI exposes `/usage` and `/status` in compatible sessions. These can show account/session figures, but **the stack does not have a verified read-only per-worker usage API**. Therefore `scripts/Get-CodexRunMetrics.ps1` deliberately reads only a CSV supplied by the user or a permitted worker, **never** Codex chat transcripts, credential stores, home-directory telemetry or usage caches.
