@@ -24,6 +24,7 @@ Copy-Item '.\templates\agents\luna-medium.toml' (Join-Path $ProfileAgents 'luna-
 Copy-Item '.\templates\agents\luna-high.toml'       (Join-Path $ProfileAgents 'luna-high.toml') -Force
 Copy-Item '.\templates\agents\terra-medium.toml'    (Join-Path $ProfileAgents 'terra-medium.toml') -Force
 Copy-Item '.\templates\agents\terra-high.toml'      (Join-Path $ProfileAgents 'terra-high.toml') -Force
+Copy-Item '.\templates\agents\ui-implementer.toml' (Join-Path $ProfileAgents 'ui-implementer.toml') -Force
 Copy-Item '.\templates\agents\sol-high.toml'        (Join-Path $ProfileAgents 'sol-high.toml') -Force
 Copy-Item '.\templates\agents\sol-xhigh.toml'       (Join-Path $ProfileAgents 'sol-xhigh.toml') -Force
 Copy-Item '.\templates\agents\astra-high.toml'      (Join-Path $ProfileAgents 'astra-high.toml') -Force
