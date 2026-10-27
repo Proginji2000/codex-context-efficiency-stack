@@ -25,6 +25,18 @@ Preserve correctness while minimizing unnecessary context, tool-output tokens, r
 - Avoid parallel agents that perform substantially overlapping exploration. Parallelism is useful only when branches of work are independent.
 - Keep the default concurrency conservative for subscription endurance. Use the `/agents` view when available to monitor delegated work rather than spawning redundant workers.
 
+
+### Orchestration first
+
+- On a multi-part prompt or a broad task, first identify independent workstreams before doing deep implementation/reasoning in the parent thread.
+- If two or more meaningful workstreams are independent enough to run without conflicting writes, delegate them. Typical candidates are repository exploration, documentation research, test/diagnostic work, independent review, and separate implementation scopes.
+- The parent thread is primarily the orchestrator for delegated work: define scopes, choose lanes, preserve dependencies, wait for results, synthesize evidence, and own final acceptance. Do not duplicate a delegated investigation unless its evidence is insufficient.
+- Keep short, tightly dependent sequential steps in the parent when delegation would add more handoff cost than value.
+- Prefer read-only parallelism. For writes, assign one writer per file/scope or use isolated worktrees; never allow competing agents to edit the same mutable scope concurrently.
+- For prompts containing several distinct requested tasks, delegate each independent non-trivial task up to the concurrency cap instead of solving the whole prompt serially in the parent.
+- Delegation is not optional merely because the parent model can reason through the task. If decomposition materially improves context isolation, specialization, validation, or wall-clock time, use subagents.
+- Avoid quota-amplifying fan-out: do not spawn agents for trivial subtasks, overlapping exploration, or dependent micro-steps.
+
 ### Quota discipline
 
 - Optimize for successful engineering work per unit of quota, not maximum model strength per task.
