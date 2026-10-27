@@ -21,9 +21,13 @@ New-Item -ItemType Directory -Force $ProfileAgents | Out-Null
 
 Copy-Item '.\templates\agents\luna-low.toml'    (Join-Path $ProfileAgents 'luna-low.toml') -Force
 Copy-Item '.\templates\agents\luna-medium.toml' (Join-Path $ProfileAgents 'luna-medium.toml') -Force
-Copy-Item '.\templates\agents\luna-high.toml'   (Join-Path $ProfileAgents 'luna-high.toml') -Force
-Copy-Item '.\templates\agents\sol-high.toml'    (Join-Path $ProfileAgents 'sol-high.toml') -Force
-Copy-Item '.\templates\agents\astra-high.toml'  (Join-Path $ProfileAgents 'astra-high.toml') -Force
+Copy-Item '.\templates\agents\luna-high.toml'       (Join-Path $ProfileAgents 'luna-high.toml') -Force
+Copy-Item '.\templates\agents\terra-medium.toml'    (Join-Path $ProfileAgents 'terra-medium.toml') -Force
+Copy-Item '.\templates\agents\terra-high.toml'      (Join-Path $ProfileAgents 'terra-high.toml') -Force
+Copy-Item '.\templates\agents\sol-high.toml'        (Join-Path $ProfileAgents 'sol-high.toml') -Force
+Copy-Item '.\templates\agents\sol-xhigh.toml'       (Join-Path $ProfileAgents 'sol-xhigh.toml') -Force
+Copy-Item '.\templates\agents\astra-high.toml'      (Join-Path $ProfileAgents 'astra-high.toml') -Force
+Copy-Item '.\templates\agents\sol6-legacy-high.toml' (Join-Path $ProfileAgents 'sol6-legacy-high.toml') -Force
 
 Copy-Item '.\templates\context-efficiency.config.toml' (Join-Path $CodexHome 'context-efficiency.config.toml') -Force
 ```
@@ -39,9 +43,9 @@ At this stage, do **not** replace or merge into:
 ~/.codex/agents/*
 ```
 
-Do not run RTK global initialization or change project-local `.codex/` files in the protected project yet.
+Do not run RTK global initialization, Spec Kit bootstrap/integration installation, frontend skill installation, or change project-local `.codex/` files in the protected project yet. Shannon and HatchZip are separate manual tools and must never be triggered by this rollout.
 
-The isolated role files are inert unless the profile is explicitly selected. The profile is opt-in and is used only when Codex is launched with:
+The isolated role files now include Luna, GPT-6.1 Terra Medium/High, GPT-6.1 Sol High/XHigh, Astra High, and legacy Sol 6. They are inert unless the profile is explicitly selected. The profile is opt-in and is used only when Codex is launched with:
 
 ```powershell
 codex --profile context-efficiency
