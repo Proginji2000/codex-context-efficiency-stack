@@ -78,6 +78,18 @@ Start with the [documentation index](docs/README.md), including [optional integr
 
 These additions do not replace RTK, Code Review Graph, or deterministic acceptance checks. The global updater does not silently install or run them.
 
+## Automatic frontend skill routing
+
+The Luna parent now delegates visual/UI requests (dashboards, web apps, components, styling, responsive layouts) to `ui-implementer` on **GPT-6.1 Terra Medium**. That worker loads `frontend-design` automatically when installed; no explicit `$frontend-design` mention is required.
+
+One-time, user-wide Windows skill installation after cloning/updating this repository:
+
+```powershell
+.\scripts\install-frontend-design.ps1
+```
+
+The frontend skill needs no Node.js, Python, uv, Docker, or extra API subscription. Confirm actual use through the delegated worker's activity and result; static file checks do not prove automatic activation. [Integration policy](docs/OPTIONAL_INTEGRATIONS.md).
+
 ## Global Windows update
 
 After `git pull`:
