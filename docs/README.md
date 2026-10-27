@@ -14,6 +14,7 @@ Start here when installing, updating, troubleshooting or extending the Codex Con
 | Resume long autonomous sessions without context replay | [Long-running tasks](LONG_RUNNING_TASKS.md) · [Existing sessions](EXISTING_SESSIONS.md) |
 | Measure quotas, retries and completed work | [Measurement](MEASUREMENT.md) |
 | Collect sanitized token counters for new CLI exec runs | [CLI JSONL usage filter](CODEX_EXEC_USAGE.md) |
+| Audit local instruction/MCP footprint without Codex calls | [Static context audit](CODEX_STATIC_CONTEXT_AUDIT.md) |
 | Save common Codex CLI 0.164 workflows in presets | [CLI 0.164 preset templates](CODEX_0164_PRESETS.md) |
 | Troubleshoot Codex and PowerShell on Windows | [Windows troubleshooting](WINDOWS_TROUBLESHOOTING.md) |
 | Review the Claude Pro layer | [Claude Pro stack](CLAUDE_PRO_STACK.md) · [Claude Pro quick start](../CLAUDE_PRO.md) |

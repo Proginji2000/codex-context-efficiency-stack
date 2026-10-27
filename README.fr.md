@@ -221,6 +221,17 @@ Test local sans lancer Codex :
 .\scripts\Test-CodexExecUsage.ps1
 ```
 
+## Diagnostic local du contexte sans quota
+
+Le test du 27 octobre a affiche **108 273 tokens d'entree, dont 80 384 en cache**. Ce total ne peut pas etre attribue au seul AGENTS.md. Notre [audit statique du contexte](docs/CODEX_STATIC_CONTEXT_AUDIT.md) explique les limites des chiffres et inclut une commande sans lancement de Codex :
+
+```powershell
+.\scripts\Test-CodexContextFootprint.ps1
+.\scripts\Get-CodexContextFootprint.ps1 -ProjectDirectory C:\Dev\codex-context-efficiency-stack -AsJson
+```
+
+Le script ne divulgue aucun contenu de config, nom de serveur MCP, secret ou historique de conversation. L'optimisation AGENTS.md de la PR #14 reste experimentale et non installee.
+
 ## Vérification et mesure
 
 ```powershell

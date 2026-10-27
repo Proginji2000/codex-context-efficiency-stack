@@ -37,3 +37,6 @@ jobs:
       - name: Verify privacy-limited Codex CLI JSONL usage filter
         shell: powershell
         run: .\scripts\Test-CodexExecUsage.ps1
+      - name: Verify static Codex context footprint inventory
+        shell: powershell
+        run: .\scripts\Test-CodexContextFootprint.ps1
