@@ -2,7 +2,7 @@
 
 Stack pratique pour réduire le contexte inutile, économiser le quota Codex et garder une vérification déterministe.
 
-> Mise à jour DevDay du 29 septembre 2026 : le chemin d’escalade normal utilise désormais **GPT‑6.1 Sol**, avec **Sol High → Sol XHigh → Astra High**. GPT‑6 Sol reste uniquement comme lane legacy de benchmark/fallback.
+> Mise à jour du 27 octobre 2026 : **GPT‑6.1 Terra** devient un palier intermédiaire entre Luna et Sol. Luna reste le défaut endurance ; Sol/Astra restent les escalades complexes.
 
 ## Architecture recommandée
 
@@ -16,7 +16,9 @@ THREAD CODEX PRINCIPAL
    |
    +-- luna-low       petites modifications mécaniques
    +-- luna-medium    développement normal
-   +-- luna-high      debug/refactor complexe mais borné
+   +-- luna-high      raisonnement borné, priorité économie
+   +-- terra-medium    correctifs bornés / UI / computer-use
+   +-- terra-high      implémentation/debug difficile mais borné
    +-- sol-high       GPT-6.1 Sol / high
    +-- sol-xhigh      GPT-6.1 Sol / xhigh
    `-- astra-high     ultime escalade
@@ -42,8 +44,10 @@ Le coût API n’est pas une mesure directe du quota Plus/Pro. Pour cette raison
 | --- | --- |
 | doc, typo, rename évident, petite config | `luna-low` |
 | feature normale, tests, bug localisé, SQL ordinaire | `luna-medium` |
-| debug complexe, état subtil, gros refactor borné | `luna-high` |
-| architecture, sécurité, migration risquée, échecs Luna | `sol-high` |
+| raisonnement borné où Luna reste suffisant | `luna-high` |
+| correctif code borné, UI, visual/computer-use | `terra-medium` |
+| implémentation/debug difficile mais borné | `terra-high` |
+| code complexe, architecture, sécurité, migration risquée | `sol-high` |
 | Sol High insuffisant mais problème toujours borné | `sol-xhigh` |
 | difficulté end-to-end exceptionnelle | `astra-high` |
 | benchmark/fallback GPT‑6 Sol | `sol6-legacy-high` |
@@ -54,8 +58,8 @@ Séquence recommandée :
 Luna Medium
  -> vérification
  -> retry localisé
- -> Luna High
- -> vérification
+ -> Luna High ou Terra Medium selon la tâche
+ -> Terra High si toujours borné
  -> GPT-6.1 Sol High
  -> vérification
  -> GPT-6.1 Sol XHigh
@@ -69,15 +73,15 @@ Après `git pull` :
 
 ```powershell
 cd C:\Dev\codex-context-efficiency-stack
-pwsh -ExecutionPolicy Bypass -File .\scripts\update-codex-global-devday-2026.ps1
-pwsh -ExecutionPolicy Bypass -File .\scripts\verify-stack.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\update-codex-global.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-stack.ps1
 ```
 
 Le script :
 
 - sauvegarde les fichiers globaux modifiés sous `~/.codex/backups/` ;
 - met à jour `~/.codex/AGENTS.md` ;
-- installe les rôles Luna / GPT‑6.1 Sol / Astra ;
+- installe les rôles Luna / GPT‑6.1 Terra / GPT‑6.1 Sol / Astra ;
 - ajoute `sol-xhigh` et la lane legacy si besoin ;
 - rafraîchit le profil opt-in `context-efficiency` ;
 - **ne modifie pas les `.codex/config.toml` des projets**.
@@ -141,6 +145,7 @@ Mesurez surtout : tâches terminées par lane, retries, escalades, échecs de va
 ```text
 Codex principal
 + Luna Low / Medium / High
++ GPT-6.1 Terra Medium / High
 + GPT-6.1 Sol High / XHigh
 + Astra High en dernier recours
 + GPT-6 Sol legacy uniquement pour A/B
