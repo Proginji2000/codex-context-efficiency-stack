@@ -11,13 +11,15 @@ Write-Host "Profile config: $ProfileConfig"
 
 $ok = $true
 $lanes = [ordered]@{
-    'luna-low'        = @('gpt-6-luna', 'low')
-    'luna-medium'     = @('gpt-6-luna', 'medium')
-    'luna-high'       = @('gpt-6-luna', 'high')
-    'sol-high'        = @('gpt-6.1-sol', 'high')
-    'sol-xhigh'       = @('gpt-6.1-sol', 'xhigh')
-    'astra-high'      = @('gpt-6-astra', 'high')
-    'sol6-legacy-high'= @('gpt-6-sol', 'high')
+    'luna-low'         = @('gpt-6-luna', 'low')
+    'luna-medium'      = @('gpt-6-luna', 'medium')
+    'luna-high'        = @('gpt-6-luna', 'high')
+    'terra-medium'     = @('gpt-6.1-terra', 'medium')
+    'terra-high'       = @('gpt-6.1-terra', 'high')
+    'sol-high'         = @('gpt-6.1-sol', 'high')
+    'sol-xhigh'        = @('gpt-6.1-sol', 'xhigh')
+    'astra-high'       = @('gpt-6-astra', 'high')
+    'sol6-legacy-high' = @('gpt-6-sol', 'high')
 }
 
 Write-Host "`n[Codex CLI]"
