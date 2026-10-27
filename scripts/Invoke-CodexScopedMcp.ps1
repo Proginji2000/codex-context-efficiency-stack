@@ -31,11 +31,12 @@ if ($Scope -eq 'git' -and $Sandbox -ne 'read-only') {
 # Keep approved project tooling available for scopes where it is needed.
 # The UI lane keeps every configured MCP available, including node_repl
 # (Codex Desktop browser features may depend on it).
-$disabled = switch ($Scope) {
-    'git' { @('code-review-graph', 'context7', 'node_repl', 'playwright') }
-    'code' { @('node_repl', 'playwright') }
-    'docs' { @('code-review-graph', 'node_repl', 'playwright') }
-    'ui' { @() }
+$disabled = @()
+switch ($Scope) {
+    'git' { $disabled = @('code-review-graph', 'context7', 'node_repl', 'playwright') }
+    'code' { $disabled = @('node_repl', 'playwright') }
+    'docs' { $disabled = @('code-review-graph', 'node_repl', 'playwright') }
+    'ui' { $disabled = @() }
 }
 $allServers = @('code-review-graph', 'context7', 'node_repl', 'playwright')
 $enabled = @($allServers | Where-Object { $disabled -notcontains $_ })
