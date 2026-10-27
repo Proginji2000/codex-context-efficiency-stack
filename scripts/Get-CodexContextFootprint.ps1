@@ -29,7 +29,7 @@ function Get-FileSize([string]$File) {
 function Get-McpHeaderSummary([string]$Configuration) {
     $headings = [regex]::Matches(
         $Configuration,
-        '(?m)^[ \t]*\[\s*mcp_servers\.(?<rest>[^\]\r\n]+)\][ \t]*(?:#.*)?$'
+        '(?m)^[ \t]*\[\s*mcp_servers\.(?<rest>[^\]\r\n]+)\][ \t]*(?:#.*)?\r?$'
     )
     $serverIds = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     $firstKeyPattern = '^(?:"(?<dq>(?:\\.|[^"\\])*)"|''(?<sq>[^'']*)''|(?<bare>[A-Za-z0-9_-]+))(?=\s*(?:\.|$))'
