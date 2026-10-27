@@ -74,3 +74,9 @@ Never download an unverified candidate or overwrite the live `~/.codex/AGENTS.md
 - [OpenAI: Rethinking skills and prompts](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra)
 - [OpenAI Codex quota guidance](https://developers.openai.com/fr-FR/docs/pricing)
 - [OpenAI Agents API observability (usage categories, not a Codex-specific billing source)](https://developers.openai.com/api/docs/guides/agents-api/observability)
+
+## Correction: 9 MCP headings versus 4 servers
+
+The first local `Get-CodexContextFootprint.ps1` report found `configured_mcp_server_blocks: 9`, but the later Python `tomllib` audit found **4 actual `mcp_servers` entries**, all declared enabled and using stdio. The initial PowerShell regex counted nested TOML headings (such as `[mcp_servers.example.env]`) as distinct servers. The corrected PowerShell script reports both a **distinct-server header count** and a separate number of MCP-related headings including subtables.
+
+The Python TOML parser remains authoritative when the two counts disagree. Neither audit establishes which MCP tools actually load into model context, nor their share of the measured token usage. Do not disable any MCP based on the former nine-server count.
