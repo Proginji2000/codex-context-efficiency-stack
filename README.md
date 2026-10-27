@@ -108,6 +108,17 @@ Playwright, Context7 and Gitleaks remain **per-machine opt-in installations**; `
 
  Policy presence is not runtime proof.
 
+## PowerShell parse check
+
+Before executing the normal verifier, statically parse **all** stack PowerShell scripts using the Windows PowerShell 5.1-compatible parser:
+
+```powershell
+.\scripts\Test-PowerShellSyntax.ps1
+.\scripts\verify-stack.ps1
+```
+
+This read-only gate catches broken string literals and regexes such as the PR #10 verifier regression, but does not prove runtime integration.
+
 ## Global Windows update
 
 After `git pull`:
