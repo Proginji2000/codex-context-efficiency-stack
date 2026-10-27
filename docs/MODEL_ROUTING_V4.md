@@ -62,6 +62,14 @@ The primary session owns routing, dependency tracking, worker assignment, coordi
 4. Make agent creation unavailable: expect a truthful blocked status, not parent execution.
 5. Inspect the agents view/event trace and final worker summary. Passing static policy checks alone does not establish runtime compliance.
 
+## Frontend design worker — automatic skill selection
+
+A visual/UI frontend request is delegated by Luna to `ui-implementer` (GPT-6.1 Terra Medium) even when the user does not name a skill. The worker loads `$frontend-design` from its available user/project skills at the beginning of the visual work. Examples: responsive websites, dashboard layouts, app UI, styling or visual polish.
+
+If the skill is not installed, the worker reports its absence rather than falsely claiming to have used it. Setup is a one-time explicit local step using `scripts/install-frontend-design.ps1`; the global stack updater registers the role but does not install unrelated programs.
+
+This is a behavioral instruction; verify the subagent's actual skill load and build/accessibility checks on representative work.
+
 ## Routing is not a single rigid ladder
 
 Use task shape first.

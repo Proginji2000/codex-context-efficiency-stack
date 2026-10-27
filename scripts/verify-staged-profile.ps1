@@ -16,6 +16,7 @@ $lanes = [ordered]@{
     'luna-high'        = @('gpt-6-luna', 'high')
     'terra-medium'     = @('gpt-6.1-terra', 'medium')
     'terra-high'       = @('gpt-6.1-terra', 'high')
+    'ui-implementer'   = @('gpt-6.1-terra', 'medium')
     'sol-high'         = @('gpt-6.1-sol', 'high')
     'sol-xhigh'        = @('gpt-6.1-sol', 'xhigh')
     'astra-high'       = @('gpt-6-astra', 'high')

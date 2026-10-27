@@ -18,6 +18,10 @@ Start here when installing, updating, troubleshooting or extending the Codex Con
 | Review older release decisions | [DevDay 2026](DEVDAY_2026_UPDATE.md) · [Optional experiments](OPTIONAL_EXPERIMENTS.md) |
 | Verify upstream documentation | [Sources](../SOURCES.md) |
 
+## Automatic visual UI dispatch
+
+After the global stack update and one-time `install-frontend-design.ps1` installation, Luna routes substantive UI/frontend work to the `ui-implementer` Terra Medium worker. The worker is configured to use `frontend-design` implicitly when available; the user does not need to mention the skill. See [integration details](OPTIONAL_INTEGRATIONS.md#automatic-frontend-design-dispatch).
+
 ## Required vs. opt-in
 
 **Default foundation:** global routing config, orchestrator-only `AGENTS.md`, RTK where installed, Code Review Graph where indexed, and deterministic tests/checks.

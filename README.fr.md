@@ -78,6 +78,18 @@ Voir l'[index documentaire](docs/README.md) et le [guide des intégrations facul
 
 Ces outils ne remplacent ni RTK, ni Code Review Graph, ni les vérifications déterministes. L'installateur global ne les active pas silencieusement.
 
+## Déclenchement automatique des skills UI
+
+L'orchestrateur Luna confie automatiquement les demandes visuelles (dashboard, site, composants, style, responsive) à `ui-implementer` sur **GPT-6.1 Terra Medium**. Ce worker charge le skill `frontend-design` s'il est installé, même lorsque le prompt ne cite pas le skill.
+
+Sur le PC principal, après `git pull` et l'installation du stack, installer une seule fois le skill globalement :
+
+```powershell
+.\scripts\install-frontend-design.ps1
+```
+
+Aucune dépendance Node.js, Python, uv, Docker ou API payante n'est nécessaire pour frontend-design. L'installation ne prouve pas l'usage réel : vérifier le rôle et le skill dans le rapport du sous-agent. [Détails et limites](docs/OPTIONAL_INTEGRATIONS.md).
+
 ## Mise à jour globale Windows
 
 Après `git pull` :

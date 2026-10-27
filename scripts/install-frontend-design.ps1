@@ -49,4 +49,5 @@ foreach ($name in $Files) {
 }
 Write-Host "[OK] Installed frontend-design skill: $Destination"
 Write-Host '[INFO] This installer does not modify global routing or enable any external service.'
-Write-Host '[INFO] Invoke the skill as $frontend-design in Codex; restart Codex if it is not discovered.'
+Write-Host '[INFO] The ui-implementer worker will load frontend-design automatically for applicable UI tasks.'
+Write-Host '[INFO] Restart Codex if the newly installed skill is not discovered.'
