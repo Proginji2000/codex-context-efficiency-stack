@@ -85,6 +85,10 @@ Do not optimize for the lowest Sol percentage by itself. If overly aggressive Lu
 
 Use [the privacy-limited local context inventory](CODEX_STATIC_CONTEXT_AUDIT.md) to count only applicable local AGENTS files, a referenced RTK file, installed agent role TOMLs, and configured MCP/role blocks. It runs no Codex process or Git command. These **file and configuration sizes are not actual runtime token attribution**. This can guide which layer to inspect before a later controlled A/B.
 
+## Audit configured MCP server policies (zero Codex tokens)
+
+The [MCP policy audit](CODEX_MCP_AUDIT.md) uses Python 3.11+ standard-library `tomllib` to summarize locally declared server enablement, transports, allowlists and denylists without printing names, secrets or configuration values. It never starts a server. **Configured MCP count is not a runtime tool-schema count**; don't use it to estimate token savings. Validate with `python .\\scripts\\Test-CodexMcpPolicyAudit.py`.
+
 ## Live token counters from a new CLI exec invocation
 
 The separate [Codex CLI JSONL filter](CODEX_EXEC_USAGE.md) reads the stdout stream of a new opt-in `codex exec --json` run and returns only aggregated turn/token counters. It does **not** read existing Codex Desktop/TUI histories, and its counters are not subscription quota. Use the explicit CSV tracker below for success/retry/latency outcomes.
