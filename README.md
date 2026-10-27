@@ -99,7 +99,14 @@ Four worker-side extensions have been added:
 - **Context7 MCP:** a worker retrieves bounded, version-specific **public** library documentation only when relevant.
 - **Gitleaks:** the `scripts/Test-SecretGate.ps1` read-only, redacted gate checks for accidental secrets before publishing substantial work.
 
-Playwright, Context7 and Gitleaks remain **per-machine opt-in installations**; `git pull` does not enable them. Shannon remains paused and is never auto-invoked. See [Windows setup and runtime checks](docs/DEVELOPER_EXTENSIONS.md). Policy presence is not runtime proof.
+Playwright, Context7 and Gitleaks remain **per-machine opt-in installations**; `git pull` does not enable them. Shannon remains paused and is never auto-invoked. See [Windows setup and runtime checks](docs/DEVELOPER_EXTENSIONS.md). Optional one-shot Windows setup after `git pull`:
+
+```powershell
+.\scripts\Install-DevExtensions.ps1 -WhatIf
+.\scripts\Install-DevExtensions.ps1
+```
+
+ Policy presence is not runtime proof.
 
 ## Global Windows update
 
