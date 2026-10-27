@@ -75,6 +75,29 @@ if ((Test-Path -LiteralPath $frontendSkill -PathType Leaf) -and (Test-Path -Lite
 } else {
     Write-Host '[--] frontend-design is not installed user-wide. Run .\scripts\install-frontend-design.ps1 from the stack repository.'
 }
+Write-Host "`n[Optional tools — not required for core stack]"
+foreach ($name in @('gitleaks','node','npm')) {
+    $optionalCommand = Get-Command $name -ErrorAction SilentlyContinue
+    if ($optionalCommand) {
+        Write-Host "[OK] $name -> $($optionalCommand.Source)"
+    } else {
+        Write-Host "[--] $name not found (optional; see docs/DEVELOPER_EXTENSIONS.md)"
+    }
+}
+if (Test-Path $config -PathType Leaf) {
+    foreach ($serverName in @('playwright','context7')) {
+        $needle = '^\[mcp_servers\.' + [regex]::Escape($serverName) + '\]\s*
+Write-Host '[INFO] This verifier cannot prove implicit skill activation; confirm via a delegated UI task.'
+Write-Host "`nDone. This script is read-only."
+
+        if (Select-String -Path $config -Pattern $needle -Quiet) {
+            Write-Host "[OK] MCP $serverName configured (connection NOT verified)"
+        } else {
+            Write-Host "[--] MCP $serverName not registered globally (optional)"
+        }
+    }
+}
+Write-Host '[INFO] Get-ProjectResume.ps1 and Test-SecretGate.ps1 are opt-in helpers for worker tasks.'
 Write-Host '[INFO] Policy presence is a static check, not proof that Codex spawned subagents.'
 Write-Host '[INFO] This verifier cannot prove implicit skill activation; confirm via a delegated UI task.'
 Write-Host "`nDone. This script is read-only."
