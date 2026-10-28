@@ -53,3 +53,6 @@ jobs:
       - name: Verify worktree lifecycle safety in synthetic Git repositories
         shell: powershell
         run: python .\scripts\Test-CodexWorktrees.py
+      - name: Validate independent Codex writer wave planning
+        shell: powershell
+        run: python .\scripts\Test-CodexWorktreeWave.py
