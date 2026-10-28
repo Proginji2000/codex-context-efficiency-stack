@@ -77,6 +77,27 @@ Some Codex versions fail to emit reliable spawn_agent events in exec JSONL despi
 
 The retries counter covers only additional turns visible through the CLI stream, not every internal retry. A timeout kills the invoked CLI process but does not establish that every descendant has exited: inspect relevant processes before attempting fresh runs or cleaning up.
 
+## Controlled single-call tool/delegation probe (only after offline diagnostics)
+
+If the existing pilot failed with **zero tracked edits**, but authentication, feature flags, AGENTS visibility, model catalog and native Doctor all pass, the old raw CLI output is unavailable. Do not rerun the complete A/B benchmark. A **single opt-in model invocation** can test whether the parent-and-worker pair can read a disposable marker using tool calls, without changing files.
+
+~~~powershell
+cd C:\Dev\codex-context-efficiency-stack
+python .\scripts\Test-Probe-CodexAB-Tools.py
+if ($LASTEXITCODE -ne 0) { throw 'Offline probe tests failed' }
+
+python .\scripts\Probe-CodexAB-Tools.py --pilot C:\Dev\codex-ab-pr14-pilot-v3 --output C:\Dev\codex-ab-tools-probe-v1 --timeout 90 --execute
+if ($LASTEXITCODE -ne 0) { Write-Warning 'Probe reported runtime failure: inspect the sanitized JSON only' }
+~~~
+
+This creates a **new disposable Git checkout** inside the probe directory and places a random 32-digit hexadecimal marker in \`marker.txt\`, not included in the model prompt. It uses the original isolated **baseline** Codex profile and Luna Medium, with \`--sandbox read-only --ephemeral\`. The parent is instructed to dispatch one \`luna-medium\` read-only worker to retrieve the marker. The script stops after **one invocation** (up to 90 seconds), never retries, never escalates permissions, never runs the candidate or reads unrelated files. Unlike the earlier A/B task, the fixture requires **no writes** during the model turn. This consumes model quota.
+
+Only allowlisted booleans, counters, exit code, timing and coarse error categories are displayed/saved in \`sanitized-probe-result.json\`. The synthetic marker is retained only in the disposable Git fixture as the test input; its **value is never printed or copied into the sanitized report**. Model replies, commands, stderr and raw Codex JSONL are never printed or persisted. A matching marker demonstrates the model got its contents somehow; **it does not independently prove that a worker, rather than the parent, did the read**, because V2 collaboration events may be missing from JSONL. An absent marker cannot by itself distinguish a tool-absence defect from model noncompliance; consult the sanitized classification and exit code.
+
+When running in an interactive PowerShell prompt, keep every \`if (...) { ... } else { ... }\` block in the **same invocation**, or omit \`else\`. The earlier detached \`else\` errors were shell parsing, not Codex errors.
+
+Do not modify or delete the failed \`pilot-v3\` evidence. If the single-call probe fails or remains ambiguous, prefer a tracked upstream bug with the sanitized signature over repeated trial-and-error model calls.
+
 ## No-quota probe for resolved Luna model and actual instruction discovery
 
 After confirming that both isolated homes report multi_agent=true but the original baseline still edited zero files, check two additional **read-only CLI debug surfaces** before spending any further model tokens:

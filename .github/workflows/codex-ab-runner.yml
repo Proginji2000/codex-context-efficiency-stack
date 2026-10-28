@@ -9,6 +9,8 @@ on:
       - 'scripts/Test-Check-CodexAB-Features.py'
       - 'scripts/Check-CodexAB-ModelPrompt.py'
       - 'scripts/Test-Check-CodexAB-ModelPrompt.py'
+      - 'scripts/Probe-CodexAB-Tools.py'
+      - 'scripts/Test-Probe-CodexAB-Tools.py'
       - '.github/workflows/codex-ab-runner.yml'
   push:
     branches: [main]
@@ -37,3 +39,6 @@ jobs:
       - name: Run offline model and prompt visibility tests
         shell: pwsh
         run: python .\scripts\Test-Check-CodexAB-ModelPrompt.py
+      - name: Validate bounded read-only probe (no model calls)
+        shell: pwsh
+        run: python .\scripts\Test-Probe-CodexAB-Tools.py
