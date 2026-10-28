@@ -91,6 +91,37 @@ def sanitized_report(workspace, exit_code, elapsed, approval="on-request", decla
     }
 
 
+def policy(args):
+    """No model call, no file write: display declared fields and planned CLI override."""
+    pilot = Path(args.pilot).expanduser().resolve(strict=True)
+    stored = runner.state(pilot)
+    home = pilot / "baseline-home"
+    if home.is_symlink() or (home / "config.toml").is_symlink():
+        raise ValueError("ISOLATED_PROFILE_INVALID")
+    if runner.digest(runner.read_file(home / "config.toml")) != stored.get("config_sha256"):
+        raise ValueError("ISOLATED_CONFIG_HASH_MISMATCH")
+    declared = declared_sandbox_policy(home)
+    if declared["windows_sandbox"] in ("disabled", "other_or_unrecognized"):
+        raise ValueError("WINDOWS_SANDBOX_UNSUPPORTED")
+    if declared["sandbox_mode"] == "danger-full-access":
+        raise ValueError("SANDBOX_MODE_FULL_ACCESS_DECLARED")
+    output = {
+        "mode": "read_only_policy_preflight",
+        "model_calls_made": 0,
+        "codex_version_checked": True,
+        "profile": "isolated_baseline",
+        "declared_policy": declared,
+        "planned_cli_override": {
+            "approval": "never",
+            "sandbox": "workspace-write",
+        },
+        "effective_runtime_permissions_verified": False,
+        "normal_user_config_modified": False,
+    }
+    print(json.dumps(output, ensure_ascii=True, indent=2))
+    return 0
+
+
 def run(args):
     if not args.execute:
         raise ValueError("EXPLICIT_EXECUTE_REQUIRED")
@@ -201,6 +232,8 @@ def inspect(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
+    p0 = sub.add_parser("policy", help="Read-only policy/CLI fingerprint preflight; no model.")
+    p0.add_argument("--pilot", required=True)
     p = sub.add_parser("run", help="One explicitly authorized interactive TUI invocation.")
     p.add_argument("--pilot", required=True)
     p.add_argument("--output", required=True)
@@ -212,6 +245,8 @@ def main(argv=None):
     q.add_argument("--output", required=True)
     args = parser.parse_args(argv)
     try:
+        if args.command == "policy":
+            return policy(args)
         return run(args) if args.command == "run" else inspect(args)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.TimeoutExpired):
         print("STOP: TUI_CANARY_PRECONDITION_OR_INSPECTION_FAILED; no private data printed.",
