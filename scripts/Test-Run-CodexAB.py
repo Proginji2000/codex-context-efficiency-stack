@@ -284,6 +284,56 @@ class RunnerTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 runner.inspect(Namespace(output=str(root)))
 
+    def test_inspect_distinguishes_no_edits_from_other_edits(self):
+        with tempfile.TemporaryDirectory() as dirname:
+            work = Path(dirname) / "test"
+            runner.make_fixture(work)
+            before = runner.verification_detail(work)
+            self.assertEqual(before["tracked_modified_file_count"], 0)
+            self.assertFalse(before["total_py_changed"])
+            self.assertFalse(before["unexpected_tracked_modifications"])
+            (work / "tests" / "test_total.py").write_text(
+                "import unittest\nfrom total import total\n", encoding="utf-8"
+            )
+            after = runner.verification_detail(work)
+            self.assertEqual(after["tracked_modified_file_count"], 1)
+            self.assertFalse(after["total_py_changed"])
+            self.assertTrue(after["unexpected_tracked_modifications"])
+
+    def test_safe_cli_metadata_does_not_echo_commands_secrets_or_errors(self):
+        raw = (
+            '{"type":"item.started","item":{"type":"command_execution",'
+            '"command":"echo PRIVATE_COMMAND_SENTINEL"}}\n'
+            '{"type":"item.completed","item":{"type":"command_execution",'
+            '"command":"echo PRIVATE_COMMAND_SENTINEL",'
+            '"aggregated_output":"PRIVATE_OUTPUT_SENTINEL"}}\n'
+            '{"type":"item.completed","item":{"type":"file_change",'
+            '"changes":[{"path":"PRIVATE_PATH_SENTINEL"}]}}\n'
+            '{"type":"item.completed","item":{"type":"collab_tool_call",'
+            '"receiver_thread_ids":["PRIVATE_THREAD_SENTINEL"]}}\n'
+            '{"type":"error","message":"PRIVATE_ERROR_SENTINEL"}\n'
+        )
+        result = runner.summarize_cli_events(
+            raw, "PRIVATE_STDERR_SENTINEL", 17)
+        self.assertEqual(result["cli_exit_code"], 17)
+        self.assertTrue(result["stderr_present"])
+        self.assertEqual(result["events"]["command_started"], 1)
+        self.assertEqual(result["events"]["command_completed"], 1)
+        self.assertEqual(result["events"]["file_changes_completed"], 1)
+        self.assertEqual(result["events"]["subagent_events_seen"], 1)
+        self.assertEqual(result["events"]["error_events_seen"], 1)
+        serialized = json.dumps(result)
+        for secret in ("PRIVATE_COMMAND_SENTINEL", "PRIVATE_OUTPUT_SENTINEL",
+                       "PRIVATE_PATH_SENTINEL", "PRIVATE_THREAD_SENTINEL",
+                       "PRIVATE_ERROR_SENTINEL", "PRIVATE_STDERR_SENTINEL"):
+            self.assertNotIn(secret, serialized)
+
+    def test_timeout_diagnostic_is_explicit_without_fake_exit_code(self):
+        data = runner.summarize_cli_events("", "", None, timed_out=True)
+        self.assertTrue(data["timed_out"])
+        self.assertIsNone(data["cli_exit_code"])
+        self.assertFalse(data["stderr_present"])
+
     def test_execute_opt_in_gate(self):
         from argparse import Namespace
         with self.assertRaises(ValueError):
