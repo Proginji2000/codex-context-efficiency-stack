@@ -305,17 +305,95 @@ def parse_events(text):
     return usage, delegated, valid, max(0, started - 1)
 
 
-def verify(path):
-    tests = call([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"],
-                 cwd=path)
+def verification_detail(path):
+    """Only fixed booleans and exit codes; never emit source, diffs or test output."""
+    if not path.is_dir() or not (path / ".git").is_dir():
+        raise ValueError("disposable trial repository not found")
+    # Prevent the investigator from causing incidental __pycache__ writes.
+    py_env = os.environ.copy()
+    py_env["PYTHONDONTWRITEBYTECODE"] = "1"
+    tests = call([sys.executable, "-B", "-m", "unittest",
+                  "discover", "-s", "tests", "-q"], cwd=path, env=py_env)
     check = call(["git", "diff", "--check"], cwd=path)
     tracked = call(["git", "diff", "--name-only"], cwd=path)
     untracked = call(["git", "ls-files", "--others", "--exclude-standard"], cwd=path)
-    actual = (path / "total.py").read_text(encoding="utf-8")
-    return (tests.returncode == 0 and check.returncode == 0
-            and tracked.stdout.splitlines() == ["total.py"]
-            and not untracked.stdout.strip()
-            and "prix * quantite" in actual)
+    target = path / "total.py"
+    actual = target.read_text(encoding="utf-8") if target.is_file() else ""
+    names = tracked.stdout.splitlines() if tracked.returncode == 0 else []
+    extra = untracked.stdout.splitlines() if untracked.returncode == 0 else []
+    result = {
+        "fixture_present": target.is_file() and (path / "tests" / "test_total.py").is_file(),
+        "unittest_pass": tests.returncode == 0,
+        "unittest_exit_code": tests.returncode,
+        "git_diff_check_pass": check.returncode == 0,
+        "modified_only_total_py": tracked.returncode == 0 and names == ["total.py"],
+        "no_untracked_files": untracked.returncode == 0 and not extra,
+        # A deliberately strict old condition. Equivalent valid arithmetic
+        # expressions may not contain these exact words in this order.
+        "old_literal_expression_present": "prix * quantite" in actual,
+    }
+    result["functional_and_scope_pass"] = all(result[key] for key in (
+        "fixture_present", "unittest_pass", "git_diff_check_pass",
+        "modified_only_total_py", "no_untracked_files",
+    ))
+    result["old_gate_would_pass"] = (result["functional_and_scope_pass"] and
+                                     result["old_literal_expression_present"])
+    return result
+
+
+def verify(path):
+    # Functionality and bounded diff are acceptance conditions; spelling
+    # of a mathematically equivalent expression is not.
+    return verification_detail(path)["functional_and_scope_pass"]
+
+
+def inspect(args):
+    """Read preserved anonymized results and recheck only disposable test files."""
+    root = Path(args.output).expanduser().resolve(strict=True)
+    data = json.loads((root / "anonymized-results.json").read_text(encoding="utf-8"))
+    if (not isinstance(data, dict) or data.get("schema_version") != 1 or
+            not isinstance(data.get("runs"), list) or not data["runs"]):
+        raise ValueError("missing or invalid anonymized trial report")
+    report = []
+    for item in data["runs"]:
+        if not isinstance(item, dict):
+            raise ValueError("invalid anonymized run")
+        arm = item.get("arm")
+        pair = item.get("pair")
+        if arm not in ARMS or type(pair) is not int or pair < 1 or pair > 3:
+            raise ValueError("invalid experiment label")
+        work = root / "workspaces" / ("pair-" + str(pair) + "-" + arm)
+        if work.is_symlink() or not work.is_dir():
+            raise ValueError("missing or redirected disposable workspace")
+        usage = item.get("usage", {})
+        if not isinstance(usage, dict):
+            raise ValueError("invalid anonymized counters")
+        inp = usage.get("input_tokens")
+        cache = usage.get("cached_input_tokens")
+        out = usage.get("output_tokens")
+        if (any(type(n) is not int or n < 0 for n in (inp, cache, out))
+                or cache > inp):
+            raise ValueError("invalid anonymized usage")
+        report.append({
+            "pair": pair,
+            "arm": arm,
+            "recorded_success": item.get("success") is True,
+            "delegation_event_observed": item.get("delegated") is True,
+            "parent_orchestration_independently_verified": False,
+            "input_tokens": inp,
+            "cached_input_tokens": cache,
+            "uncached_input_tokens": inp - cache,
+            "output_tokens": out,
+            "complete_turns": usage.get("complete_turns") if type(usage.get("complete_turns")) is int else None,
+            "elapsed_s": item.get("elapsed_s") if type(item.get("elapsed_s")) in (int, float) else None,
+            "cli_exit_code": "not recorded by original runner",
+            "verification": verification_detail(work),
+        })
+    print(json.dumps({"schema_version": 1,
+                      "note": "No model calls. Fixed diagnostics only, no source or raw Codex traces.",
+                      "runs_inspected": len(report),
+                      "runs": report}, indent=2))
+    return 0
 
 
 def run(args):
@@ -398,9 +476,11 @@ def main(argv=None):
             s.add_argument("--execute", action="store_true")
             s.add_argument("--pairs", type=int, default=3, choices=(1, 2, 3))
             s.add_argument("--timeout", type=int, default=300)
+    i = sub.add_parser("inspect", help="Recheck preserved trials without Codex or secrets")
+    i.add_argument("--output", required=True)
     args = parser.parse_args(argv)
     try:
-        return {"prepare": prepare, "status": status, "run": run}[args.command](args) or 0
+        return {"prepare": prepare, "status": status, "run": run, "inspect": inspect}[args.command](args) or 0
     except PrepareError as error:
         print("STOP [PREPARE]: " + str(error), file=sys.stderr)
         return 2
