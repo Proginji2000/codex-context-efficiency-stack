@@ -77,6 +77,23 @@ Some Codex versions fail to emit reliable spawn_agent events in exec JSONL despi
 
 The retries counter covers only additional turns visible through the CLI stream, not every internal retry. A timeout kills the invoked CLI process but does not establish that every descendant has exited: inspect relevant processes before attempting fresh runs or cleaning up.
 
+## Existing failed trial: inspect it without Codex quota
+
+If a pilot prints \`tests=FAIL\`, this combines several independent checks: Python unittest, Git diff whitespace, unexpected modified files, untracked files and an old literal-text assertion. It **does not** alone prove that Python tests failed.
+
+Do **not** immediately run another live trial or manually edit \`anonymized-results.json\`. On the same machine, after updating this repository, run:
+
+~~~powershell
+python .\scripts\Test-Run-CodexAB.py
+python .\scripts\Run-CodexAB.py inspect --output C:\Dev\codex-ab-pr14-pilot-v3
+~~~
+
+The \`inspect\` command only rechecks the disposable local test repository and reads the already-anonymized result. It launches **no Codex process**, does **not** call login, and does **not** consume model quota. It prints a fixed JSON object with the input/cached/uncached/output token counters plus separate **booleans** for test success, source-only change, Git whitespace check and untracked-file check. It does not print source files, test output, model messages, raw events or credentials.
+
+The previous acceptance gate also required the exact substring \`prix * quantite\`, so a mathematically equivalent fix such as \`quantite * prix\` could have been misclassified as FAIL. The updated runner uses functional tests plus bounded Git changes instead; \`inspect\` shows both the old literal gate and the corrected functional gate so an earlier result can be interpreted **without rewriting its original evidence**. A complete re-run still requires a new experiment directory and another explicit \`--execute\`.
+
+If the original command returned early, the saved run does **not** contain the Codex subprocess exit code or raw stderr. \`inspect\` cannot reconstruct those values. The reason for an **actual** model failure may therefore remain unproven without another separately authorized diagnostic; do not infer it from absent events.
+
 ## Step 4 — three paired trials (six real Codex invocations)
 
 After a successful first-pair pilot, create a **different new** output directory (example: C:\Dev\codex-ab-pr14-full), repeat preparation and separate authentication there, then:
