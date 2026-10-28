@@ -1,0 +1,29 @@
+name: Codex isolated A/B runner synthetic tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Run-CodexAB.py'
+      - 'scripts/Test-Run-CodexAB.py'
+      - '.github/workflows/codex-ab-runner.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Run-CodexAB.py'
+      - 'scripts/Test-Run-CodexAB.py'
+      - '.github/workflows/codex-ab-runner.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Run offline synthetic runner tests
+        shell: pwsh
+        run: python .\scripts\Test-Run-CodexAB.py
