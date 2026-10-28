@@ -7,6 +7,8 @@ on:
       - 'scripts/Test-Run-CodexAB.py'
       - 'scripts/Check-CodexAB-Features.py'
       - 'scripts/Test-Check-CodexAB-Features.py'
+      - 'scripts/Check-CodexAB-ModelPrompt.py'
+      - 'scripts/Test-Check-CodexAB-ModelPrompt.py'
       - '.github/workflows/codex-ab-runner.yml'
   push:
     branches: [main]
@@ -32,3 +34,6 @@ jobs:
       - name: Run offline isolated feature preflight tests
         shell: pwsh
         run: python .\scripts\Test-Check-CodexAB-Features.py
+      - name: Run offline model and prompt visibility tests
+        shell: pwsh
+        run: python .\scripts\Test-Check-CodexAB-ModelPrompt.py
