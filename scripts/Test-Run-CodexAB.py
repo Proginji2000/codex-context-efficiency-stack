@@ -78,11 +78,11 @@ class RunnerTests(unittest.TestCase):
                 "cli_version": "irrelevant"
             })
             # Patch only the local CLI version getter, never inspect user config.
-            original = runner.call
+            original = runner.call_codex
             try:
                 class Stub:
                     stdout = "irrelevant\n"
-                runner.call = lambda *a, **kw: Stub()
+                runner.call_codex = lambda *a, **kw: Stub()
                 runner.state(root)
                 (root / "candidate-home" / "AGENTS.md").write_text(
                     "changed", encoding="utf-8"
@@ -90,7 +90,7 @@ class RunnerTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     runner.state(root)
             finally:
-                runner.call = original
+                runner.call_codex = original
 
     def test_codex_home_isolation_drops_inherited_auth_and_db_paths(self):
         import os
@@ -172,6 +172,46 @@ class RunnerTests(unittest.TestCase):
                 b"baseline-only\n"
             )
             self.assertTrue((output / "benchmark-state.json").is_file())
+
+    def test_resolve_windows_npm_posix_shim_to_sibling_cmd(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as dirname:
+            root = Path(dirname)
+            posix_shim = root / "codex"
+            posix_shim.write_text("#!/bin/sh\n", encoding="utf-8")
+            cmd = root / "codex.cmd"
+            cmd.write_text("@echo off\r\n", encoding="utf-8")
+            with patch.object(runner.shutil, "which", side_effect=lambda key: (
+                str(posix_shim) if key == "codex" else None
+            )):
+                self.assertEqual(
+                    runner.resolve_codex_executable(windows=True), str(cmd)
+                )
+
+    def test_resolve_windows_powershell_ps1_to_sibling_cmd(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as dirname:
+            root = Path(dirname)
+            ps1 = root / "codex.ps1"
+            ps1.write_text("Write-Output test\n", encoding="utf-8")
+            cmd = root / "codex.cmd"
+            cmd.write_text("@echo off\r\n", encoding="utf-8")
+            with patch.object(runner.shutil, "which", return_value=str(ps1)):
+                self.assertEqual(
+                    runner.resolve_codex_executable(windows=True), str(cmd)
+                )
+
+    @unittest.skipUnless(__import__("os").name == "nt", "Windows native launcher regression")
+    def test_windows_explicit_cmd_can_launch_version_without_shell(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as dirname:
+            cmd = Path(dirname) / "codex.cmd"
+            cmd.write_bytes(b"@echo off\r\necho codex-cli-synthetic 0.164.0\r\n")
+            with patch.object(runner, "resolve_codex_executable",
+                              return_value=str(cmd)):
+                proc = runner.call_codex(["--version"])
+            self.assertEqual(proc.returncode, 0)
+            self.assertIn("codex-cli-synthetic", proc.stdout)
 
     def test_execute_opt_in_gate(self):
         from argparse import Namespace
