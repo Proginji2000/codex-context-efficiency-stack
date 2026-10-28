@@ -1,0 +1,38 @@
+name: P1.2 Codex MCP tool-surface inventory (offline)
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Get-CodexToolSurfaceInventory.py'
+      - 'scripts/Test-CodexToolSurfaceInventory.py'
+      - 'scripts/Get-CodexMcpPolicyAudit.py'
+      - 'docs/CODEX_TOOL_SURFACE_INVENTORY_P1_2.md'
+      - '.github/workflows/codex-tool-surface-inventory.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Get-CodexToolSurfaceInventory.py'
+      - 'scripts/Test-CodexToolSurfaceInventory.py'
+      - 'scripts/Get-CodexMcpPolicyAudit.py'
+      - 'docs/CODEX_TOOL_SURFACE_INVENTORY_P1_2.md'
+      - '.github/workflows/codex-tool-surface-inventory.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Verify static MCP policy audit
+        run: python scripts/Test-CodexMcpPolicyAudit.py
+      - name: Verify anonymized tool-surface report
+        run: python scripts/Test-CodexToolSurfaceInventory.py
