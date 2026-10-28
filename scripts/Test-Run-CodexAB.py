@@ -111,6 +111,68 @@ class RunnerTests(unittest.TestCase):
                     self.assertNotIn(name, env)
                 self.assertEqual(os.environ["OPENAI_API_KEY"], "PRIVATE_KEY_SENTINEL")
 
+    def test_existing_output_yields_safe_precise_error(self):
+        from argparse import Namespace
+        with tempfile.TemporaryDirectory() as dirname:
+            with self.assertRaisesRegex(runner.PrepareError, "OUTPUT_ALREADY_EXISTS"):
+                runner.prepare(Namespace(
+                    repo=str(Path(__file__).resolve().parent.parent),
+                    output=dirname, baseline=None, candidate_file=None
+                ))
+
+    def test_missing_global_agents_keeps_output_uncreated(self):
+        from argparse import Namespace
+        with tempfile.TemporaryDirectory() as dirname:
+            root = Path(dirname)
+            target = root / "not-created"
+            with self.assertRaisesRegex(runner.PrepareError, "BASELINE_UNAVAILABLE"):
+                runner.prepare(Namespace(
+                    repo=str(Path(__file__).resolve().parent.parent),
+                    output=str(target), baseline=str(root / "missing-AGENTS.md"),
+                    candidate_file=None
+                ))
+            self.assertFalse(target.exists())
+
+    def test_pinned_git_candidate_preferred_without_https(self):
+        from argparse import Namespace
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as dirname:
+            work = Path(dirname)
+            repo = work / "repo"
+            (repo / "templates" / "agents").mkdir(parents=True)
+            (repo / "templates" / "config.routing.snippet.toml").write_text(
+                "[agents]\nenabled = true\n", encoding="utf-8")
+            for role in runner.ROLES:
+                (repo / "templates" / "agents" / (role + ".toml")).write_text(
+                    "model = 'gpt-6-luna'\n", encoding="utf-8")
+            baseline = work / "original-AGENTS.md"
+            baseline.write_bytes(b"baseline-only\n")
+            output = work / "pilot"
+            class LocalObject:
+                returncode = 0
+                stdout = b"candidate-from-pinned-commit\n"
+            class CliVersion:
+                returncode = 0
+                stdout = "codex-cli 0.164.0\n"
+            with (patch.object(runner.subprocess, "run", return_value=LocalObject()),
+                  patch.object(runner.shutil, "which", return_value="codex.exe"),
+                  patch.object(runner, "call", return_value=CliVersion()),
+                  patch.object(runner.urllib.request, "urlopen",
+                               side_effect=AssertionError("HTTPS must not be used"))):
+                runner.prepare(Namespace(
+                    repo=str(repo), output=str(output),
+                    baseline=str(baseline), candidate_file=None
+                ))
+            self.assertEqual(
+                (output / "candidate-home" / "AGENTS.md").read_bytes(),
+                b"candidate-from-pinned-commit\n"
+            )
+            self.assertEqual(
+                (output / "baseline-home" / "AGENTS.md").read_bytes(),
+                b"baseline-only\n"
+            )
+            self.assertTrue((output / "benchmark-state.json").is_file())
+
     def test_execute_opt_in_gate(self):
         from argparse import Namespace
         with self.assertRaises(ValueError):
