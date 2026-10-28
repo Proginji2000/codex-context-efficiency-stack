@@ -5,6 +5,8 @@ on:
     paths:
       - 'scripts/Run-CodexAB.py'
       - 'scripts/Test-Run-CodexAB.py'
+      - 'scripts/Check-CodexAB-Features.py'
+      - 'scripts/Test-Check-CodexAB-Features.py'
       - '.github/workflows/codex-ab-runner.yml'
   push:
     branches: [main]
@@ -27,3 +29,6 @@ jobs:
       - name: Run offline synthetic runner tests
         shell: pwsh
         run: python .\scripts\Test-Run-CodexAB.py
+      - name: Run offline isolated feature preflight tests
+        shell: pwsh
+        run: python .\scripts\Test-Check-CodexAB-Features.py
