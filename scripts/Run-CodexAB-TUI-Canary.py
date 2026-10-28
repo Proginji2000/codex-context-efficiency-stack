@@ -204,6 +204,12 @@ def diagnose(args):
             result["baseline_candidate_config_bytes_match"] = False
             result["candidate_config_matches_record"] = False
             result["baseline_candidate_config_semantics_match"] = False
+        try:
+            validate_baseline_config_snapshot(
+                pilot, state_data, allow_sandbox_key_drift=True)
+            result["mxc_sandbox_drift_eligible"] = True
+        except (OSError, ValueError, UnicodeError):
+            result["mxc_sandbox_drift_eligible"] = False
         result["preflight_ready"] = all(
             result.get(field) is True for field in (
                 "experiment_state_valid", "baseline_agents_match",
