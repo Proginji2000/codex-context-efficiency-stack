@@ -118,8 +118,9 @@ def summarize(stdout, stderr, exit_code, marker, elapsed, workspace, timed_out):
             "Missing JSONL collaboration events are inconclusive."
         ),
         "privacy": (
-            "No source, marker value, raw model messages, commands, stderr, "
-            "JSONL, auth data or session files are saved."
+            "The synthetic marker exists only in the disposable Git fixture; "
+            "it is never included in sanitized results. No raw model messages, "
+            "commands, stderr, JSONL, auth or session contents are saved."
         ),
     }
 
@@ -176,6 +177,7 @@ def probe(args):
     runner.save_json(root / "sanitized-probe-result.json", report)
     print(json.dumps(report, indent=2, sort_keys=True))
     if (timed_out or code != 0 or not report["json_stream_valid"]
+            or not report["marker_seen_in_final"]
             or not report["disposable_workspace_unchanged"]):
         return 1
     return 0
