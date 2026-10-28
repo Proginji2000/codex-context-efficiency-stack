@@ -213,6 +213,74 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
             self.assertIn("codex-cli-synthetic", proc.stdout)
 
+    def test_equivalent_arithmetic_passes_functional_gate(self):
+        with tempfile.TemporaryDirectory() as dirname:
+            work = Path(dirname) / "equivalent"
+            runner.make_fixture(work)
+            (work / "total.py").write_text(
+                "def total(lignes):\n    return sum(quantite * prix for prix, quantite in lignes)\n",
+                encoding="utf-8")
+            detail = runner.verification_detail(work)
+            self.assertTrue(detail["unittest_pass"])
+            self.assertTrue(detail["functional_and_scope_pass"])
+            self.assertFalse(detail["old_literal_expression_present"])
+            self.assertFalse(detail["old_gate_would_pass"])
+            self.assertTrue(runner.verify(work))
+
+    def test_inspect_failed_trial_no_codex_no_source_echo(self):
+        from argparse import Namespace
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as dirname:
+            root = Path(dirname)
+            runner.make_fixture(root / "workspaces" / "pair-1-baseline")
+            fixture = {
+                "schema_version": 1,
+                "runs": [{
+                    "pair": 1, "arm": "baseline",
+                    "success": False, "delegated": False,
+                    "elapsed_s": 12.0,
+                    "usage": {
+                        "input_tokens": 114680, "cached_input_tokens": 100000,
+                        "output_tokens": 234, "complete_turns": 1
+                    },
+                }],
+            }
+            (root / "anonymized-results.json").write_text(
+                json.dumps(fixture), encoding="utf-8")
+            output = StringIO()
+            with (patch.object(runner, "call_codex",
+                               side_effect=AssertionError("No model invocation allowed")),
+                  redirect_stdout(output)):
+                self.assertEqual(
+                    runner.inspect(Namespace(output=str(root))), 0)
+            report = json.loads(output.getvalue())
+            first = report["runs"][0]
+            self.assertEqual(first["uncached_input_tokens"], 14680)
+            self.assertEqual(first["input_tokens"], 114680)
+            self.assertFalse(first["verification"]["unittest_pass"])
+            self.assertFalse(first["recorded_success"])
+            self.assertNotIn("total(lignes)", output.getvalue())
+            self.assertNotIn("auth.json", output.getvalue())
+
+    def test_inspect_rejects_workspace_symlink(self):
+        from argparse import Namespace
+        with tempfile.TemporaryDirectory() as dirname:
+            root = Path(dirname)
+            (root / "workspaces").mkdir()
+            (root / "workspaces" / "pair-1-baseline").symlink_to(
+                root, target_is_directory=True)
+            (root / "anonymized-results.json").write_text(json.dumps({
+                "schema_version": 1, "runs": [{
+                    "pair": 1, "arm": "baseline",
+                    "usage": {"input_tokens": 1, "cached_input_tokens": 0,
+                              "output_tokens": 1}
+                }]
+            }), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                runner.inspect(Namespace(output=str(root)))
+
     def test_execute_opt_in_gate(self):
         from argparse import Namespace
         with self.assertRaises(ValueError):
