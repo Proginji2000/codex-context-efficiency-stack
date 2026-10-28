@@ -59,6 +59,11 @@ def call(args, *, cwd=None, env=None, timeout=40):
 
 def home_env(root, arm):
     env = os.environ.copy()
+    # Avoid inheriting auth-provider overrides or redirecting SQLite/session state.
+    # Each run must use its own CODEX_HOME credentials and state stores.
+    for key in ("CODEX_SQLITE_HOME", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN",
+                "OPENAI_API_KEY", "OPENAI_BASE_URL"):
+        env.pop(key, None)
     env["CODEX_HOME"] = str(root / (arm + "-home"))
     return env
 

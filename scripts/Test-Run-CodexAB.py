@@ -92,6 +92,25 @@ class RunnerTests(unittest.TestCase):
             finally:
                 runner.call = original
 
+    def test_codex_home_isolation_drops_inherited_auth_and_db_paths(self):
+        import os
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as dirname:
+            root = Path(dirname)
+            with patch.dict(os.environ, {
+                "CODEX_SQLITE_HOME": "UNSAFE_SHARED_DB",
+                "OPENAI_API_KEY": "PRIVATE_KEY_SENTINEL",
+                "CODEX_API_KEY": "PRIVATE_KEY_SENTINEL",
+                "CODEX_ACCESS_TOKEN": "PRIVATE_KEY_SENTINEL",
+                "OPENAI_BASE_URL": "https://example.invalid",
+            }):
+                env = runner.home_env(root, "baseline")
+                self.assertEqual(env["CODEX_HOME"], str(root / "baseline-home"))
+                for name in ("CODEX_SQLITE_HOME", "OPENAI_API_KEY",
+                             "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "OPENAI_BASE_URL"):
+                    self.assertNotIn(name, env)
+                self.assertEqual(os.environ["OPENAI_API_KEY"], "PRIVATE_KEY_SENTINEL")
+
     def test_execute_opt_in_gate(self):
         from argparse import Namespace
         with self.assertRaises(ValueError):
