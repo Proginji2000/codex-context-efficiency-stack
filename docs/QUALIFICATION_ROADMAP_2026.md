@@ -1,4 +1,4 @@
-# Feuille de route de qualification Codex, dashboards et VM isolee
+# Feuille de route de qualification Codex, outillage UI/dashboard et VM isolee
 
 **Reference : 28 octobre 2026.** Projet : `codex-context-efficiency-stack`. Ce document est un backlog vivant : ajouter de nouveaux P1/P2/P3 apres les resultats sans retrograder des blocages connus. Priorite = importance et dependances, pas pourcentage d'avancement ni date de livraison.
 
@@ -43,10 +43,10 @@ Maximiser le **travail de developpement reussi et verifie par unite de quota et 
 | P1.2 | Expliquer les **258 outils `codex_apps`**, plus `codex_tui`/`cua_repl` et doublons MCP, sans desactiver aveuglement les outils utilisateur | Inventaire par famille, provenance, outils effectivement exposes aux tours; configuration scopee ou profil code-only uniquement si A/B justifie |
 | P1.3 | Benchmark reel des profils `git/code/docs/ui` de la PR #20 | Memes taches reussies avec et sans restrictions, sans MCP necessaire manquant; aucun gain quota invente |
 | P1.4 | Qualifier l'autocorrection et les permissions | Test volontaire de fail local recouvrable, diagnostic autonome, correction, tests relances, zero escalade inutile; blocage securite non contourne |
-| P1.5 | **Dashboard skill pilote** : reutiliser `ui-implementer` + `frontend-design`, comparer un skill specialise shadcn/ui **au seul skill existant**, sur un projet React jetable | Vrai dashboard avec KPIs, filtres, etats vide/erreur, graphes, ergonomie mobile, a11y; build, tests et captures Playwright; aucune nouvelle dependance globale par defaut |
+| P1.5 | **Outillage optionnel UI/dashboard** : qualifier `ui-implementer`, `frontend-design`, skill et MCP shadcn/ui, Playwright et choix de bibliotheques de graphiques pour les **vrais besoins de developpement** | Matrice outil/usage, versions/compatibilite, chargement a la demande et retour arriere ; aucune application ou dashboard fictif lance sans besoin reel ni validation explicite |
 | P1.6 | Metriques de qualite et quota par tache (CSV/report existant, enrichissement si verifie) | Temps reel, 1er essai, retries, escalades, erreurs de permissions, outils appeles et usage expose; pas de scraping de sessions privees |
 
-**Gate P1** : reduction de contexte sans degradation, outil dashboard valide, premiers gains prouves au lieu de supposes.
+**Gate P1** : reduction de contexte sans degradation, outillage UI/dashboard disponible a la demande et sans surcharge globale ; gains seulement lorsqu'ils sont mesures sur un usage reel.
 
 ## P2 — Autonomie durable et fiabilite de l'ecosysteme
 
@@ -55,8 +55,8 @@ Maximiser le **travail de developpement reussi et verifie par unite de quota et 
 | P2.1 | Deux workers **Codex reels** dans deux worktrees propres sur depot jetable; integrations et cleanup controle | Trace de deux sous-agents, perimetres exclusifs, tests, controle des changements, integration verifiee; branche conservee; pas de suppression forcee |
 | P2.2 | Boucle multi-essais bornee, reprise d'echec, gestion des threads satures | Diagnostic une fois, retry borne, reutilisation des workers ou stop propre, pas de parent takeover |
 | P2.3 | Diagnostiquer `oracle_reflex` (server `failed`) | Cause locale redigee sans secrets; retour a un `connected` et appel non destructif **uniquement dans un environnement autorise**, ou desactivation scopee apres decision |
-| P2.4 | Qualification du worker UI et de Playwright sur un dashboard complet | Traces d'utilisation reelle de `ui-implementer`, skill charge si installe, screenshots et interaction, acces clavier, responsive, composants testes |
-| P2.5 | Capacites de graphiques selon le type de dashboard | React produit : shadcn/ui Charts (Recharts); grandes series/temps reel : ECharts sous benchmark; metriques d'infrastructure : Grafana. Ne pas installer les trois sur tous les projets |
+| P2.4 | Qualification conditionnelle du worker UI et de Playwright sur une **tache frontend reellement demandee** | Traces d'utilisation reelle de `ui-implementer` et du skill pertinent, build/tests, interactions, clavier et responsive adaptes au projet ; aucun dashboard de demonstration obligatoire |
+| P2.5 | Selection conditionnelle d'outils et de bibliotheques de graphiques | Recharts/shadcn pour une application React si adapte, ECharts pour besoins avances, Grafana pour supervision ; conserver une regle de choix, ne rien installer sans besoin |
 | P2.6 | Assurance GitHub et securite avant PR, tests isolés, Gitleaks si disponible | Gate de revue independante, statuts CI, fichiers secrets rediges, aucune modification de projets proteges sans delegation explicite |
 | P2.7 | Reprise et handoffs longs / interruptions / etats obsoletes | Worker retrouve Git/STATE/PR/test, detecte contradictions, aucune perte de travail ou recomputation systematique |
 | P2.8 | Verification des mises a jour de Codex CLI et des plugins sans migration precipitée | Journal versions, compatibilite role/MCP/sandbox, test canary, retour arriere |
@@ -92,31 +92,26 @@ Le futur objectif utilisateur est un environnement **Codex avec acces etendu a l
 ## P5 — Extensions si les mesures les justifient
 
 - Spec Kit pour grands projets a exigences ambiguës : installation par projet, jamais pour micro-corrections.
-- Skill dashboard avance / registry privee, eventuel MCP shadcn **scope au projet** (apres le test du skill et mesure du contexte); ne pas ajouter un MCP global par defaut.
-- Visualisation temps reel des marches et des points de trade, exploitation et KPI WMS/WSR, dashboard Proxmox/Grafana : cas d'usage de validation distincts, sans connecter de donnees sensibles a des services non approuves.
+- Skill UI/dashboard avance et MCP shadcn eventuel, **uniquement a la demande d'un projet** (apres examen du besoin et du cout de contexte); pas de MCP global par defaut.
+- Si une demande future le justifie : visualisation des marches, KPI WMS/WSR ou supervision Proxmox/Grafana ; aucun de ces dashboards n'est un livrable de qualification du stack en soi.
 - Comparaisons de routeurs ou petits modeles decisionnels, plus grand context window, compression/context proxy : seulement avec donnees A/B positives.
 - Alignement eventuel Claude Code et documentation multi-plateformes apres stabilisation.
 - Journal d'evaluation des nouveaux chantiers P2/P3 decouverts en cours de tests : leur classification peut evoluer selon la gravite.
 
-## Proposition initiale de stack dashboard
+## Catalogue d'outils UI/dashboard a declencher sur demande
 
-**Choix recommande** :
-1. Pour un dashboard d'application React : conserver `ui-implementer` + `frontend-design` (skill existant), evaluer d'abord le **skill officiel shadcn/ui**, composant Charts/Recharts et Playwright; scope par projet.
-2. En cas de besoin de gros flux de donnees et graphiques interactifs haute frequence, evaluer **Apache ECharts** par benchmark sur le vrai volume; ce n'est pas automatiquement un MCP.
-3. Pour supervision Proxmox, services et runners : **Grafana** avec tableaux versionnes, sans en faire un framework UI d'app.
-4. Le **MCP shadcn/ui** officiel sait chercher et installer des composants de registres, mais reste **facultatif** : d'abord prouver l'insuffisance du skill, puis mesurer le schema/tool overhead avant toute connexion. Ne pas dupliquer CRG/Context7 inutilement.
+Ce point concerne les **outils mis a disposition des agents**, et pas la production d'un tableau de bord de demonstration. Voir `docs/DASHBOARD_DEVELOPMENT_TOOLING_P1_5.md`.
 
-Sources officielles (revues le 28 octobre 2026) :
-- https://ui.shadcn.com/docs/skills
-- https://ui.shadcn.com/docs/mcp
-- https://ui.shadcn.com/docs/components/base/chart
-- https://echarts.apache.org/handbook/en/get-started/
-- https://grafana.com/docs/grafana/latest/administration/provisioning/
-- https://learn.chatgpt.com/docs/agent-approvals-security
-- https://developers.openai.com/api/docs/guides/agents-api/environments/security
+1. `ui-implementer` + `frontend-design` sont la base existante pour une tache UI.
+2. Le skill officiel shadcn/ui et, si necessaire, son MCP peuvent aider a trouver les composants et registres ; les qualifier sans chargement global permanent.
+3. Playwright sert a verifier une interface developpee lorsque la tache le justifie ; pas d'execution de navigateur hors tache UI.
+4. Recharts / shadcn Charts, ECharts et Grafana sont des choix de **bibliotheques ou plateforme**, selon la stack et le besoin ; pas des MCP universels ni des prerequis pour tout projet.
+5. Le choix, l'installation et la mesure restent soumis a un projet concret et a ses criteres d'acceptation. Ne pas developer un dashboard simplement pour valider l'outillage.
+
+Sources documentaires : https://ui.shadcn.com/docs/skills ; https://ui.shadcn.com/docs/mcp ; https://playwright.dev/docs/intro ; https://echarts.apache.org/ ; https://grafana.com/docs/grafana/latest/
 
 ## Prochaine action technique
 
-Commencer par P0.2/P1.1 **sans installer d'outil supplementaire** : definir un protocole A/B reproductible de la PR #14 a partir des traces deja disponibles, puis choisir une tache courte et non sensible sous quota consenti. En parallele (sans appel de modele), inventorier les familles `codex_apps` observables et etablir le pilote dashboard sur projet neuf; ne rien desactiver tant que l'impact n'est pas mesure.
+Le blocage P1.1 de delegation sur `codex exec` est suivi dans l'issue #34 ; la PR #14 reste ouverte. P1.2 : audit de la configuration MCP local deja valide ; exposition effective des outils encore inconnue. P1.5 : qualifier les outils de developpement de dashboards **sans creer de dashboard** ni installer de composants globalement ; documentation : `docs/DASHBOARD_DEVELOPMENT_TOOLING_P1_5.md`. Tester sur un projet reel uniquement quand une demande UI le justifie.
 
 **Definition de done globale** : Codex reussit des taches reelles, delegue aux bons workers, corrige les erreurs ordinaires, preserve les permissions/secrets et les projets, mesure les effets sur quota/temps et reste recuperable apres crash ou interruption. Un pilote VM full-access n'est admissible qu'apres toutes les gates precedentes.
