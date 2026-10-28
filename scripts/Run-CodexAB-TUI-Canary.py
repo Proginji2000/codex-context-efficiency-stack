@@ -59,7 +59,7 @@ def declared_sandbox_policy(home):
         elif isinstance(value, str) and value in {
             "never", "on-request", "untrusted", "on-failure",
             "read-only", "workspace-write", "danger-full-access",
-            "elevated", "unelevated", "disabled",
+            "elevated", "unelevated", "disabled", "mxc",
         }:
             output[name] = value
         else:
@@ -67,7 +67,8 @@ def declared_sandbox_policy(home):
     return output
 
 
-def sanitized_report(workspace, exit_code, elapsed, approval="on-request", declared_policy=None):
+def sanitized_report(workspace, exit_code, elapsed, approval="on-request",
+                     declared_policy=None, windows_sandbox=None):
     checks = runner.verification_detail(workspace)
     # No TUI tool/event stream is available to this wrapper; evidence from the
     # interactive UI must be assessed separately, never synthesized.
@@ -77,6 +78,7 @@ def sanitized_report(workspace, exit_code, elapsed, approval="on-request", decla
         "model": MODEL,
         "sandbox": "workspace-write",
         "approval_policy_override_requested": approval,
+        "windows_sandbox_override_requested": windows_sandbox or "none",
         "declared_policy": declared_policy,
         "policy_effectiveness": "not_runtime_attested",
         "codex_cli_exit_code": exit_code,
@@ -100,7 +102,8 @@ SAFE_ERROR_CODES = frozenset({
     "MODEL_MISMATCH", "BENCHMARK_CONFIG_MISMATCH",
     "ISOLATED_PROFILE_REQUIRES_LOGIN", "CODEX_NOT_FOUND",
     "APPROVAL_POLICY_INVALID", "TUI_CANARY_NOT_FOUND",
-    "WINDOWS_CONFIG_INVALID",
+    "WINDOWS_CONFIG_INVALID", "WINDOWS_SANDBOX_OVERRIDE_UNSUPPORTED",
+    "WINDOWS_SANDBOX_OVERRIDE_REQUIRES_WINDOWS",
 })
 STATE_ERROR_CODES = {
     "invalid experiment state": "EXPERIMENT_STATE_INVALID",
@@ -249,6 +252,11 @@ def run(args):
     pilot, output = validate_paths(args.pilot, args.output, args.repo)
     stored = runner.state(pilot)
     approval = getattr(args, "approval", "on-request")
+    windows_sandbox = getattr(args, "windows_sandbox", None)
+    if windows_sandbox not in (None, "mxc"):
+        raise ValueError("WINDOWS_SANDBOX_OVERRIDE_UNSUPPORTED")
+    if windows_sandbox == "mxc" and os.name != "nt":
+        raise ValueError("WINDOWS_SANDBOX_OVERRIDE_REQUIRES_WINDOWS")
     if approval not in ("never", "on-request"):
         raise ValueError("APPROVAL_POLICY_INVALID")
     if stored.get("model") != MODEL:
@@ -285,6 +293,7 @@ def run(args):
         "model": MODEL,
         "workspace_seeded": True,
         "approval_policy_override_requested": approval,
+        "windows_sandbox_override_requested": windows_sandbox or "none",
         "declared_policy": declared,
     })
     env = runner.home_env(pilot, "baseline")
@@ -310,10 +319,14 @@ def run(args):
         executable, "--cd", str(workspace),
         "--model", MODEL, "--sandbox", "workspace-write",
         "--ask-for-approval", approval,
-        "-c", "model_reasoning_effort=medium", prompt,
     ]
+    if windows_sandbox == "mxc":
+        # One-shot native Windows sandbox selection, no TOML or admin change.
+        cmd += ["-c", "windows.sandbox=mxc"]
+    cmd += ["-c", "model_reasoning_effort=medium", prompt]
     print("START: launching interactive Codex TUI, exactly one disposable task.", flush=True)
-    print("SAFE_POLICY: sandbox=workspace-write approval_override=" + approval, flush=True)
+    print("SAFE_POLICY: sandbox=workspace-write approval_override=" + approval +
+          " windows_sandbox_override=" + (windows_sandbox or "none"), flush=True)
     print("CONFIG_DECLARED: " + json.dumps(declared, sort_keys=True), flush=True)
     if approval == "never":
         print("STOP if Windows UAC/admin/sandbox provisioning prompts appear. Do not approve elevation.", flush=True)
@@ -326,7 +339,8 @@ def run(args):
     except OSError:
         code = None
     elapsed = time.monotonic() - started
-    report = sanitized_report(workspace, code, elapsed, approval, declared)
+    report = sanitized_report(workspace, code, elapsed, approval, declared,
+                              windows_sandbox)
     runner.save_json(output / "sanitized-tui-result.json", report)
     print(json.dumps(report, ensure_ascii=True, indent=2), flush=True)
     return 0 if code == 0 and report["functional_and_scope_pass"] else 1
@@ -364,6 +378,8 @@ def main(argv=None):
     p.add_argument("--execute", action="store_true")
     p.add_argument("--approval", choices=("on-request", "never"),
                    default="on-request", help="Override approvals for only this TUI invocation.")
+    p.add_argument("--windows-sandbox", choices=("mxc",), default=None,
+                   help="Windows only: one-shot MXC, without modifying config.toml.")
     q = sub.add_parser("inspect", help="Offline deterministic post-TUI check.")
     q.add_argument("--output", required=True)
     args = parser.parse_args(argv)

@@ -349,6 +349,91 @@ class TuiCanaryTests(unittest.TestCase):
             self.assertEqual(report["policy_effectiveness"], "not_runtime_attested")
             self.assertFalse(report["worker_delegation_independently_verified"])
 
+    @unittest.skipUnless(os.name == "nt", "MXC override only supported on Windows")
+    def test_explicit_mxc_override_is_one_shot_and_keeps_config_unchanged(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            repo = root / "repo"
+            repo.mkdir()
+            pilot = root / "pilot"
+            home = pilot / "baseline-home"
+            home.mkdir(parents=True)
+            config = b"[agents]\nenabled=true\n"
+            (home / "config.toml").write_bytes(config)
+            output = root / "mxc"
+            calls = []
+            original = subprocess.run
+
+            def fake_subprocess(cmd, **kwargs):
+                if cmd[0] == "git" or cmd[0] == sys.executable:
+                    return original(cmd, **kwargs)
+                calls.append(cmd)
+                self.assertIn("windows.sandbox=mxc", cmd)
+                self.assertEqual(cmd.count("windows.sandbox=mxc"), 1)
+                self.assertEqual(cmd[cmd.index("--sandbox") + 1],
+                                 "workspace-write")
+                self.assertEqual(cmd[cmd.index("--ask-for-approval") + 1],
+                                 "never")
+                self.assertEqual(cmd[0], "fake-codex.cmd")
+                self.assertNotIn("--yolo", cmd)
+                self.assertNotIn("danger-full-access", cmd)
+                self.assertEqual(Path(kwargs["env"]["CODEX_HOME"]).resolve(),
+                                 home.resolve())
+                work = Path(kwargs["cwd"])
+                (work / "total.py").write_text(
+                    "def total(lignes):\n"
+                    "    return sum(prix * quantite for prix, quantite in lignes)\n",
+                    encoding="utf-8")
+                return SimpleNamespace(returncode=0)
+
+            with (patch.object(app.runner, "state", return_value={
+                    "model": "gpt-6-luna", "reasoning_effort": "medium",
+                    "sandbox": "workspace-write",
+                    "config_sha256": app.runner.digest(config),
+                }),
+                  patch.object(app.runner, "call_codex",
+                               return_value=SimpleNamespace(returncode=0)),
+                  patch.object(app.runner, "resolve_codex_executable",
+                               return_value="fake-codex.cmd"),
+                  patch.object(app.subprocess, "run", side_effect=fake_subprocess),
+                  patch("sys.stdout")):
+                status = app.run(Namespace(
+                    pilot=str(pilot), output=str(output), repo=str(repo),
+                    execute=True, approval="never", windows_sandbox="mxc"))
+
+            self.assertEqual(status, 0)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual((home / "config.toml").read_bytes(), config)
+            result = json.loads(
+                (output / "sanitized-tui-result.json").read_text(encoding="utf-8"))
+            self.assertEqual(result["windows_sandbox_override_requested"], "mxc")
+            self.assertEqual(result["approval_policy_override_requested"], "never")
+            self.assertTrue(result["functional_and_scope_pass"])
+            self.assertFalse(result["worker_delegation_independently_verified"])
+
+    def test_invalid_windows_sandbox_override_fails_before_launch(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            repo = root / "repo"
+            repo.mkdir()
+            pilot = root / "pilot"
+            home = pilot / "baseline-home"
+            home.mkdir(parents=True)
+            (home / "config.toml").write_text("[agents]\nenabled=true\n",
+                                               encoding="utf-8")
+            with (patch.object(app.runner, "state", return_value={
+                    "model": "gpt-6-luna", "reasoning_effort": "medium",
+                    "sandbox": "workspace-write",
+                }), patch.object(app.runner, "call_codex",
+                                 side_effect=AssertionError("no CLI calls"))):
+                with self.assertRaisesRegex(
+                        ValueError, "WINDOWS_SANDBOX_OVERRIDE_UNSUPPORTED"):
+                    app.run(Namespace(
+                        pilot=str(pilot), output=str(root / "out"),
+                        repo=str(repo), execute=True, approval="never",
+                        windows_sandbox="disabled"))
+            self.assertFalse((root / "out").exists())
+
     def test_readonly_policy_preflight_reports_no_runtime_attestation(self):
         with tempfile.TemporaryDirectory() as name:
             base = Path(name)
