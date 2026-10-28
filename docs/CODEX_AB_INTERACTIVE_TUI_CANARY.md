@@ -79,9 +79,13 @@ La commande suivante ne lance aucun agent, n'écrit aucun fichier et ne lit que 
 python .\scripts\Run-CodexAB-TUI-Canary.py diagnose --pilot 'C:\Dev\codex-ab-pr14-pilot-v3'
 ~~~
 
-Le rapport affiche des booléens `baseline_agents_match`, `candidate_agents_match`, `routing_config_match`, `cli_version_matches`, `toml_parseable` et `preflight_ready`. Il n'affiche **ni empreintes brutes, ni contenu de fichiers, ni logs/session/auth**. Le mode `policy` renvoie désormais un code d'échec prédéfini (`ISOLATED_CONFIG_HASH_MISMATCH`, `CODEX_VERSION_CHANGED`, etc.) au lieu d'une chaîne générique.
+Le rapport affiche des booléens `baseline_agents_match`, `candidate_agents_match`, `routing_config_match`, `cli_version_matches`, `toml_parseable` et `preflight_ready`. Il distingue maintenant aussi les cas suivants : `baseline_candidate_config_bytes_match`, `baseline_candidate_config_semantics_match` et `candidate_config_matches_record`. Les comparaisons ne révèlent aucun contenu ni empreinte. Il n'affiche **ni empreintes brutes, ni contenu de fichiers, ni logs/session/auth**. Le mode `policy` renvoie désormais un code d'échec prédéfini (`ISOLATED_CONFIG_HASH_MISMATCH`, `CODEX_VERSION_CHANGED`, etc.) au lieu d'une chaîne générique.
 
 - `routing_config_match=false` indique que le TOML baseline n'est pas identique au snapshot de préparation ; ne pas contourner la protection ni écraser l'ancien profil, car cela casserait la reproductibilité.
+- Si `candidate_config_matches_record=true` mais `baseline_candidate_config_bytes_match=false`, le changement touche seulement le profil baseline parmi ces deux profils ; ne pas le recopier ni le remettre à zéro avant d'en comprendre l'origine.
+- Si les deux fichiers sont identiques mais `candidate_config_matches_record=false`, les deux ont dérivé depuis le snapshot enregistré. Les tests A/B devront repartir sur une **nouvelle paire isolée** avec une nouvelle empreinte immuable, jamais retoucher l'expérience historique.
+- Si les fichiers diffèrent en octets mais sont sémantiquement identiques, des changements de formatage restent possibles, sans preuve qu'il s'agisse seulement de cela ; garder le contrôle d'intégrité bloquant.
+
 - `cli_version_matches=false` indique une différence de version ou une vérification indisponible ; vérifier avant toute nouvelle session.
 - `toml_parseable=false` signifie que notre nouveau parseur Python n'a pas validé la syntaxe du fichier ; il faut identifier le cas sans l'exposer ni le modifier à l'aveugle.
 
