@@ -57,6 +57,40 @@ def call(args, *, cwd=None, env=None, timeout=40):
                           capture_output=True, check=False)
 
 
+def resolve_codex_executable():
+    """Return an explicit executable path: Windows CreateProcess ignores PATHEXT."""
+    candidate = shutil.which("codex")
+    if os.name != "nt":
+        return candidate
+
+    if candidate:
+        path = Path(candidate)
+        suffix = path.suffix.lower()
+        if suffix in (".exe", ".com", ".cmd", ".bat"):
+            return str(path)
+        # npm/pnpm can put a POSIX shim or a PowerShell .ps1 beside a
+        # Windows .cmd shim. Do not pass the POSIX shim to CreateProcess.
+        stem = path.with_suffix("") if suffix == ".ps1" else path
+        for ext in (".cmd", ".exe", ".bat"):
+            sibling = Path(str(stem) + ext)
+            if sibling.is_file():
+                return str(sibling)
+
+    # e.g. an npm .cmd visible through PATH but not found as bare 'codex'.
+    for extension in (".exe", ".cmd", ".bat", ".com"):
+        found = shutil.which("codex" + extension)
+        if found:
+            return found
+    return None
+
+
+def call_codex(args, *, cwd=None, env=None, timeout=40):
+    executable = resolve_codex_executable()
+    if not executable:
+        raise FileNotFoundError("Codex executable missing")
+    return call([executable, *args], cwd=cwd, env=env, timeout=timeout)
+
+
 def home_env(root, arm):
     env = os.environ.copy()
     # Avoid inheriting auth-provider overrides or redirecting SQLite/session state.
@@ -81,7 +115,7 @@ def state(root):
     for arm in ARMS:
         if digest(read_file(root / (arm + "-home") / "AGENTS.md")) != config[arm + "_sha256"]:
             raise ValueError("AGENTS fingerprint mismatch: experiment must stop")
-    if call(["codex", "--version"]).stdout.strip() != config["cli_version"]:
+    if call_codex(["--version"]).stdout.strip() != config["cli_version"]:
         raise ValueError("Codex CLI version changed since preparation")
     return config
 
@@ -154,12 +188,12 @@ def prepare(args):
 
     if not shutil.which("git"):
         raise PrepareError("GIT_UNAVAILABLE: git must be callable from Python's PATH")
-    if not shutil.which("codex"):
+    if not resolve_codex_executable():
         raise PrepareError(
             "CODEX_UNAVAILABLE: codex is accessible in PowerShell but not on Python's executable PATH"
         )
     try:
-        version = call(["codex", "--version"])
+        version = call_codex(["--version"])
     except (OSError, subprocess.TimeoutExpired):
         raise PrepareError("CODEX_START_FAILED: Python cannot launch the Codex CLI") from None
     if version.returncode or not version.stdout.strip():
@@ -204,7 +238,7 @@ def status(args):
     root = Path(args.output).expanduser().resolve(strict=True)
     state(root)
     for arm in ARMS:
-        check = call(["codex", "login", "status"], env=home_env(root, arm))
+        check = call_codex(["login", "status"], env=home_env(root, arm))
         if check.returncode:
             raise ValueError("one or both isolated homes require their own 'codex login'")
     print("READY: both isolated profiles have a Codex login; CLI and hashes match.")
@@ -302,13 +336,13 @@ def run(args):
                 fixture_head = head
             elif head != fixture_head:
                 raise ValueError("disposable fixture HEAD differs across runs")
-            cmd = ["codex", "exec", "--json", "--ephemeral",
+            cmd = ["exec", "--json", "--ephemeral",
                    "--sandbox", "workspace-write", "-C", str(work),
                    "--model", "gpt-6-luna", "-c", "model_reasoning_effort=medium",
                    PROMPT]
             start = time.monotonic()
             try:
-                proc = call(cmd, env=home_env(root, arm), timeout=args.timeout)
+                proc = call_codex(cmd, env=home_env(root, arm), timeout=args.timeout)
             except subprocess.TimeoutExpired:
                 proc = None
             elapsed = round(time.monotonic() - start, 3)
