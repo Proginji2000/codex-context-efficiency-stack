@@ -50,3 +50,6 @@ jobs:
       - name: Test read-only MCP policy inventory (synthetic)
         shell: powershell
         run: python .\scripts\Test-CodexMcpPolicyAudit.py
+      - name: Verify worktree lifecycle safety in synthetic Git repositories
+        shell: powershell
+        run: python .\scripts\Test-CodexWorktrees.py
