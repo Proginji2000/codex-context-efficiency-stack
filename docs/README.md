@@ -4,6 +4,8 @@ Start here when installing, updating, troubleshooting or extending the Codex Con
 
 ## Choose by goal
 
+**Current living plan:** [Codex qualification, dashboard tooling and isolated VM pilot roadmap (October 2026)](QUALIFICATION_ROADMAP_2026.md). This differentiates real runtime evidence from synthetic tests and future milestones.
+
 | Goal | Read |
 | --- | --- |
 | Install/update on Windows | [English README](../README.md) · [Guide français](../README.fr.md) |
