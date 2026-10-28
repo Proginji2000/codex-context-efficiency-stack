@@ -269,8 +269,11 @@ class RunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as dirname:
             root = Path(dirname)
             (root / "workspaces").mkdir()
-            (root / "workspaces" / "pair-1-baseline").symlink_to(
-                root, target_is_directory=True)
+            try:
+                (root / "workspaces" / "pair-1-baseline").symlink_to(
+                    root, target_is_directory=True)
+            except OSError:
+                self.skipTest("Symlinks unavailable on this Windows test runner")
             (root / "anonymized-results.json").write_text(json.dumps({
                 "schema_version": 1, "runs": [{
                     "pair": 1, "arm": "baseline",
