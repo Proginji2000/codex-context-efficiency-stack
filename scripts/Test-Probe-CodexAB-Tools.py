@@ -15,6 +15,54 @@ spec.loader.exec_module(probe)
 
 
 class ProbeTests(unittest.TestCase):
+    def test_v2_wait_without_spawn_is_not_promotion_to_delegation(self):
+        stream = (
+            '{"type":"item.started","item":{"type":"collab_tool_call",'
+            '"tool":"wait","status":"in_progress",'
+            '"receiver_thread_ids":[],"prompt":"SECRET_TASK_BRIEF"}}\n'
+            '{"type":"item.completed","item":{"type":"collab_tool_call",'
+            '"tool":"wait","status":"completed",'
+            '"receiver_thread_ids":[],"agents_states":{'
+            '"SECRET_ID":{"status":"errored","message":"SECRET_MESSAGE"}}}}\n'
+        )
+        result = probe.collab_event_summary(stream)
+        self.assertEqual(
+            result["observed_events_by_tool_and_status"]["wait"],
+            {"in_progress": 1, "completed": 1, "failed": 0})
+        self.assertEqual(
+            result["observed_events_by_tool_and_status"]["spawn_agent"],
+            {"in_progress": 0, "completed": 0, "failed": 0})
+        self.assertEqual(result["max_receiver_count_by_tool"]["wait"], 0)
+        for secret in ("SECRET_TASK_BRIEF", "SECRET_ID", "SECRET_MESSAGE"):
+            self.assertNotIn(secret, json.dumps(result))
+
+    def test_collab_failed_spawn_is_not_success(self):
+        stream = (
+            '{"type":"item.completed","item":{"type":"collab_tool_call",'
+            '"tool":"spawn_agent","status":"failed",'
+            '"receiver_thread_ids":[],"prompt":"PRIVATE"}}\n'
+        )
+        result = probe.collab_event_summary(stream)
+        self.assertEqual(
+            result["observed_events_by_tool_and_status"]["spawn_agent"]["failed"], 1)
+        self.assertEqual(
+            result["observed_events_by_tool_and_status"]["spawn_agent"]["completed"], 0)
+        self.assertNotIn("PRIVATE", json.dumps(result))
+
+    def test_stderr_classes_do_not_include_sensitive_error_text(self):
+        cases = {
+            "Error spawning codex-code-mode-host.exe at SECRET_PATH": "CODE_MODE_HOST_MENTION",
+            "access is denied to PRIVATE_DIRECTORY": "PERMISSION_MENTION",
+            "agent thread limit reached for SECRET_AGENT": "AGENT_LIMIT_MENTION",
+            "misc warning PRIVATE_KEY_SENTINEL": "OTHER_OR_NONFATAL_WARNING",
+            "": "NONE",
+        }
+        for content, expected in cases.items():
+            category = probe.classify_stderr(content)
+            self.assertEqual(category, expected)
+            self.assertNotIn("PRIVATE", category)
+            self.assertNotIn("SECRET", category)
+
     def test_one_time_execute_optin_gate(self):
         with self.assertRaises(ValueError):
             probe.probe(Namespace(
