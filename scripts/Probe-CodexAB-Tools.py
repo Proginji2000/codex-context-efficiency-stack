@@ -62,6 +62,72 @@ def classify_final_text(text):
     return "UNCLASSIFIED"
 
 
+def classify_stderr(stderr):
+    """Return only a fixed class; never expose or persist stderr text."""
+    if not stderr or not stderr.strip():
+        return "NONE"
+    text = stderr.lower()
+    if ("code-mode host" in text or "code_mode_host" in text or
+            "codex-code-mode-host" in text):
+        return "CODE_MODE_HOST_MENTION"
+    if "permission denied" in text or "access is denied" in text:
+        return "PERMISSION_MENTION"
+    if "agent thread limit reached" in text:
+        return "AGENT_LIMIT_MENTION"
+    if ("spawn_agent" in text or "subagent" in text or
+            "multi-agent" in text):
+        return "COLLABORATION_MENTION"
+    if "sandbox" in text and (
+            "denied" in text or "failed" in text or "blocked" in text):
+        return "SANDBOX_ERROR_MENTION"
+    return "OTHER_OR_NONFATAL_WARNING"
+
+
+def collab_event_summary(stdout):
+    """Count allowlisted JSONL fields only; never copy prompts or thread ids."""
+    tools = ("spawn_agent", "send_input", "wait", "close_agent")
+    statuses = ("in_progress", "completed", "failed")
+    summary = {
+        tool: {status: 0 for status in statuses}
+        for tool in tools
+    }
+    max_receiver_counts = {tool: 0 for tool in tools}
+    other_collab = 0
+    for line in stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(event, dict) or event.get("type") not in (
+                "item.started", "item.completed", "item.updated"):
+            continue
+        item = event.get("item")
+        if not isinstance(item, dict) or item.get("type") != "collab_tool_call":
+            continue
+        # Count state only from started/completed snapshots. Unknown tools
+        # and statuses stay in coarse counters; no arbitrary strings output.
+        tool = item.get("tool")
+        status = item.get("status")
+        if tool not in summary or status not in statuses:
+            other_collab += 1
+            continue
+        summary[tool][status] += 1
+        receivers = item.get("receiver_thread_ids")
+        if isinstance(receivers, list):
+            max_receiver_counts[tool] = max(
+                max_receiver_counts[tool], min(len(receivers), 20))
+    return {
+        "observed_events_by_tool_and_status": summary,
+        "max_receiver_count_by_tool": max_receiver_counts,
+        "unknown_collab_event_count": other_collab,
+        "limitations": (
+            "Only events present in codex exec --json. V2 spawn events "
+            "and unified execution events can be omitted. A wait event "
+            "does not prove the worker was successfully created."
+        ),
+    }
+
+
 def summarize(stdout, stderr, exit_code, marker, elapsed, workspace, timed_out):
     usage, delegated, json_valid, _ = runner.parse_events(stdout)
     final_messages = []
@@ -112,6 +178,8 @@ def summarize(stdout, stderr, exit_code, marker, elapsed, workspace, timed_out):
         "delegation_verified": False,
         "usage": usage,
         "cli_metadata": events,
+        "observed_collaboration": collab_event_summary(stdout),
+        "stderr_category": classify_stderr(stderr),
         "interpretation": (
             "Matching the unknown marker demonstrates access to its contents, "
             "not that a subagent rather than its parent performed the read. "
