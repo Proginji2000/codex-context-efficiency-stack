@@ -216,6 +216,33 @@ class TuiCanaryTests(unittest.TestCase):
             self.assertEqual(report["policy_effectiveness"], "not_runtime_attested")
             self.assertFalse(report["worker_delegation_independently_verified"])
 
+    def test_readonly_policy_preflight_reports_no_runtime_attestation(self):
+        with tempfile.TemporaryDirectory() as name:
+            base = Path(name)
+            home = base / "pilot" / "baseline-home"
+            home.mkdir(parents=True)
+            config = b"[agents]\nenabled=true\n"
+            (home / "config.toml").write_bytes(config)
+            import io
+            printed = io.StringIO()
+            with (patch.object(app.runner, "state", return_value={
+                    "model": "gpt-6-luna",
+                    "reasoning_effort": "medium",
+                    "sandbox": "workspace-write",
+                    "config_sha256": app.runner.digest(config),
+                }),
+                patch.object(app.runner, "call_codex",
+                             side_effect=AssertionError("preflight must not login")),
+                patch("sys.stdout", printed)):
+                outcome = app.policy(Namespace(pilot=str(base / "pilot")))
+            self.assertEqual(outcome, 0)
+            payload = json.loads(printed.getvalue())
+            self.assertEqual(payload["model_calls_made"], 0)
+            self.assertFalse(payload["effective_runtime_permissions_verified"])
+            self.assertEqual(payload["declared_policy"]["windows_sandbox"],
+                             "not_declared")
+            self.assertEqual(payload["planned_cli_override"]["approval"], "never")
+
     def test_no_approval_fails_closed_if_sandbox_disabled(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
