@@ -5,12 +5,16 @@ on:
     paths:
       - 'scripts/Run-CodexAB.py'
       - 'scripts/Test-Run-CodexAB.py'
+      - 'scripts/Run-CodexAB-TUI-Canary.py'
+      - 'scripts/Test-Run-CodexAB-TUI-Canary.py'
       - 'scripts/Check-CodexAB-Features.py'
       - 'scripts/Test-Check-CodexAB-Features.py'
       - 'scripts/Check-CodexAB-ModelPrompt.py'
       - 'scripts/Test-Check-CodexAB-ModelPrompt.py'
       - 'scripts/Probe-CodexAB-Tools.py'
       - 'scripts/Test-Probe-CodexAB-Tools.py'
+      - 'scripts/Run-CodexAB-TUI-Canary.py'
+      - 'scripts/Test-Run-CodexAB-TUI-Canary.py'
       - '.github/workflows/codex-ab-runner.yml'
   push:
     branches: [main]
@@ -42,3 +46,6 @@ jobs:
       - name: Validate bounded read-only probe (no model calls)
         shell: pwsh
         run: python .\scripts\Test-Probe-CodexAB-Tools.py
+      - name: Validate interactive TUI canary wrapper (no model calls)
+        shell: pwsh
+        run: python .\scripts\Test-Run-CodexAB-TUI-Canary.py
