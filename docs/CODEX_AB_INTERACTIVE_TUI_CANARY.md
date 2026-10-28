@@ -142,6 +142,40 @@ L'exécution TUI utilise du quota ; une seule invocation, sans reprise automatiq
 
 **Ce test n'est pas un résultat A/B sur AGENTS :** comparer V4 `never` sans MXC à V4 `never` avec MXC contrôle un changement de sandbox. Pour la PR #14 il faudra ultérieurement deux bras avec **exactement le même mode MXC, la même politique d'approbation et la même surface TUI**. Ne pas fusionner #14 avant cela.
 
+## V4 après exécution TUI — dérive du TOML détectée avant l'essai MXC
+
+L'utilisateur a exécuté `git pull` (PR #46), puis **14/14 tests hors ligne réussis**. La commande TUI `--windows-sandbox mxc` s'est ensuite arrêtée **avant `START`**, avec `STOP: ISOLATED_CONFIG_HASH_MISMATCH` (code 2). **Aucune nouvelle tâche du modèle n'a été lancée lors de cet essai.**
+
+Le moteur Codex a pu modifier le TOML lors de la précédente session TUI, mais nous n'avons pas encore confirmé quelles clés ont changé. Pour ne pas entrer dans une boucle de reconfiguration / recréation de profils, le script propose désormais une qualification **strictement bornée** :
+
+- Le benchmark historique reste **immutable** : `benchmark-state.json` et les deux `config.toml` ne sont jamais réécrits. Les contrôles AGENTS et CLI restent obligatoires.
+- `diagnose` affiche maintenant `mxc_sandbox_drift_eligible` : vrai uniquement si le TOML baseline diffère au plus par **la valeur `[windows].sandbox`** (ou par un simple formatage) de l'original conservé dans le TOML candidate. Le candidate doit avoir exactement l'empreinte historique.
+- Les seules valeurs autorisées pour une différence de `[windows].sandbox` sont : absent, `mxc` et `elevated`. Le mode `unelevated` (repli plus faible) ou `disabled`, toute modification d'agent, de politique, de projet, de MCP, de permissions ou d'une autre clé provoque `STOP: ISOLATED_CONFIG_DRIFT_NOT_ALLOWLISTED` (code 2) **sans invocation TUI**.
+- Le contournement borné demande **à la fois** `--approval never --windows-sandbox mxc --accept-sandbox-key-drift --execute`. L'acceptation ne vaut que pour le **canary TUI baseline**, pas pour un véritable benchmark AGENTS A/B ; aucune reconstitution de l'ancienne configuration n'est prétendue.
+
+Première vérification, sans quota, dans le dépôt du stack à jour :
+
+~~~powershell
+python .\scripts\Run-CodexAB-TUI-Canary.py diagnose `
+    --pilot 'C:\Dev\codex-ab-pr14-pilot-v4'
+~~~
+
+Si `mxc_sandbox_drift_eligible=false`, **ne pas lancer de nouveau modèle** : conserver les fichiers et investiguer les champs modifiés en lecture seule. Si `true`, après le contrôle des tests synthétiques, **une seule** nouvelle invocation dans un dossier encore inexistant :
+
+~~~powershell
+python .\scripts\Run-CodexAB-TUI-Canary.py run `
+    --pilot 'C:\Dev\codex-ab-pr14-pilot-v4' `
+    --output 'C:\Dev\codex-ab-tui-mxc-v4-baseline-v2' `
+    --approval never `
+    --windows-sandbox mxc `
+    --accept-sandbox-key-drift `
+    --execute
+
+Write-Host "Code de sortie: $LASTEXITCODE"
+~~~
+
+La sortie `baseline_config_snapshot_check=opt_in_sandbox_key_or_format_drift` identifie explicitement le cas accepté ; elle n'est ni une garantie d'accès effectif aux fichiers, ni une validation statistique A/B. Si une fenêtre UAC ou un choix de sandbox réapparaît, **Quit**, sans droits admin et sans mode non-admin à risque.
+
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
