@@ -81,8 +81,9 @@ class ProbeTests(unittest.TestCase):
                 self.assertEqual(command[command.index("--sandbox") + 1],
                                  "read-only")
                 self.assertEqual(timeout, 90)
-                self.assertEqual(env["CODEX_HOME"],
-                                 str(home))
+                self.assertTrue(
+                    Path(env["CODEX_HOME"]).samefile(home)
+                )
                 work = Path(command[command.index("-C") + 1])
                 token = (work / "marker.txt").read_text(encoding="ascii").strip()
                 return Proc(
