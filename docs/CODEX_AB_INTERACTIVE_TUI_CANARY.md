@@ -42,6 +42,49 @@ Le wrapper ouvre directement Codex dans le TUI avec le prompt de travail de la b
 
 Si la commande échoue ou si le rapport ne peut pas être interprété, le répertoire de test et les fichiers de départ restent présents. **Ne pas relancer** avec le même ou un nouveau dossier sans analyser les résultats.
 
+## Variante expérimentale : approbations Codex désactivées (28 octobre 2026)
+
+**À distinguer de la première exécution :** le TUI de référence a effectivement montré `Started /root/fix_total`, `Completed /root/fix_total` et les tests ont réussi. L'utilisateur a toutefois subi des confirmations répétées de commandes et des demandes de configuration sandbox/admin. Les enquêtes Windows ont identifié **0** événement UAC Operational ID 1 sur la plage inspectée et un `setup_marker.json` **introuvable** dans le profil baseline ; le profil usuel conservait des marqueurs anciens du 29 mars. La causalité des invites n'est pas démontrée.
+
+Le code de ce script accepte désormais `--approval never` pour **une seule invocation interactive**, sans écrire `config.toml` et sans changer la sandbox :
+
+1. Commencer par le préflight ci-dessous. Il vérifie la version Codex, les hashes d'AGENTS et du TOML baseline, puis affiche uniquement les valeurs déclarées des clés `approval_policy`, `sandbox_mode` et `windows.sandbox`. `not_declared` **ne signifie pas** que le moteur Windows n'applique aucune sandbox. Ce contrôle **ne prouve pas** la politique effective du tour TUI.
+2. Ne déclencher l'exécution réelle que si le préflight réussit et que le chemin de sortie n'existe pas. Elle consommera du quota, sur un nouveau dépôt Git jetable **distinct** de la première réussite.
+3. Le CLI recevra explicitement `--ask-for-approval never --sandbox workspace-write` et `model_reasoning_effort=medium`. Aucune autorisation administrative n'est fournie par le script ; pas de `--yolo`, de `danger-full-access`, de changement `[windows]` ou d'installation.
+4. Si un prompt UAC, une demande admin ou une reconfiguration de sandbox apparaît, **refuser et interrompre** le test. Ne pas répéter plusieurs fois ni activer un autre mode de sécurité. Si un outil est bloqué, le worker doit s'arrêter avec `BLOCKED`, sans escalade.
+5. À la fin normale du travail, quitter le TUI avec `/exit`, noter si le worker est effectivement apparu dans le panneau Agents, puis lire le rapport de tests. La sortie du script ne vérifie pas automatiquement l'identité du worker et ne prouve pas l'absence de demandes d'autorisation ; l'observation humaine est nécessaire.
+
+### Préflight (zéro appel de modèle)
+
+~~~powershell
+$ErrorActionPreference = 'Stop'
+Set-Location 'C:\Dev\codex-context-efficiency-stack'
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw 'Git pull failed' }
+
+python .\scripts\Test-Run-CodexAB-TUI-Canary.py
+if ($LASTEXITCODE -ne 0) { throw 'Offline test failure' }
+
+python .\scripts\Run-CodexAB-TUI-Canary.py policy --pilot 'C:\Dev\codex-ab-pr14-pilot-v3'
+if ($LASTEXITCODE -ne 0) { throw 'Policy preflight failure' }
+~~~
+
+### Une unique exécution réelle, uniquement après un préflight réussi
+
+~~~powershell
+python .\scripts\Run-CodexAB-TUI-Canary.py run `
+    --pilot 'C:\Dev\codex-ab-pr14-pilot-v3' `
+    --output 'C:\Dev\codex-ab-tui-never-v1' `
+    --approval never `
+    --execute
+
+Write-Host "Exit code: $LASTEXITCODE"
+~~~
+
+L'absence d'invites ne prouvera **pas à elle seule** une autonomie générale. Il faudra combiner : preuve de worker dans TUI, tests/diff, absence de sollicitations humaines et maintien de la sandbox. La vérification sera **une étude de compatibilité de politique**, pas une paire A/B valide pour la PR #14 : le premier TUI utilisait `on-request` et ne constitue donc pas un bras comparable.
+
+**État :** cette section décrit une procédure disponible ; elle ne prétend pas que la variante `never` a déjà été exécutée ou validée.
+
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
