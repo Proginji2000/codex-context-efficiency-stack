@@ -173,6 +173,29 @@ def diagnose(args):
         except (OSError, ValueError):
             result["toml_parseable"] = False
             result["declared_policy"] = None
+        # Explain configuration-fingerprint drift without showing hashes,
+        # TOML contents, paths, or credential fields. Never accept mismatches.
+        try:
+            baseline_bytes = runner.read_file(pilot / "baseline-home" / "config.toml")
+            candidate_bytes = runner.read_file(pilot / "candidate-home" / "config.toml")
+            expected = state_data.get("config_sha256")
+            result["baseline_candidate_config_bytes_match"] = (
+                baseline_bytes == candidate_bytes
+            )
+            result["candidate_config_matches_record"] = (
+                isinstance(expected, str) and runner.digest(candidate_bytes) == expected
+            )
+            try:
+                result["baseline_candidate_config_semantics_match"] = (
+                    tomllib.loads(baseline_bytes.decode("utf-8")) ==
+                    tomllib.loads(candidate_bytes.decode("utf-8"))
+                )
+            except (UnicodeError, ValueError):
+                result["baseline_candidate_config_semantics_match"] = False
+        except (OSError, ValueError):
+            result["baseline_candidate_config_bytes_match"] = False
+            result["candidate_config_matches_record"] = False
+            result["baseline_candidate_config_semantics_match"] = False
         result["preflight_ready"] = all(
             result.get(field) is True for field in (
                 "experiment_state_valid", "baseline_agents_match",

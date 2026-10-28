@@ -98,6 +98,60 @@ class TuiCanaryTests(unittest.TestCase):
             self.assertEqual(report["diagnostic_error_code"], "REQUIRED_FILE_NOT_FOUND")
             self.assertNotIn(str(pilot), result.getvalue())
 
+    def test_config_drift_classification_is_boolean_and_readonly(self):
+        import io
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name) / "pilot"
+            baseline = root / "baseline-home"
+            candidate = root / "candidate-home"
+            baseline.mkdir(parents=True)
+            candidate.mkdir()
+            base_agents = b"SECRET_BASE_AGENTS"
+            cand_agents = b"SECRET_CAND_AGENTS"
+            original_config = b"tool_output_token_limit = 4000\n"
+            changed_config = b"tool_output_token_limit = 4500\n"
+            (baseline / "AGENTS.md").write_bytes(base_agents)
+            (candidate / "AGENTS.md").write_bytes(cand_agents)
+            (baseline / "config.toml").write_bytes(changed_config)
+            (candidate / "config.toml").write_bytes(original_config)
+            state_data = {
+                "schema_version": 1, "candidate_commit": app.runner.COMMIT,
+                "baseline_sha256": app.runner.digest(base_agents),
+                "candidate_sha256": app.runner.digest(cand_agents),
+                "config_sha256": app.runner.digest(original_config),
+                "cli_version": "codex-cli 0.164.0",
+            }
+            (root / "benchmark-state.json").write_text(
+                json.dumps(state_data), encoding="utf-8")
+            def inspect():
+                output = io.StringIO()
+                with (patch.object(app.runner, "call_codex",
+                       return_value=SimpleNamespace(
+                           returncode=0, stdout="codex-cli 0.164.0\n")),
+                      patch("sys.stdout", output)):
+                    self.assertEqual(
+                        app.diagnose(Namespace(pilot=str(root))), 0)
+                report = json.loads(output.getvalue())
+                for secret in ("SECRET_BASE_AGENTS", "SECRET_CAND_AGENTS",
+                               "tool_output_token_limit", str(root)):
+                    self.assertNotIn(secret, output.getvalue())
+                self.assertEqual(report["model_calls_made"], 0)
+                return report
+            report = inspect()
+            self.assertFalse(report["routing_config_match"])
+            self.assertFalse(report["baseline_candidate_config_bytes_match"])
+            self.assertFalse(report["baseline_candidate_config_semantics_match"])
+            self.assertTrue(report["candidate_config_matches_record"])
+            self.assertFalse(report["preflight_ready"])
+
+            # Shared drift is NOT a justification for accepting either file.
+            (candidate / "config.toml").write_bytes(changed_config)
+            report = inspect()
+            self.assertTrue(report["baseline_candidate_config_bytes_match"])
+            self.assertTrue(report["baseline_candidate_config_semantics_match"])
+            self.assertFalse(report["candidate_config_matches_record"])
+            self.assertFalse(report["preflight_ready"])
+
     def test_optin_required_before_files_or_codex(self):
         with patch.object(app.runner, "state", side_effect=AssertionError("called")):
             with self.assertRaisesRegex(ValueError, "EXPLICIT_EXECUTE_REQUIRED"):
