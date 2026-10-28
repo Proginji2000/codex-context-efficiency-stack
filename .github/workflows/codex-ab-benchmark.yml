@@ -1,0 +1,29 @@
+name: Codex A/B synthetic benchmark validation
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Compare-CodexAB.py'
+      - 'scripts/Test-Compare-CodexAB.py'
+      - '.github/workflows/codex-ab-benchmark.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Compare-CodexAB.py'
+      - 'scripts/Test-Compare-CodexAB.py'
+      - '.github/workflows/codex-ab-benchmark.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Run isolated deterministic A/B regression tests
+        shell: pwsh
+        run: python .\scripts\Test-Compare-CodexAB.py
