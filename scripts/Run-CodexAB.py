@@ -328,6 +328,10 @@ def verification_detail(path):
         "git_diff_check_pass": check.returncode == 0,
         "modified_only_total_py": tracked.returncode == 0 and names == ["total.py"],
         "no_untracked_files": untracked.returncode == 0 and not extra,
+        "tracked_modified_file_count": len(names) if tracked.returncode == 0 else None,
+        "total_py_changed": tracked.returncode == 0 and "total.py" in names,
+        "unexpected_tracked_modifications": (tracked.returncode == 0 and
+                                             any(name != "total.py" for name in names)),
         # A deliberately strict old condition. Equivalent valid arithmetic
         # expressions may not contain these exact words in this order.
         "old_literal_expression_present": "prix * quantite" in actual,
@@ -345,6 +349,48 @@ def verify(path):
     # Functionality and bounded diff are acceptance conditions; spelling
     # of a mathematically equivalent expression is not.
     return verification_detail(path)["functional_and_scope_pass"]
+
+
+def summarize_cli_events(stdout, stderr, returncode, *, timed_out=False):
+    """Only allowlisted event counts, not command text, model text, or error bodies."""
+    counts = {
+        "command_started": 0,
+        "command_completed": 0,
+        "file_changes_completed": 0,
+        "subagent_events_seen": 0,
+        "error_events_seen": 0,
+    }
+    if not timed_out:
+        for line in stdout.splitlines():
+            try:
+                event = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            event_type = event.get("type")
+            if event_type == "error" or event_type == "turn.failed":
+                counts["error_events_seen"] += 1
+            item = event.get("item")
+            if not isinstance(item, dict):
+                continue
+            item_type = item.get("type")
+            if event_type == "item.started" and item_type == "command_execution":
+                counts["command_started"] += 1
+            elif event_type == "item.completed":
+                if item_type == "command_execution":
+                    counts["command_completed"] += 1
+                elif item_type == "file_change":
+                    counts["file_changes_completed"] += 1
+                elif item_type == "collab_tool_call":
+                    counts["subagent_events_seen"] += 1
+    return {
+        "cli_exit_code": returncode if type(returncode) is int else None,
+        "timed_out": timed_out,
+        "stderr_present": bool(stderr and stderr.strip()),
+        "events": counts,
+        "note": "Event counts are lower bounds, not verified proof of execution or parent-only delegation.",
+    }
 
 
 def inspect(args):
@@ -428,6 +474,12 @@ def run(args):
             elapsed = round(time.monotonic() - start, 3)
             usage, delegated, valid, retries = parse_events(proc.stdout if proc else "")
             safe = verify(work) if proc else False
+            diagnostic = summarize_cli_events(
+                proc.stdout if proc else "", proc.stderr if proc else "",
+                proc.returncode if proc else None, timed_out=proc is None
+            )
+            diagnostic["pair"] = pair
+            diagnostic["arm"] = arm
             record = {
                 "pair": pair, "arm": arm, "case_id": cfg["case_id"],
                 "controls": {
@@ -449,6 +501,19 @@ def run(args):
             }
             records.append(record)
             save_json(result_path, {"schema_version": 1, "runs": records})
+            # Separate sidecar: strict comparator input schema stays unchanged.
+            sidecar_path = root / "trial-diagnostics.json"
+            if sidecar_path.exists():
+                sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+                if not isinstance(sidecar, dict) or sidecar.get("schema_version") != 1:
+                    raise ValueError("Invalid diagnostics state; stop rather than overwrite")
+                entries = sidecar.get("runs")
+                if not isinstance(entries, list):
+                    raise ValueError("Invalid diagnostics runs")
+            else:
+                entries = []
+            entries.append(diagnostic)
+            save_json(sidecar_path, {"schema_version": 1, "runs": entries})
             print("pair %d/%d %s: tests=%s, spawn_event=%s, input=%d" %
                   (pair, args.pairs, arm, "PASS" if safe else "FAIL",
                    "observed" if delegated else "unverified", usage["input_tokens"]),
