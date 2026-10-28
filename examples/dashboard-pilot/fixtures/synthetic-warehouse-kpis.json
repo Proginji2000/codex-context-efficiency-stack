@@ -1,0 +1,397 @@
+{
+  "schema_version": 1,
+  "data_classification": "synthetic_only_no_production_data",
+  "description": "Fictional zone-level operational dashboard fixture; no customer, WMS or company data.",
+  "units": {
+    "orders_prepared": "orders",
+    "orders_target": "orders",
+    "late_orders": "orders",
+    "anomalies": "events",
+    "backlog_end": "orders"
+  },
+  "zones": [
+    "A",
+    "B",
+    "C"
+  ],
+  "rows": [
+    {
+      "date": "2026-10-01",
+      "zone": "A",
+      "orders_prepared": 181,
+      "orders_target": 187,
+      "late_orders": 5,
+      "anomalies": 3,
+      "backlog_end": 7
+    },
+    {
+      "date": "2026-10-01",
+      "zone": "B",
+      "orders_prepared": 235,
+      "orders_target": 245,
+      "late_orders": 14,
+      "anomalies": 7,
+      "backlog_end": 12
+    },
+    {
+      "date": "2026-10-01",
+      "zone": "C",
+      "orders_prepared": 268,
+      "orders_target": 303,
+      "late_orders": 8,
+      "anomalies": 2,
+      "backlog_end": 38
+    },
+    {
+      "date": "2026-10-02",
+      "zone": "A",
+      "orders_prepared": 182,
+      "orders_target": 194,
+      "late_orders": 7,
+      "anomalies": 6,
+      "backlog_end": 14
+    },
+    {
+      "date": "2026-10-02",
+      "zone": "B",
+      "orders_prepared": 215,
+      "orders_target": 252,
+      "late_orders": 15,
+      "anomalies": 1,
+      "backlog_end": 40
+    },
+    {
+      "date": "2026-10-02",
+      "zone": "C",
+      "orders_prepared": 307,
+      "orders_target": 310,
+      "late_orders": 12,
+      "anomalies": 5,
+      "backlog_end": 7
+    },
+    {
+      "date": "2026-10-03",
+      "zone": "A",
+      "orders_prepared": 200,
+      "orders_target": 201,
+      "late_orders": 10,
+      "anomalies": 0,
+      "backlog_end": 4
+    },
+    {
+      "date": "2026-10-03",
+      "zone": "B",
+      "orders_prepared": 254,
+      "orders_target": 259,
+      "late_orders": 5,
+      "anomalies": 4,
+      "backlog_end": 9
+    },
+    {
+      "date": "2026-10-03",
+      "zone": "C",
+      "orders_prepared": 283,
+      "orders_target": 292,
+      "late_orders": 14,
+      "anomalies": 8,
+      "backlog_end": 9
+    },
+    {
+      "date": "2026-10-04",
+      "zone": "A",
+      "orders_prepared": 176,
+      "orders_target": 183,
+      "late_orders": 10,
+      "anomalies": 3,
+      "backlog_end": 11
+    },
+    {
+      "date": "2026-10-04",
+      "zone": "B",
+      "orders_prepared": 230,
+      "orders_target": 241,
+      "late_orders": 6,
+      "anomalies": 7,
+      "backlog_end": 11
+    },
+    {
+      "date": "2026-10-04",
+      "zone": "C",
+      "orders_prepared": 263,
+      "orders_target": 299,
+      "late_orders": 15,
+      "anomalies": 2,
+      "backlog_end": 37
+    },
+    {
+      "date": "2026-10-05",
+      "zone": "A",
+      "orders_prepared": 177,
+      "orders_target": 190,
+      "late_orders": 12,
+      "anomalies": 6,
+      "backlog_end": 13
+    },
+    {
+      "date": "2026-10-05",
+      "zone": "B",
+      "orders_prepared": 248,
+      "orders_target": 248,
+      "late_orders": 9,
+      "anomalies": 1,
+      "backlog_end": 1
+    },
+    {
+      "date": "2026-10-05",
+      "zone": "C",
+      "orders_prepared": 302,
+      "orders_target": 306,
+      "late_orders": 21,
+      "anomalies": 5,
+      "backlog_end": 6
+    },
+    {
+      "date": "2026-10-06",
+      "zone": "A",
+      "orders_prepared": 195,
+      "orders_target": 197,
+      "late_orders": 3,
+      "anomalies": 0,
+      "backlog_end": 3
+    },
+    {
+      "date": "2026-10-06",
+      "zone": "B",
+      "orders_prepared": 249,
+      "orders_target": 255,
+      "late_orders": 12,
+      "anomalies": 4,
+      "backlog_end": 8
+    },
+    {
+      "date": "2026-10-06",
+      "zone": "C",
+      "orders_prepared": 303,
+      "orders_target": 313,
+      "late_orders": 6,
+      "anomalies": 8,
+      "backlog_end": 13
+    },
+    {
+      "date": "2026-10-07",
+      "zone": "A",
+      "orders_prepared": 196,
+      "orders_target": 204,
+      "late_orders": 5,
+      "anomalies": 3,
+      "backlog_end": 10
+    },
+    {
+      "date": "2026-10-07",
+      "zone": "B",
+      "orders_prepared": 225,
+      "orders_target": 237,
+      "late_orders": 13,
+      "anomalies": 7,
+      "backlog_end": 15
+    },
+    {
+      "date": "2026-10-07",
+      "zone": "C",
+      "orders_prepared": 258,
+      "orders_target": 295,
+      "late_orders": 7,
+      "anomalies": 2,
+      "backlog_end": 41
+    },
+    {
+      "date": "2026-10-08",
+      "zone": "A",
+      "orders_prepared": 172,
+      "orders_target": 186,
+      "late_orders": 6,
+      "anomalies": 6,
+      "backlog_end": 17
+    },
+    {
+      "date": "2026-10-08",
+      "zone": "B",
+      "orders_prepared": 243,
+      "orders_target": 244,
+      "late_orders": 17,
+      "anomalies": 1,
+      "backlog_end": 5
+    },
+    {
+      "date": "2026-10-08",
+      "zone": "C",
+      "orders_prepared": 297,
+      "orders_target": 302,
+      "late_orders": 11,
+      "anomalies": 5,
+      "backlog_end": 5
+    },
+    {
+      "date": "2026-10-09",
+      "zone": "A",
+      "orders_prepared": 190,
+      "orders_target": 193,
+      "late_orders": 9,
+      "anomalies": 0,
+      "backlog_end": 7
+    },
+    {
+      "date": "2026-10-09",
+      "zone": "B",
+      "orders_prepared": 244,
+      "orders_target": 251,
+      "late_orders": 4,
+      "anomalies": 4,
+      "backlog_end": 7
+    },
+    {
+      "date": "2026-10-09",
+      "zone": "C",
+      "orders_prepared": 298,
+      "orders_target": 309,
+      "late_orders": 14,
+      "anomalies": 8,
+      "backlog_end": 12
+    },
+    {
+      "date": "2026-10-10",
+      "zone": "A",
+      "orders_prepared": 191,
+      "orders_target": 200,
+      "late_orders": 11,
+      "anomalies": 3,
+      "backlog_end": 9
+    },
+    {
+      "date": "2026-10-10",
+      "zone": "B",
+      "orders_prepared": 245,
+      "orders_target": 258,
+      "late_orders": 7,
+      "anomalies": 7,
+      "backlog_end": 14
+    },
+    {
+      "date": "2026-10-10",
+      "zone": "C",
+      "orders_prepared": 291,
+      "orders_target": 291,
+      "late_orders": 17,
+      "anomalies": 2,
+      "backlog_end": 2
+    },
+    {
+      "date": "2026-10-11",
+      "zone": "A",
+      "orders_prepared": 167,
+      "orders_target": 182,
+      "late_orders": 11,
+      "anomalies": 6,
+      "backlog_end": 16
+    },
+    {
+      "date": "2026-10-11",
+      "zone": "B",
+      "orders_prepared": 238,
+      "orders_target": 240,
+      "late_orders": 9,
+      "anomalies": 1,
+      "backlog_end": 4
+    },
+    {
+      "date": "2026-10-11",
+      "zone": "C",
+      "orders_prepared": 292,
+      "orders_target": 298,
+      "late_orders": 20,
+      "anomalies": 5,
+      "backlog_end": 9
+    },
+    {
+      "date": "2026-10-12",
+      "zone": "A",
+      "orders_prepared": 185,
+      "orders_target": 189,
+      "late_orders": 3,
+      "anomalies": 0,
+      "backlog_end": 6
+    },
+    {
+      "date": "2026-10-12",
+      "zone": "B",
+      "orders_prepared": 239,
+      "orders_target": 247,
+      "late_orders": 11,
+      "anomalies": 4,
+      "backlog_end": 11
+    },
+    {
+      "date": "2026-10-12",
+      "zone": "C",
+      "orders_prepared": 293,
+      "orders_target": 305,
+      "late_orders": 5,
+      "anomalies": 8,
+      "backlog_end": 16
+    },
+    {
+      "date": "2026-10-13",
+      "zone": "A",
+      "orders_prepared": 186,
+      "orders_target": 196,
+      "late_orders": 5,
+      "anomalies": 3,
+      "backlog_end": 13
+    },
+    {
+      "date": "2026-10-13",
+      "zone": "B",
+      "orders_prepared": 240,
+      "orders_target": 254,
+      "late_orders": 14,
+      "anomalies": 7,
+      "backlog_end": 18
+    },
+    {
+      "date": "2026-10-13",
+      "zone": "C",
+      "orders_prepared": 311,
+      "orders_target": 312,
+      "late_orders": 9,
+      "anomalies": 2,
+      "backlog_end": 1
+    },
+    {
+      "date": "2026-10-14",
+      "zone": "A",
+      "orders_prepared": 187,
+      "orders_target": 203,
+      "late_orders": 7,
+      "anomalies": 6,
+      "backlog_end": 20
+    },
+    {
+      "date": "2026-10-14",
+      "zone": "B",
+      "orders_prepared": 233,
+      "orders_target": 236,
+      "late_orders": 16,
+      "anomalies": 1,
+      "backlog_end": 3
+    },
+    {
+      "date": "2026-10-14",
+      "zone": "C",
+      "orders_prepared": 287,
+      "orders_target": 294,
+      "late_orders": 11,
+      "anomalies": 5,
+      "backlog_end": 8
+    }
+  ]
+}
