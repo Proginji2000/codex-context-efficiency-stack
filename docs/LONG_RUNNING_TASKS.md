@@ -62,6 +62,8 @@ Use separate Git worktrees when independent Codex runs need to modify the same r
 
 Avoid parallel agents modifying the same files unless there is an explicit coordination plan. Short dependent steps are usually better kept in the primary thread.
 
+For a preview-first local Git worktree lifecycle (creation/retirement with explicit confirmation, preserving unmerged commits, ignored files and locks), use the [guarded worktree manager](CODEX_WORKTREES.md). It does not start Codex agents or run unattended cleanup.
+
 ## Resume pattern
 
 A fresh Codex session should be able to start from a compact request such as:
