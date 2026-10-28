@@ -19,6 +19,85 @@ SPEC.loader.exec_module(app)
 
 
 class TuiCanaryTests(unittest.TestCase):
+    def test_safe_error_codes_do_not_reflect_private_exception_text(self):
+        self.assertEqual(
+            app.classified_error(ValueError("ISOLATED_CONFIG_HASH_MISMATCH")),
+            "ISOLATED_CONFIG_HASH_MISMATCH",
+        )
+        self.assertEqual(
+            app.classified_error(ValueError("AGENTS fingerprint mismatch: experiment must stop")),
+            "AGENTS_FINGERPRINT_MISMATCH",
+        )
+        self.assertEqual(
+            app.classified_error(ValueError("private-key=SECRET_CANARY")),
+            "UNCLASSIFIED_PREFLIGHT_FAILURE",
+        )
+        self.assertEqual(
+            app.classified_error(FileNotFoundError("C:/PRIVATE/path")),
+            "REQUIRED_FILE_NOT_FOUND",
+        )
+
+    def test_diagnose_is_readonly_and_reports_mismatch_without_leakage(self):
+        import io
+        with tempfile.TemporaryDirectory() as name:
+            pilot = Path(name) / "pilot"
+            baseline = pilot / "baseline-home"
+            candidate = pilot / "candidate-home"
+            baseline.mkdir(parents=True)
+            candidate.mkdir()
+            b_agents = b"BASELINE_PRIVATE_AGENTS"
+            c_agents = b"CANDIDATE_PRIVATE_AGENTS"
+            b_config = b"[agents]\nenabled = true\n"
+            (baseline / "AGENTS.md").write_bytes(b_agents)
+            (candidate / "AGENTS.md").write_bytes(c_agents)
+            (baseline / "config.toml").write_bytes(b_config)
+            (pilot / "benchmark-state.json").write_text(
+                json.dumps({
+                    "schema_version": 1,
+                    "candidate_commit": app.runner.COMMIT,
+                    "baseline_sha256": app.runner.digest(b_agents),
+                    "candidate_sha256": app.runner.digest(c_agents),
+                    "config_sha256": app.runner.digest(b"OLDER_CONFIG"),
+                    "cli_version": "codex-cli 0.164.0",
+                }), encoding="utf-8",
+            )
+            result = io.StringIO()
+            with (patch.object(
+                        app.runner, "call_codex",
+                        return_value=SimpleNamespace(
+                            returncode=0, stdout="codex-cli 0.164.0\n")),
+                  patch("sys.stdout", result)):
+                exit_code = app.diagnose(Namespace(pilot=str(pilot)))
+            self.assertEqual(exit_code, 0)
+            report = json.loads(result.getvalue())
+            self.assertTrue(report["experiment_state_valid"])
+            self.assertTrue(report["baseline_agents_match"])
+            self.assertTrue(report["candidate_agents_match"])
+            self.assertFalse(report["routing_config_match"])
+            self.assertTrue(report["cli_version_matches"])
+            self.assertTrue(report["toml_parseable"])
+            self.assertFalse(report["preflight_ready"])
+            self.assertEqual(report["model_calls_made"], 0)
+            for secret in ("BASELINE_PRIVATE_AGENTS", "CANDIDATE_PRIVATE_AGENTS", "OLDER_CONFIG"):
+                self.assertNotIn(secret, result.getvalue())
+            self.assertNotIn(str(pilot), result.getvalue())
+
+    def test_diagnose_missing_state_is_safe_no_exception_details(self):
+        import io
+        with tempfile.TemporaryDirectory() as name:
+            pilot = Path(name) / "pilot"
+            pilot.mkdir()
+            result = io.StringIO()
+            with (patch.object(app.runner, "call_codex",
+                               side_effect=AssertionError("No subprocess needed")),
+                  patch("sys.stdout", result)):
+                exit_code = app.diagnose(Namespace(pilot=str(pilot)))
+            self.assertEqual(exit_code, 0)
+            report = json.loads(result.getvalue())
+            self.assertFalse(report["preflight_ready"])
+            self.assertEqual(report["diagnostic_error_code"], "REQUIRED_FILE_NOT_FOUND")
+            self.assertNotIn(str(pilot), result.getvalue())
+
     def test_optin_required_before_files_or_codex(self):
         with patch.object(app.runner, "state", side_effect=AssertionError("called")):
             with self.assertRaisesRegex(ValueError, "EXPLICIT_EXECUTE_REQUIRED"):
