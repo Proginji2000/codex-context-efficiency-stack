@@ -69,6 +69,24 @@ python .\scripts\Run-CodexAB-TUI-Canary.py policy --pilot 'C:\Dev\codex-ab-pr14-
 if ($LASTEXITCODE -ne 0) { throw 'Policy preflight failure' }
 ~~~
 
+### Si le préflight s'arrête avant d'ouvrir Codex
+
+Le 28 octobre 2026, le premier `policy` (merge #43) a échoué deux fois avec un message générique. L'utilisateur a tenté `run --approval never` ensuite, mais le lanceur a renvoyé le **code 2** avant l'affichage `START` : aucune nouvelle exécution de modèle n'est observée. **Ne pas réessayer `run` tant que `policy` est bloqué.**
+
+La commande suivante ne lance aucun agent, n'écrit aucun fichier et ne lit que les empreintes de la baseline, la version CLI et trois champs de configuration explicitement autorisés :
+
+~~~powershell
+python .\scripts\Run-CodexAB-TUI-Canary.py diagnose --pilot 'C:\Dev\codex-ab-pr14-pilot-v3'
+~~~
+
+Le rapport affiche des booléens `baseline_agents_match`, `candidate_agents_match`, `routing_config_match`, `cli_version_matches`, `toml_parseable` et `preflight_ready`. Il n'affiche **ni empreintes brutes, ni contenu de fichiers, ni logs/session/auth**. Le mode `policy` renvoie désormais un code d'échec prédéfini (`ISOLATED_CONFIG_HASH_MISMATCH`, `CODEX_VERSION_CHANGED`, etc.) au lieu d'une chaîne générique.
+
+- `routing_config_match=false` indique que le TOML baseline n'est pas identique au snapshot de préparation ; ne pas contourner la protection ni écraser l'ancien profil, car cela casserait la reproductibilité.
+- `cli_version_matches=false` indique une différence de version ou une vérification indisponible ; vérifier avant toute nouvelle session.
+- `toml_parseable=false` signifie que notre nouveau parseur Python n'a pas validé la syntaxe du fichier ; il faut identifier le cas sans l'exposer ni le modifier à l'aveugle.
+
+**N'exécuter la variante `never` qu'après diagnostic clair et nouveau feu vert.** Le test hors ligne ne prouve pas à lui seul que la machine réelle satisfait toutes les préconditions.
+
 ### Une unique exécution réelle, uniquement après un préflight réussi
 
 ~~~powershell
