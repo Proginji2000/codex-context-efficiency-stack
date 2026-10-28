@@ -13,6 +13,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import tomllib
 
 SPEC = importlib.util.spec_from_file_location(
     "codex_ab_runner", Path(__file__).with_name("Run-CodexAB.py")
@@ -40,7 +41,33 @@ def validate_paths(pilot, output, repo):
     return pilot, output
 
 
-def sanitized_report(workspace, exit_code, elapsed):
+def declared_sandbox_policy(home):
+    """Read only known TOML policy fields. Never print paths, secrets or raw TOML."""
+    with (home / "config.toml").open("rb") as handle:
+        config = tomllib.load(handle)
+    windows = config.get("windows", {})
+    if not isinstance(windows, dict):
+        raise ValueError("WINDOWS_CONFIG_INVALID")
+    output = {}
+    for name, value in (
+        ("approval_policy", config.get("approval_policy")),
+        ("sandbox_mode", config.get("sandbox_mode")),
+        ("windows_sandbox", windows.get("sandbox")),
+    ):
+        if value is None:
+            output[name] = "not_declared"
+        elif isinstance(value, str) and value in {
+            "never", "on-request", "untrusted", "on-failure",
+            "read-only", "workspace-write", "danger-full-access",
+            "elevated", "unelevated", "disabled",
+        }:
+            output[name] = value
+        else:
+            output[name] = "other_or_unrecognized"
+    return output
+
+
+def sanitized_report(workspace, exit_code, elapsed, approval="on-request", declared_policy=None):
     checks = runner.verification_detail(workspace)
     # No TUI tool/event stream is available to this wrapper; evidence from the
     # interactive UI must be assessed separately, never synthesized.
@@ -49,6 +76,9 @@ def sanitized_report(workspace, exit_code, elapsed):
         "execution_surface": "codex-interactive-tui-not-exec",
         "model": MODEL,
         "sandbox": "workspace-write",
+        "approval_policy_override_requested": approval,
+        "declared_policy": declared_policy,
+        "policy_effectiveness": "not_runtime_attested",
         "codex_cli_exit_code": exit_code,
         "elapsed_s": round(elapsed, 3),
         "verification": checks,
@@ -66,6 +96,9 @@ def run(args):
         raise ValueError("EXPLICIT_EXECUTE_REQUIRED")
     pilot, output = validate_paths(args.pilot, args.output, args.repo)
     stored = runner.state(pilot)
+    approval = getattr(args, "approval", "on-request")
+    if approval not in ("never", "on-request"):
+        raise ValueError("APPROVAL_POLICY_INVALID")
     if stored.get("model") != MODEL:
         raise ValueError("MODEL_MISMATCH")
     if stored.get("reasoning_effort") != "medium" or stored.get("sandbox") != "workspace-write":
@@ -73,6 +106,15 @@ def run(args):
     home = pilot / "baseline-home"
     if home.is_symlink() or not home.is_dir() or (home / "config.toml").is_symlink():
         raise ValueError("ISOLATED_PROFILE_MISSING")
+    if runner.digest(runner.read_file(home / "config.toml")) != stored.get("config_sha256"):
+        raise ValueError("ISOLATED_CONFIG_HASH_MISMATCH")
+    declared = declared_sandbox_policy(home)
+    if declared["windows_sandbox"] == "disabled":
+        raise ValueError("WINDOWS_SANDBOX_DISABLED")
+    if declared["sandbox_mode"] == "danger-full-access":
+        raise ValueError("SANDBOX_MODE_FULL_ACCESS_DECLARED")
+    if declared["windows_sandbox"] == "other_or_unrecognized":
+        raise ValueError("WINDOWS_SANDBOX_MODE_UNKNOWN")
     check = runner.call_codex(["login", "status"], env=runner.home_env(pilot, "baseline"))
     if check.returncode:
         raise ValueError("ISOLATED_PROFILE_REQUIRES_LOGIN")
@@ -90,6 +132,8 @@ def run(args):
         "execute_authorized": True,
         "model": MODEL,
         "workspace_seeded": True,
+        "approval_policy_override_requested": approval,
+        "declared_policy": declared,
     })
     env = runner.home_env(pilot, "baseline")
     # Do not ingest user transcripts or credentials. Keep normal TUI I/O,
@@ -103,13 +147,24 @@ def run(args):
         "Do not modify config, install dependencies, approve access outside the workspace, "
         "or run network operations."
     )
+    if approval == "never":
+        prompt += (
+            " This run explicitly forbids interactive command approvals. "
+            "If any operation cannot proceed within workspace-write, report "
+            "BLOCKED and STOP; do not request administrator rights, alter "
+            "Windows sandbox settings, disable safeguards or escalate."
+        )
     cmd = [
         executable, "--cd", str(workspace),
         "--model", MODEL, "--sandbox", "workspace-write",
-        "--ask-for-approval", "on-request",
+        "--ask-for-approval", approval,
         "-c", "model_reasoning_effort=medium", prompt,
     ]
     print("START: launching interactive Codex TUI, exactly one disposable task.", flush=True)
+    print("SAFE_POLICY: sandbox=workspace-write approval_override=" + approval, flush=True)
+    print("CONFIG_DECLARED: " + json.dumps(declared, sort_keys=True), flush=True)
+    if approval == "never":
+        print("STOP if Windows UAC/admin/sandbox provisioning prompts appear. Do not approve elevation.", flush=True)
     print("The UI may persist its session in isolated baseline-home; no chats are read by this wrapper.", flush=True)
     print("Once the worker finishes, use /exit or Ctrl+C to close the TUI and obtain offline verification.", flush=True)
     started = time.monotonic()
@@ -119,7 +174,7 @@ def run(args):
     except OSError:
         code = None
     elapsed = time.monotonic() - started
-    report = sanitized_report(workspace, code, elapsed)
+    report = sanitized_report(workspace, code, elapsed, approval, declared)
     runner.save_json(output / "sanitized-tui-result.json", report)
     print(json.dumps(report, ensure_ascii=True, indent=2), flush=True)
     return 0 if code == 0 and report["functional_and_scope_pass"] else 1
@@ -151,6 +206,8 @@ def main(argv=None):
     p.add_argument("--output", required=True)
     p.add_argument("--repo", default=str(Path(__file__).resolve().parent.parent))
     p.add_argument("--execute", action="store_true")
+    p.add_argument("--approval", choices=("on-request", "never"),
+                   default="on-request", help="Override approvals for only this TUI invocation.")
     q = sub.add_parser("inspect", help="Offline deterministic post-TUI check.")
     q.add_argument("--output", required=True)
     args = parser.parse_args(argv)
