@@ -77,6 +77,20 @@ Some Codex versions fail to emit reliable spawn_agent events in exec JSONL despi
 
 The retries counter covers only additional turns visible through the CLI stream, not every internal retry. A timeout kills the invoked CLI process but does not establish that every descendant has exited: inspect relevant processes before attempting fresh runs or cleaning up.
 
+## No-quota multi-agent feature preflight after a baseline with zero tracked edits
+
+If the historical pilot ran exactly once and changed no tracked files, do not run candidate or rerun baseline yet. First inspect whether the **isolated** Codex homes have the expected model collaboration feature flags:
+
+~~~powershell
+cd C:\Dev\codex-context-efficiency-stack
+python .\scripts\Test-Check-CodexAB-Features.py
+python .\scripts\Check-CodexAB-Features.py --output C:\Dev\codex-ab-pr14-pilot-v3
+~~~
+
+This reads only the two experiment \`config.toml\` files, hashes their \`AGENTS.md\` files and calls \`codex features list\` with each isolated \`CODEX_HOME\`. It is **read-only and makes zero model calls**. Its printed JSON is limited to allowlisted agent/feature settings and booleans; no tokens, auth.json, sessions, raw CLI output or code are read. A disabled \`multi_agent\` flag is a **candidate explanation**, not proof that the model was unable to spawn; model catalog metadata and MultiAgent V2 can affect the effective tool surface. Do not toggle V2 just to make a test pass: there are known compatibility/observability issues.
+
+The isolated test homes were deliberately rebuilt from only the routing snippet, not from the user's entire effective configuration. Therefore a missing feature flag in the isolated config is a meaningful difference from an interactive smoke test using the normal profile. Inspect results before modifying any config; if changes are necessary, create a **fresh paired experiment** with the same settings for both arms rather than mutating the already preserved pilot.
+
 ## Existing failed trial: inspect it without Codex quota
 
 If a pilot prints \`tests=FAIL\`, this combines several independent checks: Python unittest, Git diff whitespace, unexpected modified files, untracked files and an old literal-text assertion. It **does not** alone prove that Python tests failed.
