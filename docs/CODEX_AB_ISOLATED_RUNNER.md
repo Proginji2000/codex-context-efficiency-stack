@@ -77,6 +77,24 @@ Some Codex versions fail to emit reliable spawn_agent events in exec JSONL despi
 
 The retries counter covers only additional turns visible through the CLI stream, not every internal retry. A timeout kills the invoked CLI process but does not establish that every descendant has exited: inspect relevant processes before attempting fresh runs or cleaning up.
 
+## No-quota probe for resolved Luna model and actual instruction discovery
+
+After confirming that both isolated homes report multi_agent=true but the original baseline still edited zero files, check two additional **read-only CLI debug surfaces** before spending any further model tokens:
+
+~~~powershell
+cd C:\Dev\codex-context-efficiency-stack
+python .\scripts\Test-Check-CodexAB-ModelPrompt.py
+python .\scripts\Check-CodexAB-ModelPrompt.py --output C:\Dev\codex-ab-pr14-pilot-v3
+~~~
+
+This script uses the exact isolated homes and the preserved disposable baseline working tree as cwd for both arms. It executes only Codex CLI debug commands:
+- \`codex debug models --bundled\`: obtains the local **bundled** model metadata. It prints only gpt-6-luna's model identifier, multi_agent_version, tool_mode, shell_type and presence. A bundled catalog is **not** proof of the actual live model/tool configuration.
+- \`codex --model gpt-6-luna -c model_reasoning_effort=medium debug prompt-input\`: constructs the diagnostic model-visible input for the disposable test worktree. It prints **only** whether a distinctive substring of the expected AGENTS.md appears in the reconstructed input. It never prints the prompt text, full catalog, model internal instructions, auth details, private paths or session content.
+
+The raw output is held in subprocess memory only and discarded after parsing; nothing is persisted by the script. No generative turn is invoked. Marker presence helps establish that the AGENTS instruction path is configured, but does not prove the model saw collaboration tools or could execute a shell. Marker absence may be a CLI diagnostic-surface limitation and requires investigation, not assumption that the policy is disabled.
+
+Do not use \`codex debug app-server send-message-v2\` for this no-quota check: unlike the above debug commands, that tool sends an actual turn. Do not upload raw debug models/prompt-input output: these commands can expose internal model instruction templates and local context.
+
 ## No-quota multi-agent feature preflight after a baseline with zero tracked edits
 
 If the historical pilot ran exactly once and changed no tracked files, do not run candidate or rerun baseline yet. First inspect whether the **isolated** Codex homes have the expected model collaboration feature flags:
