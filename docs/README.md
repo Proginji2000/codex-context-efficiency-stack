@@ -19,6 +19,7 @@ Start here when installing, updating, troubleshooting or extending the Codex Con
 | Safely scope MCP servers per CLI task without changing global config | [Opt-in MCP scopes](CODEX_MCP_SCOPES.md) |
 | Save common Codex CLI 0.164 workflows in presets | [CLI 0.164 preset templates](CODEX_0164_PRESETS.md) |
 | Safely isolate parallel workers and retire linked worktrees | [Guarded worktree lifecycle](CODEX_WORKTREES.md) |
+| Plan a two-writer Luna wave before creating worktrees | [Opt-in worktree orchestration](WORKTREE_ORCHESTRATION_V1.md) |
 | Troubleshoot Codex and PowerShell on Windows | [Windows troubleshooting](WINDOWS_TROUBLESHOOTING.md) |
 | Review the Claude Pro layer | [Claude Pro stack](CLAUDE_PRO_STACK.md) · [Claude Pro quick start](../CLAUDE_PRO.md) |
 | Review older release decisions | [DevDay 2026](DEVDAY_2026_UPDATE.md) · [Optional experiments](OPTIONAL_EXPERIMENTS.md) |
