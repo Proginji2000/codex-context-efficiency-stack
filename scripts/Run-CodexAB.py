@@ -86,55 +86,119 @@ def state(root):
     return config
 
 
+class PrepareError(ValueError):
+    """Fixed public-safe error code; do not expose paths, config or credentials."""
+
+
 def prepare(args):
     repo = Path(args.repo).resolve(strict=True)
     root = Path(args.output).expanduser().resolve()
-    if root.exists() or root == repo or repo in root.parents or root == Path.home().resolve():
-        raise ValueError("experiment directory must be new and outside the stack repository")
-    baseline = read_file(Path(args.baseline).expanduser().resolve(strict=True))
-    snippet = read_file(repo / "templates" / "config.routing.snippet.toml")
+    if root.exists():
+        raise PrepareError("OUTPUT_ALREADY_EXISTS: choose a new empty experiment path; never erase previous files")
+    if root == repo or repo in root.parents or root == Path.home().resolve():
+        raise PrepareError("OUTPUT_UNSAFE_LOCATION: choose a fresh folder outside the stack checkout and user home")
+
+    # Respect an explicitly configured Codex home. Do not inspect session history.
+    baseline_path = (Path(args.baseline).expanduser() if args.baseline else
+                     Path(os.environ.get("CODEX_HOME") or
+                          Path.home() / ".codex") / "AGENTS.md")
+    try:
+        baseline = read_file(baseline_path.resolve(strict=True))
+    except (OSError, ValueError):
+        raise PrepareError(
+            "BASELINE_UNAVAILABLE: current AGENTS.md absent/unreadable; pass --baseline with its exact path"
+        ) from None
+
+    try:
+        snippet = read_file(repo / "templates" / "config.routing.snippet.toml")
+    except (OSError, ValueError):
+        raise PrepareError("ROUTING_TEMPLATE_MISSING: update the stack checkout") from None
     role_dir = repo / "templates" / "agents"
     for role in ROLES:
         if not (role_dir / (role + ".toml")).is_file():
-            raise ValueError("missing versioned role template")
+            raise PrepareError("ROLE_TEMPLATE_MISSING: update the stack checkout")
+
     if args.candidate_file:
-        candidate = read_file(Path(args.candidate_file).resolve(strict=True))
+        try:
+            candidate = read_file(Path(args.candidate_file).resolve(strict=True))
+        except (OSError, ValueError):
+            raise PrepareError("CANDIDATE_FILE_UNAVAILABLE: check the local candidate path") from None
+        candidate_source = "explicit-local-file"
     else:
-        with urllib.request.urlopen(URL, timeout=20) as response:
-            candidate = response.read(100001)
-    if not candidate or len(candidate) > 100000 or digest(candidate) == digest(baseline):
-        raise ValueError("candidate missing, oversized or identical to baseline")
-    if not shutil.which("codex") or not shutil.which("git"):
-        raise ValueError("codex and git must be available on PATH")
-    version = call(["codex", "--version"])
-    if version.returncode:
-        raise ValueError("cannot identify Codex CLI")
-    root.mkdir(parents=True)
-    for arm, value in (("baseline", baseline), ("candidate", candidate)):
-        home = root / (arm + "-home")
-        (home / "agents").mkdir(parents=True)
-        (home / "AGENTS.md").write_bytes(value)
-        (home / "config.toml").write_bytes(
-            b"tool_output_token_limit = 4000\n\n" + snippet)
-        for role in ROLES:
-            shutil.copyfile(role_dir / (role + ".toml"),
-                            home / "agents" / (role + ".toml"))
-    record = {
-        "schema_version": 1, "candidate_commit": COMMIT,
-        "baseline_sha256": digest(baseline), "candidate_sha256": digest(candidate),
-        "config_sha256": digest(b"tool_output_token_limit = 4000\n\n" + snippet),
-        "cli_version": version.stdout.strip(), "model": "gpt-6-luna",
-        "reasoning_effort": "medium", "sandbox": "workspace-write",
-        "mcp_profile": "routing-only-no-MCP", "case_id": "smoke-total-01",
-        "prompt_sha256": digest(PROMPT.encode("utf-8")),
-    }
-    save_json(root / "benchmark-state.json", record)
+        # The pinned PR commit is normally present after the user's git pull.
+        # This avoids relying on raw.githubusercontent.com or TLS proxy settings.
+        try:
+            local = subprocess.run(
+                ["git", "show", COMMIT + ":templates/AGENTS.md"],
+                cwd=repo, capture_output=True, timeout=20, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            local = None
+        if local is not None and local.returncode == 0 and local.stdout:
+            candidate = local.stdout
+            candidate_source = "pinned-local-git-object"
+        else:
+            try:
+                with urllib.request.urlopen(URL, timeout=20) as response:
+                    candidate = response.read(100001)
+            except (OSError, ValueError):
+                raise PrepareError(
+                    "CANDIDATE_FETCH_FAILED: pinned Git commit unavailable locally and HTTPS fetch failed; "
+                    "retrieve the pinned file separately and use --candidate-file"
+                ) from None
+            candidate_source = "pinned-github-download"
+    if not candidate or len(candidate) > 100000:
+        raise PrepareError("CANDIDATE_INVALID_SIZE: verify the pinned file")
+    if digest(candidate) == digest(baseline):
+        raise PrepareError("VARIANTS_IDENTICAL: baseline already equals the experimental candidate")
+
+    if not shutil.which("git"):
+        raise PrepareError("GIT_UNAVAILABLE: git must be callable from Python's PATH")
+    if not shutil.which("codex"):
+        raise PrepareError(
+            "CODEX_UNAVAILABLE: codex is accessible in PowerShell but not on Python's executable PATH"
+        )
+    try:
+        version = call(["codex", "--version"])
+    except (OSError, subprocess.TimeoutExpired):
+        raise PrepareError("CODEX_START_FAILED: Python cannot launch the Codex CLI") from None
+    if version.returncode or not version.stdout.strip():
+        raise PrepareError("CODEX_VERSION_FAILED: codex --version did not complete")
+
+    # No new directory is written before all checkable prerequisites pass.
+    try:
+        root.mkdir(parents=True)
+        for arm, value in (("baseline", baseline), ("candidate", candidate)):
+            home = root / (arm + "-home")
+            (home / "agents").mkdir(parents=True)
+            (home / "AGENTS.md").write_bytes(value)
+            (home / "config.toml").write_bytes(
+                b"tool_output_token_limit = 4000\n\n" + snippet)
+            for role in ROLES:
+                shutil.copyfile(role_dir / (role + ".toml"),
+                                home / "agents" / (role + ".toml"))
+        record = {
+            "schema_version": 1, "candidate_commit": COMMIT,
+            "baseline_sha256": digest(baseline), "candidate_sha256": digest(candidate),
+            "config_sha256": digest(b"tool_output_token_limit = 4000\n\n" + snippet),
+            "cli_version": version.stdout.strip(), "model": "gpt-6-luna",
+            "reasoning_effort": "medium", "sandbox": "workspace-write",
+            "mcp_profile": "routing-only-no-MCP", "case_id": "smoke-total-01",
+            "prompt_sha256": digest(PROMPT.encode("utf-8")),
+        }
+        save_json(root / "benchmark-state.json", record)
+    except OSError:
+        raise PrepareError(
+            "PREPARE_WRITE_FAILED: inspect the newly created experiment folder; "
+            "retry using a NEW path without deleting any evidence"
+        ) from None
+
     print("PREPARED: two separate Codex homes; existing user config untouched.")
+    print("Candidate source:", candidate_source)
     print("Baseline SHA256:", record["baseline_sha256"])
     print("Candidate SHA256:", record["candidate_sha256"])
     print("Log in separately in each *-home; never upload these home directories.")
     print("No model calls have been made.")
-
 
 def status(args):
     root = Path(args.output).expanduser().resolve(strict=True)
@@ -289,7 +353,7 @@ def main(argv=None):
     p = sub.add_parser("prepare")
     p.add_argument("--repo", default=str(Path(__file__).resolve().parent.parent))
     p.add_argument("--output", required=True)
-    p.add_argument("--baseline", default=str(Path.home() / ".codex" / "AGENTS.md"))
+    p.add_argument("--baseline", default=None)
     p.add_argument("--candidate-file", default=None)
     for verb in ("status", "run"):
         s = sub.add_parser(verb)
@@ -301,6 +365,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         return {"prepare": prepare, "status": status, "run": run}[args.command](args) or 0
+    except PrepareError as error:
+        print("STOP [PREPARE]: " + str(error), file=sys.stderr)
+        return 2
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.TimeoutExpired):
         print("STOP: benchmark precondition or verification failed; no private input printed.",
               file=sys.stderr)
