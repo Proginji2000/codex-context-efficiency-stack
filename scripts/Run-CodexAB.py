@@ -57,10 +57,12 @@ def call(args, *, cwd=None, env=None, timeout=40):
                           capture_output=True, check=False)
 
 
-def resolve_codex_executable():
+def resolve_codex_executable(*, windows=None):
     """Return an explicit executable path: Windows CreateProcess ignores PATHEXT."""
+    if windows is None:
+        windows = os.name == "nt"
     candidate = shutil.which("codex")
-    if os.name != "nt":
+    if not windows:
         return candidate
 
     if candidate:
