@@ -107,6 +107,41 @@ L'absence d'invites ne prouvera **pas à elle seule** une autonomie générale. 
 
 **État :** cette section décrit une procédure disponible ; elle ne prétend pas que la variante `never` a déjà été exécutée ou validée.
 
+## V4 — qualification de la sandbox MXC, après échec de `never` sans initialisation (28 octobre 2026)
+
+Résultat observé, à ne pas extrapoler :
+
+- `C:\Dev\codex-ab-pr14-pilot-v4` a été créé avec profils baseline/candidate et un `config.toml` identique ; les fingerprints du préflight `policy` sont conformes.
+- La baseline V4 est authentifiée et le TUI `--approval never --sandbox workspace-write` a lancé `/root/total_fix`, mais le worker n'a pas pu lire `total.py`. Aucun fichier modifié ni test Python exécuté. Le menu Windows proposait alors une installation **administrateur**, une sandbox **non administrateur plus risquée** ou Quit.
+- L'opérateur a vérifié MXC en **mode CLI sans modèle**, sur la baseline V4 : `codex -c windows.sandbox=mxc sandbox --include-managed-config --permission-profile :workspace -- cmd.exe /d /c echo MXC_OK`. Résultat `MXC_OK`, code de sortie 0. **MXC est compatible pour cette commande**, sans preuve à ce stade de succès en TUI multi-agent.
+
+La variante `run` accepte désormais l'option **strictement opt-in** `--windows-sandbox mxc`, valable uniquement sous Windows et **pour cette invocation**. Elle ajoute `-c windows.sandbox=mxc` à la commande Codex ; elle ne modifie pas les TOML, les droits Windows, les fichiers d'authentification ni les politiques habituelles. Les arguments restent `--sandbox workspace-write --ask-for-approval never`.
+
+**Ne pas réutiliser** le dossier du TUI V4 précédent. Un nouvel essai est explicitement autorisé seulement après validation des tests hors modèle et avec une sortie neuve :
+
+~~~powershell
+$ErrorActionPreference = 'Stop'
+Set-Location 'C:\Dev\codex-context-efficiency-stack'
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw 'Git pull failed' }
+
+python .\scripts\Test-Run-CodexAB-TUI-Canary.py
+if ($LASTEXITCODE -ne 0) { throw 'Offline tests failed' }
+
+python .\scripts\Run-CodexAB-TUI-Canary.py run `
+    --pilot 'C:\Dev\codex-ab-pr14-pilot-v4' `
+    --output 'C:\Dev\codex-ab-tui-mxc-v4-baseline-v1' `
+    --approval never `
+    --windows-sandbox mxc `
+    --execute
+
+Write-Host "Code de sortie : $LASTEXITCODE"
+~~~
+
+L'exécution TUI utilise du quota ; une seule invocation, sans reprise automatique. Si Codex ouvre encore un menu d'initialisation de sandbox ou une demande UAC/admin, **Quit/Refuser**, ne pas sélectionner le mode sans administrateur ni modifier les réglages. Si le worker échoue à lire le workspace avec MXC, conserver `BLOCKED` et les preuves au lieu de répéter. À l'issue normale, `/exit`, transmettre le rapport JSON et l'observation du cycle de vie du worker / nombre d'interventions.
+
+**Ce test n'est pas un résultat A/B sur AGENTS :** comparer V4 `never` sans MXC à V4 `never` avec MXC contrôle un changement de sandbox. Pour la PR #14 il faudra ultérieurement deux bras avec **exactement le même mode MXC, la même politique d'approbation et la même surface TUI**. Ne pas fusionner #14 avant cela.
+
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
