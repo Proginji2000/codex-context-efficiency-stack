@@ -228,17 +228,19 @@ def validate_baseline_config_snapshot(pilot, stored, *, allow_sandbox_key_drift=
     """
     base_path = pilot / "baseline-home" / "config.toml"
     candidate_path = pilot / "candidate-home" / "config.toml"
-    if base_path.is_symlink() or candidate_path.is_symlink():
+    if base_path.is_symlink():
         raise ValueError("ISOLATED_CONFIG_DRIFT_NOT_ALLOWLISTED")
-    original = runner.read_file(candidate_path)
     actual = runner.read_file(base_path)
     expected = stored.get("config_sha256")
-    if runner.digest(original) != expected:
-        raise ValueError("ORIGINAL_CANDIDATE_CONFIG_CHANGED")
     if runner.digest(actual) == expected:
         return "strict_original_snapshot"
     if not allow_sandbox_key_drift:
         raise ValueError("ISOLATED_CONFIG_HASH_MISMATCH")
+    if candidate_path.is_symlink():
+        raise ValueError("ISOLATED_CONFIG_DRIFT_NOT_ALLOWLISTED")
+    original = runner.read_file(candidate_path)
+    if runner.digest(original) != expected:
+        raise ValueError("ORIGINAL_CANDIDATE_CONFIG_CHANGED")
 
     original_toml = tomllib.loads(original.decode("utf-8"))
     actual_toml = tomllib.loads(actual.decode("utf-8"))
