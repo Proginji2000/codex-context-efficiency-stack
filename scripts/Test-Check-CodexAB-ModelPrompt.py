@@ -75,7 +75,7 @@ class TestModelPromptPreflight(unittest.TestCase):
             def fake_codex(argv, **kwargs):
                 calls.append(argv)
                 self.assertEqual(
-                    kwargs["env"]["CODEX_HOME"].split("-home")[0][-9:],
+                    Path(kwargs["env"]["CODEX_HOME"]).name.removesuffix("-home"),
                     "candidate" if len(calls) > 2 else "baseline"
                 )
                 if argv == ["debug", "models", "--bundled"]:
