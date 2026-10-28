@@ -266,6 +266,14 @@ python .\scripts\Manage-CodexWorktrees.py create --name audit-1
 
 Le test emploie des depots temporaires synthetiques : aucun agent Codex ni quota n'est utilise. Pas de modification du contrat d'orchestration global.
 
+## Preparation des worktrees pour une vague multi-agent
+
+Le planificateur facultatif `Plan-CodexWorktreeWave.py` valide les proprietes exclusives des fichiers avant toute creation de worktrees. Il prend en charge au plus deux writers independants. Il execute par defaut une simulation et ne cree les espaces qu'avec `--apply`. Il ne demarre aucun agent, ne supprime rien et ne modifie pas la configuration Codex. Voir [le protocole d'orchestration Luna](docs/WORKTREE_ORCHESTRATION_V1.md).
+
+```powershell
+python .\scripts\Test-CodexWorktreeWave.py
+```
+
 ## Vérification et mesure
 
 ```powershell
