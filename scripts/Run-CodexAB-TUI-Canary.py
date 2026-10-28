@@ -91,6 +91,104 @@ def sanitized_report(workspace, exit_code, elapsed, approval="on-request", decla
     }
 
 
+SAFE_ERROR_CODES = frozenset({
+    "EXPLICIT_EXECUTE_REQUIRED", "PILOT_NOT_DIRECTORY",
+    "UNSAFE_OR_EXISTING_OUTPUT", "ISOLATED_PROFILE_INVALID",
+    "ISOLATED_CONFIG_HASH_MISMATCH", "WINDOWS_SANDBOX_UNSUPPORTED",
+    "WINDOWS_SANDBOX_DISABLED", "WINDOWS_SANDBOX_MODE_UNKNOWN",
+    "SANDBOX_MODE_FULL_ACCESS_DECLARED", "ISOLATED_PROFILE_MISSING",
+    "MODEL_MISMATCH", "BENCHMARK_CONFIG_MISMATCH",
+    "ISOLATED_PROFILE_REQUIRES_LOGIN", "CODEX_NOT_FOUND",
+    "APPROVAL_POLICY_INVALID", "TUI_CANARY_NOT_FOUND",
+    "WINDOWS_CONFIG_INVALID",
+})
+STATE_ERROR_CODES = {
+    "invalid experiment state": "EXPERIMENT_STATE_INVALID",
+    "AGENTS fingerprint mismatch: experiment must stop": "AGENTS_FINGERPRINT_MISMATCH",
+    "Codex CLI version changed since preparation": "CODEX_VERSION_CHANGED",
+}
+
+
+def classified_error(exc):
+    """Allowlist diagnostic labels; NEVER echo exception content or private paths."""
+    if isinstance(exc, tomllib.TOMLDecodeError):
+        return "TOML_PARSE_FAILED"
+    if isinstance(exc, PermissionError):
+        return "FILE_ACCESS_DENIED"
+    if isinstance(exc, FileNotFoundError):
+        return "REQUIRED_FILE_NOT_FOUND"
+    if isinstance(exc, subprocess.TimeoutExpired):
+        return "CHILD_CHECK_TIMED_OUT"
+    if isinstance(exc, ValueError):
+        message = str(exc)
+        if message in SAFE_ERROR_CODES:
+            return message
+        if message in STATE_ERROR_CODES:
+            return STATE_ERROR_CODES[message]
+    return "UNCLASSIFIED_PREFLIGHT_FAILURE"
+
+
+def diagnose(args):
+    """Zero-model, read-only status matrix. Never display hashes, paths or TOML text."""
+    result = {
+        "mode": "offline_preflight_diagnosis",
+        "model_calls_made": 0,
+        "codex_model_started": False,
+        "files_changed_by_script": 0,
+    }
+    try:
+        pilot = Path(args.pilot).expanduser().resolve(strict=True)
+        root = pilot / "benchmark-state.json"
+        state_data = json.loads(root.read_text(encoding="utf-8"))
+        result["experiment_state_valid"] = (
+            state_data.get("schema_version") == 1 and
+            state_data.get("candidate_commit") == runner.COMMIT
+        )
+        checks = (
+            ("baseline_agents_match", "baseline-home", "baseline_sha256"),
+            ("candidate_agents_match", "candidate-home", "candidate_sha256"),
+            ("routing_config_match", "baseline-home", "config_sha256"),
+        )
+        for name, home, expected_field in checks:
+            file_name = "config.toml" if name == "routing_config_match" else "AGENTS.md"
+            target = pilot / home / file_name
+            expected = state_data.get(expected_field)
+            try:
+                actual = runner.digest(runner.read_file(target))
+                result[name] = isinstance(expected, str) and actual == expected
+            except (OSError, ValueError):
+                result[name] = False
+        try:
+            version = runner.call_codex(["--version"])
+            result["cli_version_matches"] = (
+                version.returncode == 0 and
+                version.stdout.strip() == state_data.get("cli_version")
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            result["cli_version_matches"] = False
+        try:
+            declared = declared_sandbox_policy(pilot / "baseline-home")
+            result["toml_parseable"] = True
+            result["declared_policy"] = declared
+        except (OSError, ValueError):
+            result["toml_parseable"] = False
+            result["declared_policy"] = None
+        result["preflight_ready"] = all(
+            result.get(field) is True for field in (
+                "experiment_state_valid", "baseline_agents_match",
+                "candidate_agents_match", "routing_config_match",
+                "cli_version_matches", "toml_parseable",
+            )
+        ) and result["declared_policy"]["windows_sandbox"] not in (
+            "disabled", "other_or_unrecognized",
+        ) and result["declared_policy"]["sandbox_mode"] != "danger-full-access"
+    except (OSError, ValueError, KeyError, RuntimeError) as exc:
+        result["preflight_ready"] = False
+        result["diagnostic_error_code"] = classified_error(exc)
+    print(json.dumps(result, ensure_ascii=True, indent=2), flush=True)
+    return 0
+
+
 def policy(args):
     """No model call, no file write: display declared fields and planned CLI override."""
     pilot = Path(args.pilot).expanduser().resolve(strict=True)
@@ -232,6 +330,8 @@ def inspect(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
+    pd = sub.add_parser("diagnose", help="Read-only categorized preflight: no model, no secrets.")
+    pd.add_argument("--pilot", required=True)
     p0 = sub.add_parser("policy", help="Read-only policy/CLI fingerprint preflight; no model.")
     p0.add_argument("--pilot", required=True)
     p = sub.add_parser("run", help="One explicitly authorized interactive TUI invocation.")
@@ -245,11 +345,13 @@ def main(argv=None):
     q.add_argument("--output", required=True)
     args = parser.parse_args(argv)
     try:
+        if args.command == "diagnose":
+            return diagnose(args)
         if args.command == "policy":
             return policy(args)
         return run(args) if args.command == "run" else inspect(args)
-    except (OSError, ValueError, KeyError, RuntimeError, subprocess.TimeoutExpired):
-        print("STOP: TUI_CANARY_PRECONDITION_OR_INSPECTION_FAILED; no private data printed.",
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.TimeoutExpired) as exc:
+        print("STOP: " + classified_error(exc) + " (no private data printed).",
               file=sys.stderr)
         return 2
 
