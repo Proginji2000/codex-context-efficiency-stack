@@ -28,7 +28,18 @@ python .\scripts\Test-Run-CodexAB.py
 python .\scripts\Run-CodexAB.py prepare --output C:\Dev\codex-ab-pr14-pilot
 ~~~
 
-The program rejects an existing output directory. It records distinct SHA256 fingerprints and does not modify the working configuration. Fetching the pinned candidate AGENTS text requires access to raw.githubusercontent.com. If the candidate file is already present on disk, specify --candidate-file instead.
+The program rejects an existing output directory. It records distinct SHA256 fingerprints and does not modify the working configuration. It first tries the exact pinned PR #14 Git object already in the local checkout; only when unavailable does it request the immutable raw GitHub URL. A known local file can be provided through --candidate-file.
+
+**If prepare fails, STOP there. Do not run login, status or run.** The script prints an intentionally restricted diagnostic code, for example:
+- `OUTPUT_ALREADY_EXISTS`: choose a NEW folder, and inspect the previous folder without deleting anything;
+- `BASELINE_UNAVAILABLE`: verify where the active global `AGENTS.md` is installed; pass `--baseline` if required;
+- `CANDIDATE_FETCH_FAILED`: fetch the PR #14 candidate separately or ensure the pinned Git commit is present; `--candidate-file` accepts a local copy;
+- `CODEX_UNAVAILABLE` or `CODEX_START_FAILED`: the `codex` command works in PowerShell but is not available as an executable to Python, or cannot launch;
+- `PREPARE_WRITE_FAILED`: incomplete experiment folder may exist; do not overwrite; use a fresh output folder after diagnosis.
+
+The runner never prints raw exception text, URLs with credentials, tokens or the contents of any configuration file. An exception outside those predictable prepare conditions still uses the generic safe STOP message and warrants investigation.
+
+When rerunning after a failed first preparation, change the output path, for example from `C:\Dev\codex-ab-pr14-pilot` to `C:\Dev\codex-ab-pr14-pilot-v2`. Change it **consistently** for preparation, login, status and run. The preparation step itself consumes no model quota.
 
 ## Step 2 — authenticate each isolated home
 
