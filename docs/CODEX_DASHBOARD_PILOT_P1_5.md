@@ -44,6 +44,7 @@ Les calculs doivent être des fonctions pures testables indépendamment de React
 ## Stack et contrôle des dépendances
 
 - React + TypeScript en projet jetable ; dépendances installées uniquement après approbation de l'environnement et verrouillées dans un lockfile.
+- Fixer **Base UI** comme primitive shadcn pour les deux variantes (base par défaut des nouveaux projets en juillet 2026) ; noter la version exacte et ne pas comparer Base UI contre Radix par inadvertance. <https://ui.shadcn.com/docs/changelog/2026-07-base-ui-default>
 - shadcn/ui Charts utilise **Recharts v3**. Composer avec `ChartContainer`, `ChartTooltip` et composants Recharts ; vérifier la hauteur minimale responsive, les libellés accessibles, le zoom et les axes. <https://ui.shadcn.com/docs/components/base/chart>
 - Skill officiel shadcn : <https://ui.shadcn.com/docs/skills>. Inspecter la version / provenance, ajouter dans la copie **B uniquement**, jamais dans le dossier de skills utilisateur.
 - Les captures Playwright ne doivent pas être comparées sur des OS/browser non alignés : <https://playwright.dev/docs/test-snapshots>.
