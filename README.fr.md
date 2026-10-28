@@ -254,6 +254,18 @@ Quatre MCP sont declares sur le PC : code-review-graph, context7, node_repl et p
 
 Seul l'ajout explicite de `-Run -Prompt "..."` lance Codex et consomme du quota. Par defaut, le mode `git` desactive les quatre MCP **pour cet appel uniquement**, tandis que le mode `ui` les conserve. Aucune economie de tokens n'est encore prouvee.
 
+## Worktrees Git pour agents paralleles (facultatif)
+
+Le [gestionnaire de worktrees](docs/CODEX_WORKTREES.md) inspecte les arbres Git existants et propose des branches de travail isolees. Mode simulation par defaut, `--apply` explicite pour creer ; retrait uniquement apres integration du commit, verification de l'absence de fichiers suivis, non suivis et ignores, absence de verrou et confirmation du nom. Il ne supprime aucune branche et n'utilise pas `--force`.
+
+```powershell
+python .\scripts\Test-CodexWorktrees.py
+python .\scripts\Manage-CodexWorktrees.py inventory
+python .\scripts\Manage-CodexWorktrees.py create --name audit-1
+```
+
+Le test emploie des depots temporaires synthetiques : aucun agent Codex ni quota n'est utilise. Pas de modification du contrat d'orchestration global.
+
 ## Vérification et mesure
 
 ```powershell
