@@ -68,7 +68,8 @@ def declared_sandbox_policy(home):
 
 
 def sanitized_report(workspace, exit_code, elapsed, approval="on-request",
-                     declared_policy=None, windows_sandbox=None):
+                     declared_policy=None, windows_sandbox=None,
+                     config_snapshot_check=None):
     checks = runner.verification_detail(workspace)
     # No TUI tool/event stream is available to this wrapper; evidence from the
     # interactive UI must be assessed separately, never synthesized.
@@ -79,6 +80,7 @@ def sanitized_report(workspace, exit_code, elapsed, approval="on-request",
         "sandbox": "workspace-write",
         "approval_policy_override_requested": approval,
         "windows_sandbox_override_requested": windows_sandbox or "none",
+        "baseline_config_snapshot_check": config_snapshot_check,
         "declared_policy": declared_policy,
         "policy_effectiveness": "not_runtime_attested",
         "codex_cli_exit_code": exit_code,
@@ -104,6 +106,9 @@ SAFE_ERROR_CODES = frozenset({
     "APPROVAL_POLICY_INVALID", "TUI_CANARY_NOT_FOUND",
     "WINDOWS_CONFIG_INVALID", "WINDOWS_SANDBOX_OVERRIDE_UNSUPPORTED",
     "WINDOWS_SANDBOX_OVERRIDE_REQUIRES_WINDOWS",
+    "ISOLATED_CONFIG_DRIFT_NOT_ALLOWLISTED",
+    "ORIGINAL_CANDIDATE_CONFIG_CHANGED",
+    "CONFIG_DRIFT_FLAG_REQUIRES_MXC_NEVER",
 })
 STATE_ERROR_CODES = {
     "invalid experiment state": "EXPERIMENT_STATE_INVALID",
@@ -215,6 +220,51 @@ def diagnose(args):
     return 0
 
 
+def validate_baseline_config_snapshot(pilot, stored, *, allow_sandbox_key_drift=False):
+    """No mutations: accept only explicitly opted-in narrow sandbox-key drift.
+
+    The original candidate config is the immutable byte-for-byte snapshot.
+    Never weaken other routing, agent, sandbox or approval fields.
+    """
+    base_path = pilot / "baseline-home" / "config.toml"
+    candidate_path = pilot / "candidate-home" / "config.toml"
+    if base_path.is_symlink() or candidate_path.is_symlink():
+        raise ValueError("ISOLATED_CONFIG_DRIFT_NOT_ALLOWLISTED")
+    original = runner.read_file(candidate_path)
+    actual = runner.read_file(base_path)
+    expected = stored.get("config_sha256")
+    if runner.digest(original) != expected:
+        raise ValueError("ORIGINAL_CANDIDATE_CONFIG_CHANGED")
+    if runner.digest(actual) == expected:
+        return "strict_original_snapshot"
+    if not allow_sandbox_key_drift:
+        raise ValueError("ISOLATED_CONFIG_HASH_MISMATCH")
+
+    original_toml = tomllib.loads(original.decode("utf-8"))
+    actual_toml = tomllib.loads(actual.decode("utf-8"))
+    # Deep-copy plain TOML dictionaries, so no state or live file is changed.
+    import copy
+    left, right = copy.deepcopy(original_toml), copy.deepcopy(actual_toml)
+    def without_windows_sandbox(tree):
+        windows = tree.get("windows")
+        if windows is None:
+            return None
+        if not isinstance(windows, dict):
+            raise ValueError("WINDOWS_CONFIG_INVALID")
+        value = windows.pop("sandbox", None)
+        if not windows:
+            tree.pop("windows", None)
+        return value
+
+    old_sandbox = without_windows_sandbox(left)
+    new_sandbox = without_windows_sandbox(right)
+    if (left != right or
+            old_sandbox not in (None, "mxc", "elevated") or
+            new_sandbox not in (None, "mxc", "elevated")):
+        raise ValueError("ISOLATED_CONFIG_DRIFT_NOT_ALLOWLISTED")
+    return "opt_in_sandbox_key_or_format_drift"
+
+
 def policy(args):
     """No model call, no file write: display declared fields and planned CLI override."""
     pilot = Path(args.pilot).expanduser().resolve(strict=True)
@@ -253,6 +303,9 @@ def run(args):
     stored = runner.state(pilot)
     approval = getattr(args, "approval", "on-request")
     windows_sandbox = getattr(args, "windows_sandbox", None)
+    accept_drift = getattr(args, "accept_sandbox_key_drift", False)
+    if accept_drift and (windows_sandbox != "mxc" or approval != "never"):
+        raise ValueError("CONFIG_DRIFT_FLAG_REQUIRES_MXC_NEVER")
     if windows_sandbox not in (None, "mxc"):
         raise ValueError("WINDOWS_SANDBOX_OVERRIDE_UNSUPPORTED")
     if windows_sandbox == "mxc" and os.name != "nt":
@@ -266,8 +319,9 @@ def run(args):
     home = pilot / "baseline-home"
     if home.is_symlink() or not home.is_dir() or (home / "config.toml").is_symlink():
         raise ValueError("ISOLATED_PROFILE_MISSING")
-    if runner.digest(runner.read_file(home / "config.toml")) != stored.get("config_sha256"):
-        raise ValueError("ISOLATED_CONFIG_HASH_MISMATCH")
+    config_check = validate_baseline_config_snapshot(
+        pilot, stored, allow_sandbox_key_drift=accept_drift
+    )
     declared = declared_sandbox_policy(home)
     if declared["windows_sandbox"] == "disabled":
         raise ValueError("WINDOWS_SANDBOX_DISABLED")
@@ -294,6 +348,7 @@ def run(args):
         "workspace_seeded": True,
         "approval_policy_override_requested": approval,
         "windows_sandbox_override_requested": windows_sandbox or "none",
+        "baseline_config_snapshot_check": config_check,
         "declared_policy": declared,
     })
     env = runner.home_env(pilot, "baseline")
@@ -328,6 +383,7 @@ def run(args):
     print("SAFE_POLICY: sandbox=workspace-write approval_override=" + approval +
           " windows_sandbox_override=" + (windows_sandbox or "none"), flush=True)
     print("CONFIG_DECLARED: " + json.dumps(declared, sort_keys=True), flush=True)
+    print("CONFIG_SNAPSHOT_CHECK: " + config_check, flush=True)
     if approval == "never":
         print("STOP if Windows UAC/admin/sandbox provisioning prompts appear. Do not approve elevation.", flush=True)
     print("The UI may persist its session in isolated baseline-home; no chats are read by this wrapper.", flush=True)
@@ -340,7 +396,7 @@ def run(args):
         code = None
     elapsed = time.monotonic() - started
     report = sanitized_report(workspace, code, elapsed, approval, declared,
-                              windows_sandbox)
+                              windows_sandbox, config_check)
     runner.save_json(output / "sanitized-tui-result.json", report)
     print(json.dumps(report, ensure_ascii=True, indent=2), flush=True)
     return 0 if code == 0 and report["functional_and_scope_pass"] else 1
@@ -380,6 +436,8 @@ def main(argv=None):
                    default="on-request", help="Override approvals for only this TUI invocation.")
     p.add_argument("--windows-sandbox", choices=("mxc",), default=None,
                    help="Windows only: one-shot MXC, without modifying config.toml.")
+    p.add_argument("--accept-sandbox-key-drift", action="store_true",
+                   help="Only with MXC/never: allow an explicitly reviewed Windows sandbox key or formatting drift; candidate must remain original.")
     q = sub.add_parser("inspect", help="Offline deterministic post-TUI check.")
     q.add_argument("--output", required=True)
     args = parser.parse_args(argv)
