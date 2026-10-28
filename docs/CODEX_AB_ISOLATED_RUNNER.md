@@ -15,6 +15,8 @@ The script [Run-CodexAB.py](../scripts/Run-CodexAB.py) creates an explicitly nam
 
 Never copy authentication files, tokens, existing Codex session directories, or caches between homes. Each isolated home requires its own user-driven login. Authentication may store secrets inside these two homes; never upload, share, or commit those folders.
 
+The runner also strips inherited CODEX_SQLITE_HOME, OPENAI_API_KEY, CODEX_API_KEY, CODEX_ACCESS_TOKEN and OPENAI_BASE_URL **only in its Codex child processes**. This prevents a shared SQLite state path or a host API-key configuration from silently changing the authentication/billing basis of the A/B run. The calling PowerShell environment remains unchanged. Verify that the interactive logins in both homes use the intended ChatGPT subscription, not API-key billing.
+
 ## Step 1 — prepare (no model quota)
 
 In PowerShell, after the new code is present on main:
