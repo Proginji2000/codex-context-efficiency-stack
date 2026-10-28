@@ -30,6 +30,8 @@ python .\scripts\Run-CodexAB.py prepare --output C:\Dev\codex-ab-pr14-pilot
 
 The program rejects an existing output directory. It records distinct SHA256 fingerprints and does not modify the working configuration. It first tries the exact pinned PR #14 Git object already in the local checkout; only when unavailable does it request the immutable raw GitHub URL. A known local file can be provided through --candidate-file.
 
+On Windows, the launcher resolves the explicit `codex.exe` / `codex.cmd` / `codex.bat` path rather than calling a bare `codex` process. This also handles npm installations where Python finds an extensionless POSIX shim or `codex.ps1` even though PowerShell can run Codex. The same resolved launcher is used for `--version`, `login status` and `exec`; no reinstall or execution-policy change is required.
+
 **If prepare fails, STOP there. Do not run login, status or run.** The script prints an intentionally restricted diagnostic code, for example:
 - `OUTPUT_ALREADY_EXISTS`: choose a NEW folder, and inspect the previous folder without deleting anything;
 - `BASELINE_UNAVAILABLE`: verify where the active global `AGENTS.md` is installed; pass `--baseline` if required;
