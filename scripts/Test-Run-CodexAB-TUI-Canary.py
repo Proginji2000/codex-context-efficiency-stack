@@ -158,8 +158,8 @@ class TuiCanaryTests(unittest.TestCase):
             home = pilot / "baseline-home"
             home.mkdir(parents=True)
             (home / "config.toml").write_text(
-                "approval_policy = 'on-request'\\n"
-                "[windows]\\nsandbox = 'elevated'\\n", encoding="utf-8")
+                "approval_policy = 'on-request'\n"
+                "[windows]\nsandbox = 'elevated'\n", encoding="utf-8")
             # The sandbox choice is *read*, never changed or promoted.
             before = (home / "config.toml").read_bytes()
             output = root / "isolated-never"
@@ -182,8 +182,8 @@ class TuiCanaryTests(unittest.TestCase):
                 self.assertIn("report BLOCKED", cmd[-1])
                 work = Path(kwargs["cwd"])
                 (work / "total.py").write_text(
-                    "def total(lignes):\\n"
-                    "    return sum(prix * quantite for prix, quantite in lignes)\\n",
+                    "def total(lignes):\n"
+                    "    return sum(prix * quantite for prix, quantite in lignes)\n",
                     encoding="utf-8")
                 return SimpleNamespace(returncode=0)
 
@@ -224,7 +224,7 @@ class TuiCanaryTests(unittest.TestCase):
             home = root / "pilot" / "baseline-home"
             home.mkdir(parents=True)
             (home / "config.toml").write_text(
-                "[windows]\\nsandbox='disabled'\\n", encoding="utf-8")
+                "[windows]\nsandbox='disabled'\n", encoding="utf-8")
             with (patch.object(app.runner, "state", return_value={
                     "model": "gpt-6-luna",
                     "reasoning_effort": "medium",
