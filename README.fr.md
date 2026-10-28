@@ -274,6 +274,10 @@ Le planificateur facultatif `Plan-CodexWorktreeWave.py` valide les proprietes ex
 python .\scripts\Test-CodexWorktreeWave.py
 ```
 
+## Roadmap : qualification, dashboards et future VM isolee
+
+La [roadmap priorisee](docs/QUALIFICATION_ROADMAP_2026.md) distingue les validations reelles des tests synthetiques, planifie les benchmarks AGENTS/MCP, un skill de dashboards teste sur projet pilote, l'autonomie multi-agent et une future VM Codex a acces etendu uniquement a l'interieur du guest. Aucun changement de configuration globale n'est fait par cette documentation.
+
 ## Vérification et mesure
 
 ```powershell
