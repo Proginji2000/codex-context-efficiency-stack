@@ -411,6 +411,140 @@ class TuiCanaryTests(unittest.TestCase):
             self.assertTrue(result["functional_and_scope_pass"])
             self.assertFalse(result["worker_delegation_independently_verified"])
 
+    def test_sandbox_key_drift_validator_preserves_candidate_and_baseline(self):
+        with tempfile.TemporaryDirectory() as name:
+            pilot = Path(name) / "pilot"
+            original_home = pilot / "candidate-home"
+            changed_home = pilot / "baseline-home"
+            original_home.mkdir(parents=True)
+            changed_home.mkdir()
+            original = b"tool_output_token_limit = 4000\n[agents]\nenabled = true\n"
+            changed = original + b'[windows]\nsandbox = "elevated"\n'
+            (original_home / "config.toml").write_bytes(original)
+            (changed_home / "config.toml").write_bytes(changed)
+            expected = {"config_sha256": app.runner.digest(original)}
+            before = ((original_home / "config.toml").read_bytes(),
+                      (changed_home / "config.toml").read_bytes())
+            with self.assertRaisesRegex(
+                    ValueError, "ISOLATED_CONFIG_HASH_MISMATCH"):
+                app.validate_baseline_config_snapshot(pilot, expected)
+            self.assertEqual(
+                app.validate_baseline_config_snapshot(
+                    pilot, expected, allow_sandbox_key_drift=True),
+                "opt_in_sandbox_key_or_format_drift")
+            self.assertEqual(
+                ((original_home / "config.toml").read_bytes(),
+                 (changed_home / "config.toml").read_bytes()), before)
+
+    def test_unsafe_config_drift_fails_closed_and_does_not_rebaseline(self):
+        with tempfile.TemporaryDirectory() as name:
+            pilot = Path(name) / "pilot"
+            original_home = pilot / "candidate-home"
+            changed_home = pilot / "baseline-home"
+            original_home.mkdir(parents=True)
+            changed_home.mkdir()
+            original = b"tool_output_token_limit = 4000\n[agents]\nenabled = true\n"
+            expected = {"config_sha256": app.runner.digest(original)}
+            (original_home / "config.toml").write_bytes(original)
+            for bad in (
+                original.replace(b"true", b"false"),
+                original + b'[windows]\nsandbox = "unelevated"\n',
+                original + b'[windows]\nsandbox = "disabled"\n',
+                original + b'[windows]\nsandbox = "mxc"\n[projects.x]\ntrust_level = "trusted"\n',
+                original + b'approval_policy = "never"\n',
+            ):
+                (changed_home / "config.toml").write_bytes(bad)
+                with self.assertRaisesRegex(
+                        ValueError, "ISOLATED_CONFIG_DRIFT_NOT_ALLOWLISTED"):
+                    app.validate_baseline_config_snapshot(
+                        pilot, expected, allow_sandbox_key_drift=True)
+            (changed_home / "config.toml").write_bytes(
+                original + b'[windows]\nsandbox = "mxc"\n')
+            (original_home / "config.toml").write_bytes(
+                original.replace(b"4000", b"6000"))
+            with self.assertRaisesRegex(
+                    ValueError, "ORIGINAL_CANDIDATE_CONFIG_CHANGED"):
+                app.validate_baseline_config_snapshot(
+                    pilot, expected, allow_sandbox_key_drift=True)
+
+    @unittest.skipUnless(os.name == "nt", "MXC canary runs only on Windows")
+    def test_one_shot_mxc_tui_accepts_only_sandbox_drift_with_explicit_optin(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            repo = root / "repo"
+            repo.mkdir()
+            pilot = root / "pilot"
+            home = pilot / "baseline-home"
+            candidate = pilot / "candidate-home"
+            home.mkdir(parents=True)
+            candidate.mkdir()
+            clean = b"tool_output_token_limit = 4000\n[agents]\nenabled = true\n"
+            (candidate / "config.toml").write_bytes(clean)
+            changed = clean + b'[windows]\nsandbox = "elevated"\n'
+            (home / "config.toml").write_bytes(changed)
+            original = subprocess.run
+            launches = []
+
+            def fake_run(cmd, **kwargs):
+                if cmd[0] in ("git", sys.executable):
+                    return original(cmd, **kwargs)
+                launches.append(cmd)
+                self.assertEqual(cmd[cmd.index("--ask-for-approval") + 1],
+                                 "never")
+                self.assertEqual(cmd[cmd.index("--sandbox") + 1],
+                                 "workspace-write")
+                self.assertIn("windows.sandbox=mxc", cmd)
+                self.assertNotIn("danger-full-access", cmd)
+                workspace = Path(kwargs["cwd"])
+                (workspace / "total.py").write_text(
+                    "def total(lignes):\n"
+                    "    return sum(prix * quantite for prix, quantite in lignes)\n",
+                    encoding="utf-8")
+                return SimpleNamespace(returncode=0)
+
+            with (patch.object(app.runner, "state", return_value={
+                    "model": "gpt-6-luna", "reasoning_effort": "medium",
+                    "sandbox": "workspace-write",
+                    "config_sha256": app.runner.digest(clean),
+                }),
+                  patch.object(app.runner, "call_codex",
+                               return_value=SimpleNamespace(returncode=0)),
+                  patch.object(app.runner, "resolve_codex_executable",
+                               return_value="fake-codex.cmd"),
+                  patch.object(app.subprocess, "run", side_effect=fake_run),
+                  patch("sys.stdout")):
+                status = app.run(Namespace(
+                    pilot=str(pilot), output=str(root / "canary"), repo=str(repo),
+                    approval="never", windows_sandbox="mxc",
+                    accept_sandbox_key_drift=True, execute=True))
+            self.assertEqual(status, 0)
+            self.assertEqual(len(launches), 1)
+            self.assertEqual((home / "config.toml").read_bytes(), changed)
+            self.assertEqual((candidate / "config.toml").read_bytes(), clean)
+            report = json.loads(
+                (root / "canary" / "sanitized-tui-result.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["baseline_config_snapshot_check"],
+                             "opt_in_sandbox_key_or_format_drift")
+            self.assertTrue(report["functional_and_scope_pass"])
+
+    def test_drift_flag_without_never_mxc_refused_before_model_call(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            repo = root / "repo"
+            repo.mkdir()
+            pilot = root / "pilot"
+            pilot.mkdir()
+            with patch.object(app.runner, "state", return_value={}):
+                for approval, sandbox in (("on-request", "mxc"),
+                                          ("never", None)):
+                    with self.assertRaisesRegex(
+                            ValueError, "CONFIG_DRIFT_FLAG_REQUIRES_MXC_NEVER"):
+                        app.run(Namespace(
+                            pilot=str(pilot), output=str(root / "never-created"),
+                            repo=str(repo), execute=True, approval=approval,
+                            windows_sandbox=sandbox, accept_sandbox_key_drift=True))
+            self.assertFalse((root / "never-created").exists())
+
     def test_invalid_windows_sandbox_override_fails_before_launch(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
