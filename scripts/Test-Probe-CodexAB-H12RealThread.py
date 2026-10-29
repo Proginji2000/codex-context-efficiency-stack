@@ -137,6 +137,10 @@ if mode == "policy-extra-root":
         "C:\\PRIVATE\\SECRET" if os.name=="nt" else "/PRIVATE/SECRET")
 if mode == "policy-non-ephemeral":
     response["result"]["thread"]["ephemeral"] = False
+if mode == "policy-empty-extra-roots":
+    response["result"]["sandbox"]["writableRoots"] = []
+if mode == "policy-roots-field-missing":
+    response["result"]["sandbox"].pop("writableRoots")
 send(response)
 time.sleep(.02)
 '''
@@ -429,6 +433,23 @@ class RealH12OfflineTests(unittest.TestCase):
                     self.execute_fake(mode)
                 expected = "THREAD_ECHO_VALIDATION_FAILED:" + reason
                 self.assertEqual(app._safe_code(caught.exception), expected)
+
+    @unittest.skipUnless(os.name == "nt", "actual Windows path policy only")
+    def test_real_policy_validator_accepts_version_pinned_empty_extra_roots(self):
+        report = self.execute_fake("policy-empty-extra-roots")
+        self.assertTrue(report["real_thread_created"])
+        self.assertEqual(report["allowed_root_count"], 0)
+        self.assertFalse(report["runtime_mxc_effectiveness_verified"])
+        self.assertFalse(report["network_isolation_independently_verified"])
+        self.assertFalse(report["turn_start_sent"])
+
+    @unittest.skipUnless(os.name == "nt", "actual Windows path policy only")
+    def test_real_policy_validator_still_rejects_absent_roots_field(self):
+        with self.assertRaises(app.GateError) as caught:
+            self.execute_fake("policy-roots-field-missing")
+        self.assertEqual(
+            app._safe_code(caught.exception),
+            "THREAD_ECHO_VALIDATION_FAILED:WRITABLE_ROOTS_MISSING")
 
     def test_fixed_error_classifications(self):
         self.assertEqual(app._safe_code(app.GateError("THREAD_RPC_REJECTED")),

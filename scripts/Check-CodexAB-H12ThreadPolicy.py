@@ -90,11 +90,18 @@ def validate(request, response, workspace, isolated_home):
         raise PolicyError("SANDBOX_TYPE_MISMATCH")
     if sandbox.get("networkAccess") is not False:
         raise PolicyError("SANDBOX_NETWORK_UNPROVEN")
+    # Codex rust-v0.165.0 SandboxPolicy.new_workspace_write_policy()
+    # sets writable_roots: vec![]: cwd is implicitly writable. This list
+    # contains *additional* roots, not the mandatory workspace itself.
+    # Missing/malformed writableRoots remains a failure: do not confuse an
+    # absent wire field with a valid, explicitly empty array.
     roots = sandbox.get("writableRoots")
-    if not isinstance(roots, list) or not roots:
+    if not isinstance(roots, list):
         raise PolicyError("WRITABLE_ROOTS_MISSING")
     normalized = [canonical_windows_path(v) for v in roots]
-    if len(set(normalized)) != len(normalized) or w not in normalized:
+    if len(set(normalized)) != len(normalized):
+        raise PolicyError("WRITABLE_ROOTS_MISMATCH")
+    if normalized and w not in normalized:
         raise PolicyError("WRITABLE_ROOTS_MISMATCH")
     if any(root not in (w, h) for root in normalized):
         raise PolicyError("UNEXPECTED_WRITABLE_ROOT")
@@ -123,6 +130,7 @@ def validate(request, response, workspace, isolated_home):
         "reasoning_effort_echo": EFFORT,
         "ephemeral_echo": True,
         "allowed_root_count": len(normalized),
+        "implicit_cwd_write_by_pinned_contract": len(normalized) == 0,
         "instruction_source_count": len(sources),
         "thread_start_simulated": True,
         "turn_start_sent": False,

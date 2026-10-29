@@ -77,6 +77,53 @@ class ThreadPolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(h.PolicyError, "UNEXPECTED_WRITABLE_ROOT"):
             self.check()
 
+    def test_codex_pinned_workspace_write_empty_extra_roots_passes(self):
+        # In rust-v0.165.0, cwd is an implicit writable workspace;
+        # writableRoots refers to ADDITIONAL explicit roots.
+        self.reply["result"]["sandbox"]["writableRoots"] = []
+        r = self.check()
+        self.assertEqual(r["allowed_root_count"], 0)
+        self.assertTrue(r["implicit_cwd_write_by_pinned_contract"])
+        self.assertFalse(r["windows_mxc_runtime_verified"])
+        self.assertFalse(r["network_isolation_runtime_verified"])
+
+    def test_explicit_workspace_root_still_passes(self):
+        r = self.check()
+        self.assertEqual(r["allowed_root_count"], 1)
+        self.assertFalse(r["implicit_cwd_write_by_pinned_contract"])
+
+    def test_reject_missing_or_malformed_writable_roots(self):
+        sandbox = self.reply["result"]["sandbox"]
+        sandbox.pop("writableRoots")
+        with self.assertRaisesRegex(h.PolicyError, "WRITABLE_ROOTS_MISSING"):
+            self.check()
+        for bad in (None, "", {}, 1, True):
+            with self.subTest(value=repr(bad)):
+                sandbox["writableRoots"] = bad
+                with self.assertRaisesRegex(h.PolicyError, "WRITABLE_ROOTS_MISSING"):
+                    self.check()
+
+    def test_empty_extra_roots_do_not_bypass_network_or_sandbox_restrictions(self):
+        sandbox = self.reply["result"]["sandbox"]
+        sandbox["writableRoots"] = []
+        sandbox["networkAccess"] = True
+        with self.assertRaisesRegex(h.PolicyError, "SANDBOX_NETWORK_UNPROVEN"):
+            self.check()
+        sandbox["networkAccess"] = False
+        sandbox["type"] = "dangerFullAccess"
+        with self.assertRaisesRegex(h.PolicyError, "SANDBOX_TYPE_MISMATCH"):
+            self.check()
+
+    def test_empty_extra_roots_do_not_bypass_approval_or_cwd(self):
+        self.reply["result"]["sandbox"]["writableRoots"] = []
+        self.reply["result"]["approvalPolicy"] = "on-request"
+        with self.assertRaisesRegex(h.PolicyError, "POLICY_ECHO_MISMATCH"):
+            self.check()
+        self.reply["result"]["approvalPolicy"] = "never"
+        self.reply["result"]["cwd"] = self.home
+        with self.assertRaisesRegex(h.PolicyError, "CWD_ECHO_MISMATCH"):
+            self.check()
+
     def test_reject_missing_workspace_root(self):
         self.reply["result"]["sandbox"]["writableRoots"] = [self.home]
         with self.assertRaisesRegex(h.PolicyError, "WRITABLE_ROOTS_MISMATCH"):
