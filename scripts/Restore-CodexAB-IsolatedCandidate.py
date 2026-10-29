@@ -133,7 +133,7 @@ def restore(pilot_path, backup_label, *, execute=False):
         "status": "RESTORED",
         "operation": "audited_isolated_candidate_config_restore",
         "backup_label": backup_label,
-        "previous_baseline_archived": True,
+        "previous_candidate_archived": True,
         "candidate_matches_recorded_original": True,
         "baseline_original_unchanged": True,
         "credentials_copied": False,
