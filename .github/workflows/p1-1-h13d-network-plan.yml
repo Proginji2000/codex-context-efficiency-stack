@@ -1,0 +1,36 @@
+name: P1.1 H1.3d offline MXC network evidence matrix
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Plan-CodexAB-H13DNetwork.py'
+      - 'scripts/Test-Plan-CodexAB-H13DNetwork.py'
+      - '.github/workflows/p1-1-h13d-network-plan.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Plan-CodexAB-H13DNetwork.py'
+      - 'scripts/Test-Plan-CodexAB-H13DNetwork.py'
+      - '.github/workflows/p1-1-h13d-network-plan.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-matrix-only:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Validate H1.3d fail-closed fabricated evidence
+        run: python -B scripts/Test-Plan-CodexAB-H13DNetwork.py
+      - name: Confirm default starts no processes or network
+        run: python -B scripts/Plan-CodexAB-H13DNetwork.py
+      - name: Confirm fabricated matrix is rejected as runtime evidence
+        run: python -B scripts/Plan-CodexAB-H13DNetwork.py --simulate
