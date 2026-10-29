@@ -73,14 +73,6 @@ if mode == "benign-mcp":
     send({"method":"mcpServer/startupStatus/updated","params":{"private":"PRIVATE"}})
 if mode == "benign-account":
     send({"method":"account/updated","params":{"private":"PRIVATE"}})
-if mode == "policy-bad-model":
-    req["params"]["_fakePolicyResponseMutation"] = "bad-model"
-if mode == "policy-network-on":
-    req["params"]["_fakePolicyResponseMutation"] = "network-on"
-if mode == "policy-extra-root":
-    req["params"]["_fakePolicyResponseMutation"] = "extra-root"
-if mode == "policy-non-ephemeral":
-    req["params"]["_fakePolicyResponseMutation"] = "non-ephemeral"
 if mode == "remote-disabled":
     send({"method":"remoteControl/status/changed",
           "params":{"status":"disabled","serverName":"PRIVATE_SERVER_NAME",
