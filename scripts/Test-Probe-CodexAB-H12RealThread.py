@@ -108,12 +108,17 @@ class RealH12OfflineTests(unittest.TestCase):
             app.policy.synthetic_response(
                 app.policy.SYNTHETIC_WORKSPACE, app.policy.SYNTHETIC_HOME),
             app.policy.SYNTHETIC_WORKSPACE, app.policy.SYNTHETIC_HOME)
-        with mock.patch.object(app.policy, "validate", return_value=fixed):
-            return app.perform_exchange(
-                [sys.executable, "-B", str(self.fake), mode],
-                self.env, self.root, self.home, self.workspace,
-                init_timeout=3, thread_timeout=timeout,
-            )
+        # The REAL client is Windows-only. For Linux CI, simulate the
+        # Windows-specific path constructor, not the production policy checker.
+        linux_request = app.policy.request_for_workspace(app.policy.SYNTHETIC_WORKSPACE)
+        linux_request["params"]["cwd"] = str(self.workspace)
+        with mock.patch.object(app.policy, "request_for_workspace", return_value=linux_request):
+            with mock.patch.object(app.policy, "validate", return_value=fixed):
+                return app.perform_exchange(
+                    [sys.executable, "-B", str(self.fake), mode],
+                    self.env, self.root, self.home, self.workspace,
+                    init_timeout=3, thread_timeout=timeout,
+                )
 
     def test_default_plan_starts_no_process(self):
         report = app.plan()
@@ -166,10 +171,19 @@ class RealH12OfflineTests(unittest.TestCase):
     def test_reject_bad_echo_fail_closed(self):
         with mock.patch.object(app.policy, "validate", side_effect=app.policy.PolicyError(
                 "UNEXPECTED_WRITABLE_ROOT")):
-            with self.assertRaisesRegex(app.GateError, "THREAD_ECHO_VALIDATION_FAILED"):
-                app.perform_exchange([sys.executable, "-B", str(self.fake), "good"],
-                                     self.env, self.root, self.home, self.workspace,
-                                     init_timeout=3, thread_timeout=3)
+            if os.name == "nt":
+                with self.assertRaisesRegex(app.GateError, "THREAD_ECHO_VALIDATION_FAILED"):
+                    app.perform_exchange([sys.executable, "-B", str(self.fake), "good"],
+                                         self.env, self.root, self.home, self.workspace,
+                                         init_timeout=3, thread_timeout=3)
+            else:
+                linux_request = app.policy.request_for_workspace(app.policy.SYNTHETIC_WORKSPACE)
+                linux_request["params"]["cwd"] = str(self.workspace)
+                with mock.patch.object(app.policy, "request_for_workspace", return_value=linux_request):
+                    with self.assertRaisesRegex(app.GateError, "THREAD_ECHO_VALIDATION_FAILED"):
+                        app.perform_exchange([sys.executable, "-B", str(self.fake), "good"],
+                                             self.env, self.root, self.home, self.workspace,
+                                             init_timeout=3, thread_timeout=3)
 
     def test_fixed_error_classifications(self):
         self.assertEqual(app._safe_code(app.GateError("THREAD_RPC_REJECTED")),
