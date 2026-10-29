@@ -65,6 +65,7 @@ CODES = frozenset({
     "MXC_DOCUMENTED_BUILD_TOO_OLD",
     "MXC_BUILD_OUTSIDE_DOCUMENTED_MATRIX",
     "MXC_HOST_ENV_REQUIRED_MISSING",
+    "MXC_HOST_SYSTEMDRIVE_INVALID",
 })
 
 STDERR_CLASSES = frozenset({
@@ -225,6 +226,34 @@ def _is_host_env_present(key, env):
                for k, v in env.items())
 
 
+def _windows_systemdrive(env):
+    """Extract only a canonical drive designator; never print user values."""
+    for name, value in env.items():
+        if name.upper() != "SYSTEMDRIVE":
+            continue
+        if (not isinstance(value, str) or len(value) != 2 or
+                not value[0].isascii() or not value[0].isalpha() or
+                value[1] != ":"):
+            raise ProbeError("MXC_HOST_SYSTEMDRIVE_INVALID")
+        return value[0].upper() + ":"
+    raise ProbeError("MXC_HOST_ENV_REQUIRED_MISSING")
+
+
+def mxc_env_for_isolated_home(home, source=None):
+    """H1-safe child env plus the single upstream-required SystemDrive key.
+
+    Keep H1.2's original global SAFE_ENV unchanged. Codex rust-v0.165.0
+    mxc-sandbox/src/transport.rs explicitly reads host SystemDrive.
+    No other ambient variable is copied. No system/user settings change.
+    """
+    source = os.environ if source is None else source
+    child = h1.env_for_isolated_home(home, source)
+    child["SystemDrive"] = _windows_systemdrive(source)
+    if not _is_host_env_present("LOCALAPPDATA", child):
+        raise ProbeError("MXC_HOST_ENV_REQUIRED_MISSING")
+    return child
+
+
 def host_environment_report(env=None):
     """Read-only, zero-process launch prerequisites from pinned MXC transport."""
     if os.name != "nt":
@@ -235,6 +264,11 @@ def host_environment_report(env=None):
         "local_app_data_present": _is_host_env_present("LOCALAPPDATA", env),
         "system_root_present": _is_host_env_present("SystemRoot", env),
     }
+    try:
+        valid_drive = bool(_windows_systemdrive(env))
+    except ProbeError:
+        valid_drive = False
+    keys["system_drive_format_valid"] = valid_drive
     return {
         "contract": CONTRACT,
         "mode": "READ_ONLY_MXC_HOST_ENV_CHECK",
@@ -404,6 +438,9 @@ def require_pinned_nonadmin_windows():
         raise ProbeError("MXC_BUILD_OUTSIDE_DOCUMENTED_MATRIX")
     if not host_environment_report()["required_mxc_transport_host_env_present"]:
         raise ProbeError("MXC_HOST_ENV_REQUIRED_MISSING")
+    # Reject malformed SystemDrive before invoking Codex; do not synthesize
+    # a drive letter or silently substitute a different system volume.
+    _windows_systemdrive(os.environ)
     if not h1.CLI.is_file() or h1.CLI.is_symlink():
         raise ProbeError("PINNED_CLI_MISSING")
     try:
@@ -429,7 +466,7 @@ def run_compatibility_only():
             home, workspace = root / "codex-home", root / "workspace"
             home.mkdir()
             workspace.mkdir()
-            env = h1.env_for_isolated_home(home)
+            env = mxc_env_for_isolated_home(home)
             out, err, rc = run_subprocess(
                 compatibility_command(h1.CLI), env, str(workspace))
             evaluate_compatibility(out, err, rc)
@@ -482,7 +519,7 @@ def run_local():
                     raise ProbeError("TEMP_PRECONDITION_FAILED")
                 child = workspace / "child.py"
                 child.write_text(CHILD_CODE, encoding="utf-8")
-                env = h1.env_for_isolated_home(home)
+                env = mxc_env_for_isolated_home(home)
                 env["P11_H13_WORKSPACE"] = str(workspace)
                 env["P11_H13_OUTSIDE"] = str(outside)
                 # One documented MXC compatibility launch first. A failed

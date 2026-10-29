@@ -143,3 +143,24 @@ Le script introduit `--check-mxc-host-environment`. Cette option **n'invoque ni 
 La classification `stderr` est complétée **sans jamais relâcher le STOP sur tout avertissement** : des messages correspondant exactement à des étapes officielles deviennent des codes fixes, par exemple `MXC_INVALID_LAUNCHER_REQUEST`, `MXC_ENV_UNICODE_INVALID`, `MXC_WINDOWS_VOLUME_ERROR`, `MXC_PLATFORM_DIRECTORY_ERROR`, `MXC_COM_INIT_ERROR`, `MXC_DENY_PATHS_UNAVAILABLE`, `MXC_CHILD_WAIT_ERROR` et `MXC_LAUNCHER_FAILURE` générique si rien de plus précis n'est connu. Aucun texte d'erreur brut, chemin, HRESULT, secret, ID ou argument ne doit être renvoyé.
 
 **Décision :** la prochaine opération locale sera **exclusivement `--check-mxc-host-environment`**, après mise à jour et tests hors modèle. Un succès confirme des prérequis d'environnement, **pas la disponibilité de l'API MXC**. Si ces prérequis sont présents et que la catégorie générique persiste ultérieurement, envisager une lecture d'erreur locale limitée et contrôlée par l'opérateur, au lieu de répéter les essais ou de désactiver les protections. PR #14 ouverte, A/B non autorisés.
+
+## Host prerequisites PASS, but `SystemDrive` dropped from isolated process (29 October 2026)
+
+The operator's latest **read-only** host transport check on main `885f640385bdff490588aa4deb0c46eecf4ed13d` established **46/46** launcher synthetic tests PASS, and:
+- `system_drive_present=true`, `local_app_data_present=true`, `system_root_present=true`;
+- `required_mxc_transport_host_env_present=true`, `processes_launched=0`, `model_calls_made=0`;
+- `mxc_native_capability_verified=false`, `standalone_mxc_runtime_verified=false`, `appserver_turn_mxc_verified=false`.
+
+These booleans describe the **parent Python process environment**. They do **not** show what the **isolated child Codex CLI process** received. Reviewing the actual source identified a concrete missing transport prerequisite: `scripts/Probe-CodexAB-AppServerH1.py` `SAFE_ENV` intentionally permits `LOCALAPPDATA` and `SYSTEMROOT` but **omits `SYSTEMDRIVE`**; H1.3 previously used `h1.env_for_isolated_home(home)` directly in both the compatibility-only and filesystem-test paths. The pinned upstream [`codex-rs/mxc-sandbox/src/transport.rs`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/mxc-sandbox/src/transport.rs) explicitly requires a nonempty host `SystemDrive` at launcher transport construction, along with `LOCALAPPDATA`.
+
+This is a **real defect in the local environment-building contract**, although it is **not proven** to be the root cause of the prior broad `COMPAT_STDERR_PRESENT:MXC_LAUNCHER_FAILURE`: that prefix comes from the helper after dispatch, and the unlogged underlying error is unknown.
+
+### Narrow correction, H1.3 only
+
+- Introduce `mxc_env_for_isolated_home(home, source)` **only in H1.3**, reusing the existing H1 safe filtered environment and injecting **exactly one** additional host variable, `SystemDrive`, after verifying it has the canonical drive-letter format `X:`. Do **not** modify `SAFE_ENV`, the H1/H1.2 probes, global Windows variables, real Codex profiles or token stores.
+- Reject a missing or malformed `SystemDrive` before any Codex subprocess, and reject missing `LOCALAPPDATA` in the **isolated child**. Do not guess or substitute a system drive or add broad profile variables.
+- Add `system_drive_format_valid` to the read-only host report; report only booleans, never variable values. `required_mxc_transport_host_env_present` retains its existing presence-only semantics.
+- Use the same vetted H1.3-only isolated environment in both the **single-shot compatibility** and gated filesystem negative test modes, with no changes to their sandbox permissions or fail-closed stderr handling.
+- Fake-only tests verify all new environment invariants, reject invalid values and ensure only one additional key is passed. **No native MXC execution occurs in CI.**
+
+**Next evidence needed:** after full CI PASS, a **single explicit** local compatibility-only attempt can determine whether this omission affected startup. If another `MXC_LAUNCHER_FAILURE` occurs, STOP; do **not** make more speculative environment changes. Move instead to a privacy-controlled local examination of the original SDK error content, without copying sensitive output into GitHub or chat. H1.3 filesystem isolation, app-server parity, network and worker attestations remain not verified; the PR #14 stays open and A/B model calls are not authorized.
