@@ -125,6 +125,66 @@ class H13StandaloneTests(unittest.TestCase):
         self.assertIn("mxc_native_capability_verified", source)
         self.assertIn("managed_policy_mxc_allowed_verified", source)
 
+    def test_compat_only_launches_one_sandbox_without_filesystem_canary(self):
+        out = io.StringIO()
+        with mock.patch.object(p, "require_pinned_nonadmin_windows"):
+            with mock.patch.object(
+                    p, "run_subprocess", return_value=(b"MXC_OK\r\n", b"", 0)) as run:
+                with mock.patch.object(p, "run_local", side_effect=AssertionError("FS TEST")):
+                    with contextlib.redirect_stdout(out):
+                        self.assertEqual(p.main(["--execute-local-mxc-compat-only"]), 0)
+        result = json.loads(out.getvalue())
+        self.assertEqual(result["status"], "MXC_COMPAT_STANDALONE_ECHO_PASS_NOT_ENFORCEMENT")
+        self.assertFalse(result["filesystem_negative_test_executed"])
+        self.assertFalse(result["standalone_filesystem_isolation_verified"])
+        self.assertFalse(result["appserver_turn_mxc_verified"])
+        self.assertEqual(result["model_calls_made"], 0)
+        self.assertTrue(result["temporary_profile_and_workspace_deleted"])
+        self.assertEqual(run.call_count, 1)
+        command = run.call_args.args[0]
+        self.assertEqual(command, p.compatibility_command(p.h1.CLI))
+        self.assertNotIn("workspace-positive.canary", " ".join(command))
+        self.assertNotIn("outside-negative.canary", " ".join(command))
+
+    def test_compat_only_stderr_fails_and_fs_test_never_starts(self):
+        out = io.StringIO()
+        err = io.StringIO()
+        with mock.patch.object(p, "require_pinned_nonadmin_windows"):
+            with mock.patch.object(p, "run_subprocess",
+                                   return_value=(b"", b"native MXC is unavailable on this Windows build", 1)) as run:
+                with mock.patch.object(p, "run_local", side_effect=AssertionError("FS TEST")):
+                    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                        self.assertEqual(p.main(["--execute-local-mxc-compat-only"]), 2)
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(out.getvalue(), "")
+        self.assertEqual(err.getvalue().strip(),
+            "STOP: H13_STANDALONE_MXC_FAILED:COMPAT_STDERR_PRESENT:"
+            "MXC_NATIVE_UNAVAILABLE:MARKER_ABSENT:EXIT_NONZERO")
+
+    def test_compat_only_does_not_retry_on_warning(self):
+        with mock.patch.object(p, "require_pinned_nonadmin_windows"):
+            with mock.patch.object(p, "run_subprocess",
+                                   return_value=(b"", b"warning: PRIVATE", 1)) as run:
+                with self.assertRaises(p.ProbeError):
+                    p.run_compatibility_only()
+        self.assertEqual(run.call_count, 1)
+
+    def test_compat_only_is_mutually_exclusive_with_fs_and_readonly_modes(self):
+        for flags in (["--execute-local-mxc-compat-only", "--execute-local-mxc-probe"],
+                      ["--execute-local-mxc-compat-only", "--check-windows-build"]):
+            with self.subTest(flags=flags):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    with self.assertRaises(SystemExit) as err:
+                        p.main(flags)
+                self.assertEqual(err.exception.code, 2)
+
+    def test_compat_only_plan_does_not_claim_runtime_pass(self):
+        plan = p.plan()
+        self.assertTrue(plan["compat_only_diagnostic_available"])
+        self.assertFalse(plan["standalone_mxc_runtime_verified"])
+        self.assertEqual(plan["mode"], "PLAN_ONLY_NO_PROCESS")
+
+
     def test_documented_compatibility_gate_only_accepts_exact_echo(self):
         self.assertTrue(p.evaluate_compatibility(b"MXC_OK\r\n", b"", 0))
         self.assertTrue(p.evaluate_compatibility(b"MXC_OK\n", b"", 0))
