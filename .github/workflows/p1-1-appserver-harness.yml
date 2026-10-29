@@ -1,0 +1,36 @@
+name: P1.1 app-server harness mock contract (offline)
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Plan-CodexAB-AppServerHarness.py'
+      - 'scripts/Test-Plan-CodexAB-AppServerHarness.py'
+      - '.github/workflows/p1-1-appserver-harness.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Plan-CodexAB-AppServerHarness.py'
+      - 'scripts/Test-Plan-CodexAB-AppServerHarness.py'
+      - '.github/workflows/p1-1-appserver-harness.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Validate in-memory mock protocol and safety gates
+        run: python -B scripts/Test-Plan-CodexAB-AppServerHarness.py
+      - name: Validate no-model plan
+        run: python -B scripts/Plan-CodexAB-AppServerHarness.py
+      - name: Validate one in-memory synthetic turn
+        run: python -B scripts/Plan-CodexAB-AppServerHarness.py --simulate device-reconcile
