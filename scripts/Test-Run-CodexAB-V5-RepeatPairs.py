@@ -39,6 +39,7 @@ class RepeatPairsTests(unittest.TestCase):
     def args(self, pilot, repo, out_base, **values):
         params = dict(
             pilot=str(pilot), repo=str(repo), output_base=str(out_base),
+            codex_cli="C:/Dev/codex-cli-0165/node_modules/.bin/codex.cmd",
             start_pair=2, pairs=2, execute=True, audited_restore=True,
         )
         params.update(values)
@@ -196,12 +197,33 @@ class RepeatPairsTests(unittest.TestCase):
             self.assertEqual(runner.verification_detail.call_count, 2)
 
     def test_version_mismatch_rejected_before_home_access(self):
-        fake = SimpleNamespace(
-            runner=SimpleNamespace(call_codex=Mock(return_value=SimpleNamespace(
-                returncode=0, stdout="codex-cli 0.164.0\n")), state=Mock()))
-        with self.assertRaisesRegex(ValueError, "PINNED_CLI_VERSION_MISMATCH"):
-            app.check_cli_and_homes(fake, Path("unreadable"))
-        fake.runner.state.assert_not_called()
+        with tempfile.TemporaryDirectory() as dirname:
+            cli = Path(dirname) / "codex.cmd"
+            cli.write_text("placeholder")
+            fake = SimpleNamespace(
+                runner=SimpleNamespace(
+                    resolve_codex_executable=Mock(return_value=str(cli)),
+                    call_codex=Mock(return_value=SimpleNamespace(
+                        returncode=0, stdout="codex-cli 0.164.0\n")),
+                    state=Mock(),
+                ))
+            with self.assertRaisesRegex(ValueError, "PINNED_CLI_VERSION_MISMATCH"):
+                app.check_cli_and_homes(fake, Path("unreadable"), cli)
+            fake.runner.state.assert_not_called()
+
+    def test_cli_path_mismatch_stops_before_running_models(self):
+        with tempfile.TemporaryDirectory() as dirname:
+            cli = Path(dirname) / "codex.cmd"
+            cli.write_text("placeholder")
+            wrong = Path(dirname) / "untrusted.cmd"
+            wrong.write_text("other")
+            fake = SimpleNamespace(runner=SimpleNamespace(
+                resolve_codex_executable=Mock(return_value=str(wrong)),
+                call_codex=Mock(side_effect=AssertionError("NO_CLI_CALL")),
+            ))
+            with self.assertRaisesRegex(ValueError, "ISOLATED_CLI_PATH_MISMATCH"):
+                app.check_cli_and_homes(fake, Path("unused"), cli)
+            fake.runner.call_codex.assert_not_called()
 
 
 if __name__ == "__main__":
