@@ -23,6 +23,7 @@ SPEC.loader.exec_module(runner)
 
 SCHEMA = 1
 MODEL = "gpt-6-luna"
+PROMPT_CONTRACT = "p1.1-git-diff-selfcheck-v2"
 
 
 def validate_paths(pilot, output, repo):
@@ -77,6 +78,7 @@ def sanitized_report(workspace, exit_code, elapsed, approval="on-request",
         "schema_version": SCHEMA,
         "execution_surface": "codex-interactive-tui-not-exec",
         "arm": arm,
+        "prompt_contract": PROMPT_CONTRACT,
         "model": MODEL,
         "sandbox": "workspace-write",
         "approval_policy_override_requested": approval,
@@ -471,6 +473,7 @@ def run(args):
     runner.save_json(output / "run-started.json", {
         "schema_version": SCHEMA,
         "profile": arm,
+        "prompt_contract": PROMPT_CONTRACT,
         "execution_surface": "interactive-tui",
         "execute_authorized": True,
         "model": MODEL,
@@ -517,6 +520,20 @@ def run(args):
             "install Python, edit the environment, access outside workspace "
             "except to execute this interpreter, elevate or request approval."
         )
+    # Contract v2 is intentionally shared by both arms. The first matched
+    # pilot found a correct candidate fix with a trailing blank line at EOF;
+    # that run remains a FAIL and must never be normalized after the fact.
+    prompt += (
+        " Git change quality gate: the worker must run git diff --check "
+        "inside this disposable repository before reporting completion, "
+        "and confirm that only total.py is modified. Do not introduce an "
+        "extra blank line at EOF or trailing whitespace in total.py. "
+        "If git diff --check detects a whitespace issue in total.py, "
+        "fix only total.py, rerun git diff --check, and reverify the unit tests "
+        "with the previously allowed Python interpreter if needed. "
+        "If any gate cannot be run under the existing sandbox policy, "
+        "report BLOCKED and STOP. The parent must not edit files."
+    )
     cmd = [
         executable, "--cd", str(workspace),
         "--model", MODEL, "--sandbox", "workspace-write",
@@ -532,6 +549,7 @@ def run(args):
     print("CONFIG_DECLARED: " + json.dumps(declared, sort_keys=True), flush=True)
     print("CONFIG_SNAPSHOT_CHECK: " + config_check, flush=True)
     print("ISOLATED_ARM: " + arm, flush=True)
+    print("PROMPT_CONTRACT: " + PROMPT_CONTRACT, flush=True)
     print("PYTHON_TEST_FALLBACK_HINT_REQUESTED: " + str(bool(python_hint)).lower(), flush=True)
     if approval == "never":
         print("STOP if Windows UAC/admin/sandbox provisioning prompts appear. Do not approve elevation.", flush=True)
