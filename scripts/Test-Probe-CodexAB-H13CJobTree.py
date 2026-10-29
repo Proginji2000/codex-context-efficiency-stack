@@ -148,6 +148,37 @@ class H13cTests(unittest.TestCase):
         self.assertIn("subprocess.Popen", m.CHILD)
         self.assertIn("h13c-ready.json", m.CHILD)
 
+    def test_runner_stderr_observer_never_persists_raw_content(self):
+        self.assertIn("stderr=subprocess.PIPE", m.RUNNER)
+        self.assertIn("threading.Thread", m.RUNNER)
+        self.assertIn("h13c-stderr-present", m.RUNNER)
+        self.assertIn("h13c-stderr-observer-ready", m.RUNNER)
+        self.assertIn("stream.read(1)", m.RUNNER)
+        self.assertIn("observed.write_bytes(b\"1\")", m.RUNNER)
+        self.assertNotIn("stderr=subprocess.DEVNULL", m.RUNNER)
+        self.assertNotIn("print(first)", m.RUNNER)
+        self.assertNotIn("write_bytes(first)", m.RUNNER)
+        self.assertNotIn("write_text(first)", m.RUNNER)
+
+    def test_probe_stops_on_stderr_before_ready_and_after_termination(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("MXC_SANDBOX_STDERR_OBSERVED", m.SAFE_CODES)
+        self.assertIn("MXC_STDERR_OBSERVER_NOT_READY", m.SAFE_CODES)
+        self.assertIn("if observed_stderr.exists():", source)
+        self.assertIn('if (workspace / "h13c-stderr-present").exists():', source)
+        self.assertIn('if not watcher_ready.exists():', source)
+        self.assertIn('"sandbox_stderr_boolean_marker_absent": True', source)
+
+    def test_stderr_gate_failure_never_returns_success(self):
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(m, "run_real",
+                               side_effect=m.GateError("MXC_SANDBOX_STDERR_OBSERVED")):
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                self.assertEqual(m.main(["--execute-local-job-tree-probe"]), 2)
+        self.assertEqual(out.getvalue(), "")
+        self.assertEqual(err.getvalue().strip(),
+                         "STOP: H13C_JOB_TREE_FAILED:MXC_SANDBOX_STDERR_OBSERVED")
+
     def test_job_kill_on_close_and_suspended_before_assignment_source(self):
         source = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE", source)
