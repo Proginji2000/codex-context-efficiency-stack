@@ -143,7 +143,7 @@ def main(argv=None):
         return 2
     print(json.dumps(outcome, indent=2, ensure_ascii=True))
     # Warning remains STOP even when child's exit code was 0.
-    if outcome["status"] == "LOCAL_WARNING_REVIEWED_STILL_STOP":
+    if outcome.get("status") == "LOCAL_WARNING_REVIEWED_STILL_STOP":
         print("STOP: H13_NATIVE_WARNING_REQUIRES_OPERATOR_REVIEW", file=sys.stderr)
         return 2
     return 0
