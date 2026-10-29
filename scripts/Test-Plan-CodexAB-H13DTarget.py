@@ -29,7 +29,7 @@ class H13dTargetGateTests(unittest.TestCase):
         obj.update(kw)
         return p.eligible_target(**obj)
 
-    def fail(self, code, **kw):
+    def assert_gate_error(self, code, **kw):
         with self.assertRaises(p.GateError) as caught:
             self.evaluate(**kw)
         self.assertEqual(p.safe_error(caught.exception), code)
@@ -62,58 +62,61 @@ class H13dTargetGateTests(unittest.TestCase):
         cases = (
             "8.8.8.8", "1.1.1.1", "127.0.0.1", "0.0.0.0",
             "169.254.2.2", "224.0.0.1", "255.255.255.255",
-            "100.64.0.1", "2001:db8::1", "::1", "192.0.2.1",
+            "100.64.0.1", "192.0.2.1",
         )
         for a in cases:
             with self.subTest(a=a):
-                self.fail("TARGET_NOT_RFC1918_IPV4", address=a)
+                self.assert_gate_error("TARGET_NOT_RFC1918_IPV4", address=a)
+        for ipv6 in ("2001:db8::1", "::1"):
+            with self.subTest(ipv6=ipv6):
+                self.assert_gate_error("TARGET_IP_INVALID", address=ipv6)
 
     def test_invalid_address_rejected_with_fixed_code(self):
         for a in (None, "", "example.com", "192.168.1.101/24",
                   " 192.168.1.101", "192.168.1.101 ",
                   "192.168.1.999", "192.168.1.101\nPRIVATE"):
             with self.subTest(a=a):
-                self.fail("TARGET_IP_INVALID", address=a)
+                self.assert_gate_error("TARGET_IP_INVALID", address=a)
 
     def test_port_unprivileged_bound_and_nonboolean(self):
         for port in (-1, 0, 80, 443, 1024, 19999, 61000, 65535, None,
                      "42589", True, 2.0):
             with self.subTest(port=port):
-                self.fail("TARGET_PORT_NOT_ALLOWED", port=port)
+                self.assert_gate_error("TARGET_PORT_NOT_ALLOWED", port=port)
         self.assertTrue(self.evaluate(port=20000)["target_port_unprivileged_lab_range"])
         self.assertTrue(self.evaluate(port=60999)["target_port_unprivileged_lab_range"])
 
     def test_likely_network_and_broadcast_addresses_rejected(self):
         for a in ("192.168.1.0", "192.168.1.255", "10.2.3.0", "10.2.3.255"):
             with self.subTest(a=a):
-                self.fail("TARGET_ADDRESS_UNSUITABLE", address=a)
+                self.assert_gate_error("TARGET_ADDRESS_UNSUITABLE", address=a)
 
     def test_self_target_always_rejected(self):
-        self.fail("TARGET_EQUALS_LOCAL_HOST",
+        self.assert_gate_error("TARGET_EQUALS_LOCAL_HOST",
                   local_addresses=["10.85.0.1", "192.168.1.101"])
 
     def test_missing_local_inventory_rejected(self):
-        self.fail("LOCAL_ADDRESS_INVENTORY_MISSING", local_addresses=[])
-        self.fail("LOCAL_ADDRESS_INVENTORY_INCOMPLETE",
+        self.assert_gate_error("LOCAL_ADDRESS_INVENTORY_MISSING", local_addresses=[])
+        self.assert_gate_error("LOCAL_ADDRESS_INVENTORY_INCOMPLETE",
                   local_inventory_complete=False)
 
     def test_invalid_local_inventory_rejected(self):
         for addrs in (["notIP"], ["192.168.1.40", "192.168.1.40"],
                       ["192.168.1.40", None], ["192.168.1.40"] * 50):
             with self.subTest(addrs=addrs[:3]):
-                self.fail("LOCAL_ADDRESS_INVALID", local_addresses=addrs)
+                self.assert_gate_error("LOCAL_ADDRESS_INVALID", local_addresses=addrs)
 
     def test_explicit_remote_machine_and_ownership_required(self):
-        self.fail("TARGET_DIFFERENT_MACHINE_NOT_CONFIRMED",
+        self.assert_gate_error("TARGET_DIFFERENT_MACHINE_NOT_CONFIRMED",
                   remote_machine_confirmed=False)
-        self.fail("TARGET_OWNERSHIP_NOT_CONFIRMED",
+        self.assert_gate_error("TARGET_OWNERSHIP_NOT_CONFIRMED",
                   ownership_confirmed=False)
 
     def test_bool_flags_reject_truthy_nonboolean(self):
         for key in ("remote_machine_confirmed", "ownership_confirmed",
                     "local_inventory_complete"):
             with self.subTest(key=key):
-                self.fail("TARGET_DETAILS_INCOMPLETE", **{key: 1})
+                self.assert_gate_error("TARGET_DETAILS_INCOMPLETE", **{key: 1})
 
     def test_cli_reports_no_private_addresses(self):
         out, err = io.StringIO(), io.StringIO()
