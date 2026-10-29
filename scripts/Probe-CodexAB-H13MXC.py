@@ -66,6 +66,7 @@ CODES = frozenset({
     "MXC_BUILD_OUTSIDE_DOCUMENTED_MATRIX",
     "MXC_HOST_ENV_REQUIRED_MISSING",
     "MXC_HOST_SYSTEMDRIVE_INVALID",
+    "MXC_DISPOSABLE_PROFILE_PARENT_UNSAFE",
 })
 
 STDERR_CLASSES = frozenset({
@@ -453,6 +454,32 @@ def require_pinned_nonadmin_windows():
         raise ProbeError("PINNED_VERSION_MISMATCH")
 
 
+def private_probe_parent():
+    """Select disposable user-owned parent OUTSIDE system TEMP.
+
+    Pinned Codex 0.165.0 intentionally refuses to create PATH helper aliases
+    when CODEX_HOME is below %TEMP%. Do not suppress the warning: give this
+    opt-in no-model probe a new disposable CODEX_HOME under the user profile.
+    Never reuse the actual user CODEX_HOME or modify an existing workspace.
+    """
+    try:
+        raw_home = Path.home()
+        if raw_home.is_symlink():
+            raise ProbeError("MXC_DISPOSABLE_PROFILE_PARENT_UNSAFE")
+        user_home = raw_home.resolve(strict=True)
+        system_temp = Path(tempfile.gettempdir()).resolve(strict=True)
+        if not user_home.is_dir() or user_home == system_temp or user_home.is_relative_to(system_temp):
+            raise ProbeError("MXC_DISPOSABLE_PROFILE_PARENT_UNSAFE")
+        return user_home
+    except (OSError, RuntimeError, ValueError):
+        raise ProbeError("MXC_DISPOSABLE_PROFILE_PARENT_UNSAFE") from None
+
+
+def disposable_probe_root(prefix):
+    """Construct only a fresh random temporary directory under user home."""
+    return tempfile.TemporaryDirectory(prefix=prefix, dir=private_probe_parent())
+
+
 def run_compatibility_only():
     """One exact documented native MXC echo; NO filesystem negative canary.
 
@@ -461,7 +488,7 @@ def run_compatibility_only():
     """
     require_pinned_nonadmin_windows()
     try:
-        with tempfile.TemporaryDirectory(prefix="p11-h13-compat-") as rt:
+        with disposable_probe_root("p11-h13-compat-") as rt:
             root = Path(rt)
             home, workspace = root / "codex-home", root / "workspace"
             home.mkdir()
@@ -497,7 +524,7 @@ def run_compatibility_only():
 def run_local():
     require_pinned_nonadmin_windows()
     try:
-        with tempfile.TemporaryDirectory(prefix="p11-h13-work-") as rt:
+        with disposable_probe_root("p11-h13-work-") as rt:
             # Outside is a NEW single-purpose directory in the user profile,
             # not %TEMP%; temp root might be implicitly writable by sandbox.
             with tempfile.TemporaryDirectory(prefix="p11-h13-outside-", dir=Path.home()) as ot:
