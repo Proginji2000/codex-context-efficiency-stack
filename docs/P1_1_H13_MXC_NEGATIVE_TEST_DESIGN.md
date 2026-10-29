@@ -87,3 +87,24 @@ L'option `--include-managed-config` **lit** les exigences de configuration admin
 
 En cas d'échec de l'étape de compatibilité, **ne pas lancer le test négatif et ne pas désactiver les avertissements**. Les tests CI couvrent seulement les deux commandes construites et des sorties fictives, jamais le MXC natif.
 
+
+## Troisième H1.3a STOP — compatibilité MXC réelle non démontrée (29/10/2026)
+
+L'opérateur a exécuté main `b217f4c960d473591355a23610a4ef6263ef6ccb` : **11/11 tests de matrice** et **28/28 tests synthétiques du lanceur** PASS ; la **première commande de compatibilité** a échoué avec :
+`COMPAT_STDERR_PRESENT:GENERAL_WARNING:MARKER_ABSENT:EXIT_NONZERO`.
+
+Le lanceur n'a donc **pas** lancé le test d'écriture externe après cet échec. Le préflight standalone MXC reste **BLOCKED**. Comme le classificateur cherche une sous-chaîne « warning » dans tout stderr, ce code n'exclut pas un message d'échec **plus précis** présent dans la même sortie ; aucun stderr brut n'a été conservé.
+
+### Diagnostic OS en lecture seule
+
+La [documentation officielle Windows Sandbox](https://learn.chatgpt.com/docs/windows/windows-sandbox) exige sur Windows 11 les capacités MXC introduites dans les builds **26100.9278 (24H2)** ou **26200.9278 (25H2)**. Une version de base `26200` sans numéro de révision (UBR) **ne suffit pas** à déterminer l'éligibilité. Même un build égal/supérieur ne prouve pas que les capacités nécessaires sont installées, activées ou autorisées par la politique de l'appareil.
+
+La nouvelle option **`--check-windows-build`** lit uniquement `CurrentBuildNumber` et `UBR` de `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion`. Elle ne lance **aucun processus**, ne démarre pas Codex, ne modifie pas le registre et ne fait aucun appel modèle. Elle affiche `DOCUMENTED_BUILD_THRESHOLD_MET`, `BELOW_DOCUMENTED_MINIMUM` ou `OUTSIDE_DOCUMENTED_BUILD_MATRIX`, sans information personnelle. Elle distingue explicitement la compatibilité de version documentée de l'**effectivité du backend MXC**, toujours inconnue.
+
+Le futur lanceur réel H1.3a refuse désormais dès le préflight les builds 26100/26200 dont la révision est inférieure à **9278**, ainsi que les versions hors de la matrice documentée, **sans tenter de lancer MXC**. Pour ces dernières, il ne conclut pas qu'elles sont incompatibles ; il refuse simplement d'extrapoler la documentation.
+
+### Diagnostic stderr non ambigu
+
+Le classificateur traite maintenant les chaînes explicites du code source officiel [`mxc-sandbox/src/windows.rs` (version rust-v0.165.0)](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/mxc-sandbox/src/windows.rs) et [`mxc-sandbox/src/lib.rs`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/mxc-sandbox/src/lib.rs) **avant** de classer tout « warning » générique : `MXC_NATIVE_UNAVAILABLE`, `MXC_LAUNCHER_FAILURE` ou `MXC_POLICY_RESTRICTION`. Ce diagnostic ne publie ni texte d'erreur, ni répertoire, ni HRESULT, ni ID, ni secret ; **tout stderr non vide provoque toujours STOP** et ne peut pas être ignoré.
+
+**Décision actuelle :** avant une nouvelle tentative réelle, exécuter uniquement l'option de lecture de build Windows et analyser le résultat. Aucun fallback de sandbox, installation, UAC, modification de configuration Windows, désactivation MXC, ancien profil Codex, `turn/start` ou modèle IA n'est autorisé.

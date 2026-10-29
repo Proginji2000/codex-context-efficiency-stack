@@ -61,12 +61,16 @@ CODES = frozenset({
     "COMPAT_STDOUT_INVALID",
     "COMPAT_STDERR_PRESENT",
     "COMPAT_EXIT_NONZERO",
+    "WINDOWS_BUILD_QUERY_FAILED",
+    "MXC_DOCUMENTED_BUILD_TOO_OLD",
+    "MXC_BUILD_OUTSIDE_DOCUMENTED_MATRIX",
 })
 
 STDERR_CLASSES = frozenset({
     "BACKEND_LAUNCH_ERROR", "SECURITY_WARNING", "CLI_USAGE_ERROR",
     "CONFIG_ERROR", "CHILD_PYTHON_ERROR", "GENERAL_WARNING",
-    "UNRECOGNIZED_STDERR",
+    "UNRECOGNIZED_STDERR", "MXC_NATIVE_UNAVAILABLE",
+    "MXC_LAUNCHER_FAILURE", "MXC_POLICY_RESTRICTION",
 })
 MARKER_FLAGS = frozenset({"MARKER_PRESENT", "MARKER_ABSENT"})
 EXIT_FLAGS = frozenset({"EXIT_ZERO", "EXIT_NONZERO", "EXIT_UNKNOWN"})
@@ -80,6 +84,19 @@ def classify_stderr(data):
     if ("worldwritable" in message or "world writable" in message
             or "security warning" in message or "sandbox warning" in message):
         return "SECURITY_WARNING"
+    # Fatal MXC errors take precedence over generic 'warning:' lines emitted
+    # before the actual error. No raw error bytes leave this process.
+    if ("native mxc is unavailable" in message or
+            "mxc is unavailable on this windows build" in message):
+        return "MXC_NATIVE_UNAVAILABLE"
+    if ("mxc launcher:" in message or
+            "createprocesssecurityenvironment failed" in message or
+            "failed to prepare mxc sandbox" in message):
+        return "MXC_LAUNCHER_FAILURE"
+    if ("allow_mxc" in message or
+            "permission profile" in message and ("not found" in message or "denied" in message)
+            or "mxc is disabled by policy" in message):
+        return "MXC_POLICY_RESTRICTION"
     if ("windows sandbox failed" in message or
             "failed to build runtime" in message or
             "missing mxc wrapper" in message):
@@ -117,6 +134,60 @@ def safe_reason(exc):
             return ":".join(exc.args)
     return "OTHER_LOCAL_FAILURE"
 
+DOCUMENTED_MINIMUM_UBR = 9278
+DOCUMENTED_WIN11_BUILDS = frozenset({26100, 26200})
+
+
+def assess_windows_build(build, ubr):
+    """Documented OS-build threshold, not a check of native MXC capability."""
+    if type(build) is not int or type(ubr) is not int or build < 0 or ubr < 0:
+        raise ProbeError("WINDOWS_BUILD_QUERY_FAILED")
+    if build not in DOCUMENTED_WIN11_BUILDS:
+        return "OUTSIDE_DOCUMENTED_BUILD_MATRIX"
+    if ubr < DOCUMENTED_MINIMUM_UBR:
+        return "BELOW_DOCUMENTED_MINIMUM"
+    return "DOCUMENTED_BUILD_THRESHOLD_MET"
+
+
+def query_windows_build():
+    """Read only nonpersonal OS build/UBR fields from HKLM; no process."""
+    if os.name != "nt":
+        raise ProbeError("WINDOWS_ONLY")
+    try:
+        import winreg
+        with winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
+                0, winreg.KEY_READ) as handle:
+            build_str = winreg.QueryValueEx(handle, "CurrentBuildNumber")[0]
+            ubr = winreg.QueryValueEx(handle, "UBR")[0]
+        if not isinstance(build_str, str) or not build_str.isdecimal():
+            raise ValueError("bad build format")
+        build = int(build_str)
+        if type(ubr) is not int:
+            raise ValueError("bad UBR")
+    except (OSError, ValueError, KeyError, TypeError, OverflowError):
+        raise ProbeError("WINDOWS_BUILD_QUERY_FAILED") from None
+    return build, ubr
+
+
+def windows_build_report(build, ubr):
+    return {
+        "contract": CONTRACT,
+        "mode": "READ_ONLY_OS_BUILD_CHECK",
+        "windows_build": build,
+        "windows_revision": ubr,
+        "documented_minimum_revision": DOCUMENTED_MINIMUM_UBR,
+        "os_threshold_status": assess_windows_build(build, ubr),
+        "mxc_native_capability_verified": False,
+        "managed_policy_mxc_allowed_verified": False,
+        "standalone_mxc_runtime_verified": False,
+        "appserver_turn_mxc_verified": False,
+        "processes_launched": 0,
+        "model_calls_made": 0,
+    }
+
+
 def plan():
     return {
         "contract": CONTRACT, "mode": "PLAN_ONLY_NO_PROCESS",
@@ -124,6 +195,7 @@ def plan():
         "permissions_requested": ":workspace",
         "preflight": "official_mxc_compatibility_echo_before_fs_negative_test",
         "requires_explicit_nonadmin_flag": True,
+        "read_only_os_build_check_available": True,
         "standalone_mxc_runtime_verified": False,
         "appserver_turn_mxc_verified": False,
         "network_isolation_verified": False,
@@ -260,6 +332,12 @@ def run_local():
         raise ProbeError("WINDOWS_ONLY")
     if ctypes.windll.shell32.IsUserAnAdmin():
         raise ProbeError("NON_ADMIN_REQUIRED")
+    build, ubr = query_windows_build()
+    status = assess_windows_build(build, ubr)
+    if status == "BELOW_DOCUMENTED_MINIMUM":
+        raise ProbeError("MXC_DOCUMENTED_BUILD_TOO_OLD")
+    if status != "DOCUMENTED_BUILD_THRESHOLD_MET":
+        raise ProbeError("MXC_BUILD_OUTSIDE_DOCUMENTED_MATRIX")
     if not h1.CLI.is_file() or h1.CLI.is_symlink():
         raise ProbeError("PINNED_CLI_MISSING")
     try:
@@ -318,11 +396,19 @@ def run_local():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--execute-local-mxc-probe", action="store_true",
-                        help="Explicit standalone Windows MXC negative test; no model")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--execute-local-mxc-probe", action="store_true",
+                       help="Explicit standalone Windows MXC negative test; no model")
+    group.add_argument("--check-windows-build", action="store_true",
+                       help="Read only Windows build and UBR from HKLM, no subprocess")
     args = parser.parse_args(argv)
     try:
-        result = run_local() if args.execute_local_mxc_probe else plan()
+        if args.check_windows_build:
+            result = windows_build_report(*query_windows_build())
+        elif args.execute_local_mxc_probe:
+            result = run_local()
+        else:
+            result = plan()
     except (ProbeError, OSError, ValueError, TypeError) as exc:
         print("STOP: H13_STANDALONE_MXC_FAILED:" + safe_reason(exc),
               file=sys.stderr)

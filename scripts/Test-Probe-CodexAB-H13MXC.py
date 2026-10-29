@@ -45,6 +45,86 @@ class H13StandaloneTests(unittest.TestCase):
         self.assertNotIn("setup", command)
         self.assertNotIn("uninstall", command)
 
+    def test_mxc_windows_24h2_and_25h2_documented_thresholds(self):
+        for build in (26100, 26200):
+            with self.subTest(build=build):
+                self.assertEqual(p.assess_windows_build(build, 9278),
+                                 "DOCUMENTED_BUILD_THRESHOLD_MET")
+                self.assertEqual(p.assess_windows_build(build, 9277),
+                                 "BELOW_DOCUMENTED_MINIMUM")
+                self.assertEqual(p.assess_windows_build(build, 9400),
+                                 "DOCUMENTED_BUILD_THRESHOLD_MET")
+
+    def test_undocumented_build_does_not_claim_mxc_support(self):
+        for build in (22631, 26300, 27000):
+            with self.subTest(build=build):
+                self.assertEqual(p.assess_windows_build(build, 10000),
+                                 "OUTSIDE_DOCUMENTED_BUILD_MATRIX")
+
+    def test_invalid_build_inputs_are_fail_closed(self):
+        for build, ubr in ((True, 9278), ("26200", 9278), (26200, "9278"),
+                           (-1, 9278), (26200, -2), (None, 9278)):
+            with self.subTest(build=build, ubr=ubr):
+                with self.assertRaisesRegex(p.ProbeError, "WINDOWS_BUILD_QUERY_FAILED"):
+                    p.assess_windows_build(build, ubr)
+
+    def test_read_only_build_report_is_not_an_os_capability_attestation(self):
+        r = p.windows_build_report(26200, 9278)
+        self.assertEqual(r["mode"], "READ_ONLY_OS_BUILD_CHECK")
+        self.assertEqual(r["os_threshold_status"], "DOCUMENTED_BUILD_THRESHOLD_MET")
+        self.assertFalse(r["mxc_native_capability_verified"])
+        self.assertFalse(r["managed_policy_mxc_allowed_verified"])
+        self.assertFalse(r["standalone_mxc_runtime_verified"])
+        self.assertFalse(r["appserver_turn_mxc_verified"])
+        self.assertEqual(r["processes_launched"], 0)
+        self.assertEqual(r["model_calls_made"], 0)
+
+    def test_check_windows_build_cli_never_starts_sandbox(self):
+        out = io.StringIO()
+        with mock.patch.object(p, "query_windows_build", return_value=(26200, 9278)):
+            with mock.patch.object(p, "run_local", side_effect=AssertionError("REAL SANDBOX")):
+                with contextlib.redirect_stdout(out):
+                    self.assertEqual(p.main(["--check-windows-build"]), 0)
+        r = json.loads(out.getvalue())
+        self.assertEqual(r["windows_build"], 26200)
+        self.assertEqual(r["windows_revision"], 9278)
+        self.assertFalse(r["standalone_mxc_runtime_verified"])
+
+    def test_check_windows_build_cannot_combine_with_execution(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as e:
+                p.main(["--check-windows-build", "--execute-local-mxc-probe"])
+        self.assertEqual(e.exception.code, 2)
+
+    def test_native_mxc_errors_take_precedence_over_generic_warning(self):
+        samples = [
+            (b"WARNING: PRIVATE\nMXC launcher: native MXC is unavailable on this Windows build",
+             "MXC_NATIVE_UNAVAILABLE"),
+            (b"warning: PRIVATE\nMXC launcher: CreateProcessSecurityEnvironment failed",
+             "MXC_LAUNCHER_FAILURE"),
+            (b"warning: PRIVATE\nPolicy: allow_mxc=false",
+             "MXC_POLICY_RESTRICTION"),
+            (b"warning: PRIVATE\nFailed to prepare MXC sandbox",
+             "MXC_LAUNCHER_FAILURE"),
+            (b"warning: PRIVATE", "GENERAL_WARNING"),
+        ]
+        for raw, expected in samples:
+            with self.subTest(expected=expected):
+                self.assertEqual(p.classify_stderr(raw), expected)
+                with self.assertRaises(p.ProbeError) as caught:
+                    p.evaluate_compatibility(b"", raw, 1)
+                exported = p.safe_reason(caught.exception)
+                self.assertEqual(exported,
+                    "COMPAT_STDERR_PRESENT:" + expected +
+                    ":MARKER_ABSENT:EXIT_NONZERO")
+                self.assertNotIn("PRIVATE", exported)
+
+    def test_no_explicit_build_success_claims_native_mxc_implemented(self):
+        source = SRC.read_text(encoding="utf-8")
+        self.assertIn("DOCUMENTED_MINIMUM_UBR = 9278", source)
+        self.assertIn("mxc_native_capability_verified", source)
+        self.assertIn("managed_policy_mxc_allowed_verified", source)
+
     def test_documented_compatibility_gate_only_accepts_exact_echo(self):
         self.assertTrue(p.evaluate_compatibility(b"MXC_OK\r\n", b"", 0))
         self.assertTrue(p.evaluate_compatibility(b"MXC_OK\n", b"", 0))
