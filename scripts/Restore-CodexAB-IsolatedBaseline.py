@@ -38,9 +38,15 @@ def restore(pilot_path, backup_label, *, execute=False):
     ) or len(backup_label) > 80:
         raise ValueError("INVALID_BACKUP_LABEL")
 
-    pilot = Path(pilot_path).expanduser().resolve(strict=True)
-    if pilot.is_symlink() or not pilot.is_dir():
+    supplied = Path(pilot_path).expanduser()
+    if supplied.is_symlink():
+        raise ValueError("PILOT_IS_SYMLINK")
+    pilot = supplied.resolve(strict=True)
+    if not pilot.is_dir():
         raise ValueError("PILOT_INVALID")
+    if (pilot / "baseline-home").is_symlink() or (
+            pilot / "candidate-home").is_symlink():
+        raise ValueError("PILOT_IS_SYMLINK")
 
     # state validates the two AGENTS fingerprints and the CLI version,
     # but does not inspect private Codex session files.
