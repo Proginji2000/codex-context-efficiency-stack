@@ -462,10 +462,6 @@ class TuiCanaryTests(unittest.TestCase):
                     cmd[cmd.index("--sandbox") + 1], "workspace-write")
                 self.assertNotIn("--yolo", cmd)
                 self.assertNotIn("danger-full-access", cmd)
-                expected_fallback = app.powershell_python_fallback_command(sys.executable)
-                self.assertIn(expected_fallback, cmd[-1])
-                self.assertIn("PowerShell", cmd[-1])
-                self.assertIn("include the ampersand call operator", cmd[-1])
                 self.assertIn("git diff --check", cmd[-1])
                 self.assertIn("extra blank line at EOF", cmd[-1])
                 self.assertIn("The parent must not edit files.", cmd[-1])
@@ -732,7 +728,11 @@ class TuiCanaryTests(unittest.TestCase):
                 self.assertEqual(
                     Path(kwargs["env"]["CODEX_HOME"]).resolve(), home.resolve())
                 prompt = cmd[-1]
-                self.assertIn(json.dumps(sys.executable), prompt)
+                expected_fallback = app.powershell_python_fallback_command(sys.executable)
+                self.assertIn(expected_fallback, prompt)
+                self.assertIn("PowerShell", prompt)
+                self.assertIn("include the ampersand call operator", prompt)
+                self.assertNotIn(json.dumps(sys.executable), prompt)
                 self.assertIn("retry it ONCE", prompt)
                 self.assertIn("not sandbox policy denial", prompt)
                 self.assertIn("report BLOCKED and STOP", prompt)
