@@ -176,6 +176,24 @@ Write-Host "Code de sortie: $LASTEXITCODE"
 
 La sortie `baseline_config_snapshot_check=opt_in_sandbox_key_or_format_drift` identifie explicitement le cas accepté ; elle n'est ni une garantie d'accès effectif aux fichiers, ni une validation statistique A/B. Si une fenêtre UAC ou un choix de sandbox réapparaît, **Quit**, sans droits admin et sans mode non-admin à risque.
 
+## V4 — la dérive n'est pas limitée à `windows.sandbox` (29 octobre 2026)
+
+Nouvelle observation locale : `windows_sandbox=elevated`, `candidate_config_matches_record=true`, `mxc_sandbox_drift_eligible=false` et `preflight_ready=false`. Le script de protection a ensuite arrêté la commande `--accept-sandbox-key-drift` avec `STOP: ISOLATED_CONFIG_DRIFT_NOT_ALLOWLISTED`, code 2, **avant l'ouverture du TUI**. Les 18 tests hors ligne ont réussi et aucun nouveau modèle n'a été appelé. Ce résultat signifie qu'au moins une différence sémantique supplémentaire existe ; sa catégorie n'a pas encore été identifiée.
+
+Il serait incorrect de supprimer ou d'assouplir la vérification d'empreinte avant de savoir de quel paramètre il s'agit. `diagnose` expose désormais le champ supplémentaire `redacted_config_drift_categories` : il indique **uniquement des catégories fixes**, par exemple `windows.sandbox`, `projects[*]`, `agents[*]`, `mcp_servers[*]`, `notice[*]`, `features[*]`, `other_config_key`. Les valeurs, chemins de projets, noms MCP, identifiants et clés TOML arbitraires ne sont jamais affichés. L'origine et la légitimité des différences restent à vérifier.
+
+Commande de diagnostic **strictement en lecture seule, sans quota IA ni nouveau test TUI** :
+
+~~~powershell
+Set-Location 'C:\Dev\codex-context-efficiency-stack'
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw 'Git pull failed' }
+python .\scripts\Run-CodexAB-TUI-Canary.py diagnose `
+    --pilot 'C:\Dev\codex-ab-pr14-pilot-v4'
+~~~
+
+Ne **pas** lancer `run` si `mxc_sandbox_drift_eligible=false`. Les champs supplémentaires servent seulement à choisir une résolution ciblée. Le fonctionnement MXC de `cmd.exe /d /c echo MXC_OK` reste acquis, mais l'autonomie TUI du worker sous MXC est non validée ; PR #14 reste ouverte.
+
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
