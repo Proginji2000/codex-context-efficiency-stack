@@ -12,7 +12,10 @@ param(
     [string]$Sandbox = 'read-only',
 
     [switch]$Run,
-    [switch]$AsJson
+    [switch]$AsJson,
+    [switch]$Interactive,
+    [switch]$EnableSerena,
+    [switch]$EnableShadcn
 )
 
 # Opt-in, invocation-scoped Codex MCP server selection.
@@ -27,6 +30,12 @@ if (-not (Test-Path -LiteralPath $fullProject -PathType Container)) {
 if ($Scope -eq 'git' -and $Sandbox -ne 'read-only') {
     throw 'Git audit scope requires read-only sandbox.'
 }
+if ($EnableShadcn -and $Scope -ne 'ui') {
+    throw 'shadcn MCP may only be enabled for the UI scope.'
+}
+if ($EnableSerena -and $Scope -notin @('code', 'ui')) {
+    throw 'Serena MCP may only be enabled for code or UI scopes.'
+}
 
 # Keep approved project tooling available for scopes where it is needed.
 # The UI lane keeps every configured MCP available, including node_repl
@@ -40,14 +49,26 @@ switch ($Scope) {
 }
 $allServers = @('code-review-graph', 'context7', 'node_repl', 'playwright')
 $enabled = @($allServers | Where-Object { $disabled -notcontains $_ })
+$onDemand = @()
+if ($EnableSerena) { $onDemand += 'serena' }
+if ($EnableShadcn) { $onDemand += 'shadcn' }
 
 # Host launcher overrides user config for this ONE invocation. A
 # configured MCP entry is not evidence of runtime tool availability.
 $arguments = @('exec', '-C', $fullProject, '--ephemeral',
                '--sandbox', $Sandbox)
+if ($Interactive) {
+    # Interactive Codex TUI: no exec, no ephemeral, prompt optional.
+    $arguments = @('-C', $fullProject, '--sandbox', $Sandbox)
+}
 foreach ($server in $disabled) {
     $arguments += '-c'
     $arguments += ('mcp_servers.{0}.enabled=false' -f $server)
+}
+foreach ($server in $onDemand) {
+    # Explicit opt-in; underlying entries must already exist and be disabled by default.
+    $arguments += '-c'
+    $arguments += ('mcp_servers.{0}.enabled=true' -f $server)
 }
 
 if (-not $Run) {
@@ -56,7 +77,9 @@ if (-not $Run) {
         scope = $Scope
         sandbox = $Sandbox
         invocation_scoped_disabled_mcp = @($disabled)
+        invocation_scoped_enabled_mcp = @($onDemand)
         remaining_configured_mcp = @($enabled)
+        run_mode = $(if ($Interactive) { 'interactive_tui' } else { 'noninteractive_exec' })
         uses_cli_config_overrides = $true
         global_config_changes = $false
         model_calls = 0
@@ -70,15 +93,17 @@ if (-not $Run) {
     return
 }
 
-if ([string]::IsNullOrWhiteSpace($Prompt)) {
-    throw '-Prompt is required when -Run is specified.'
+if (-not $Interactive -and [string]::IsNullOrWhiteSpace($Prompt)) {
+    throw '-Prompt is required for noninteractive -Run. Use -Interactive for TUI.'
 }
 $executable = Get-Command codex -ErrorAction SilentlyContinue
 if ($null -eq $executable) {
     throw 'Codex CLI was not found on PATH. No invocation was started.'
 }
 
-$arguments += $Prompt
+if (-not [string]::IsNullOrWhiteSpace($Prompt)) {
+    $arguments += $Prompt
+}
 # Explicit opt-in only: the script does not change any persistent settings.
 & $executable.Source @arguments
 if ($LASTEXITCODE -ne 0) {
