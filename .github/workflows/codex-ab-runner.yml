@@ -3,6 +3,8 @@ name: Codex isolated A/B runner synthetic tests
 on:
   pull_request:
     paths:
+      - 'scripts/Restore-CodexAB-IsolatedBaseline.py'
+      - 'scripts/Test-Restore-CodexAB-IsolatedBaseline.py'
       - 'scripts/Run-CodexAB.py'
       - 'scripts/Test-Run-CodexAB.py'
       - 'scripts/Run-CodexAB-TUI-Canary.py'
@@ -19,6 +21,8 @@ on:
   push:
     branches: [main]
     paths:
+      - 'scripts/Restore-CodexAB-IsolatedBaseline.py'
+      - 'scripts/Test-Restore-CodexAB-IsolatedBaseline.py'
       - 'scripts/Run-CodexAB.py'
       - 'scripts/Test-Run-CodexAB.py'
       - '.github/workflows/codex-ab-runner.yml'
@@ -49,3 +53,6 @@ jobs:
       - name: Validate interactive TUI canary wrapper (no model calls)
         shell: pwsh
         run: python .\scripts\Test-Run-CodexAB-TUI-Canary.py
+      - name: Verify audited isolated configuration restore (no Codex calls)
+        shell: pwsh
+        run: python .\scripts\Test-Restore-CodexAB-IsolatedBaseline.py
