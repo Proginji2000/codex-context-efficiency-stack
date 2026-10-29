@@ -286,6 +286,14 @@ class H13StandaloneTests(unittest.TestCase):
         self.assertIn("managed_policy_mxc_allowed_verified", source)
 
     def test_compat_only_launches_one_sandbox_without_filesystem_canary(self):
+        # Fake standalone transport tests: construct the vetted child env
+        # without relying on the CI runner's real Windows variables.
+        patched = mock.patch.object(
+            p, "mxc_env_for_isolated_home",
+            return_value={"SystemDrive": "C:", "LOCALAPPDATA": "PRIVATE",
+                          "CODEX_HOME": "PRIVATE_TEST_HOME"})
+        patched.start()
+        self.addCleanup(patched.stop)
         out = io.StringIO()
         with mock.patch.object(p, "require_pinned_nonadmin_windows"):
             with mock.patch.object(
@@ -307,6 +315,14 @@ class H13StandaloneTests(unittest.TestCase):
         self.assertNotIn("outside-negative.canary", " ".join(command))
 
     def test_compat_only_stderr_fails_and_fs_test_never_starts(self):
+        # Fake standalone transport tests: construct the vetted child env
+        # without relying on the CI runner's real Windows variables.
+        patched = mock.patch.object(
+            p, "mxc_env_for_isolated_home",
+            return_value={"SystemDrive": "C:", "LOCALAPPDATA": "PRIVATE",
+                          "CODEX_HOME": "PRIVATE_TEST_HOME"})
+        patched.start()
+        self.addCleanup(patched.stop)
         out = io.StringIO()
         err = io.StringIO()
         with mock.patch.object(p, "require_pinned_nonadmin_windows"):
@@ -322,6 +338,14 @@ class H13StandaloneTests(unittest.TestCase):
             "MXC_NATIVE_UNAVAILABLE:MARKER_ABSENT:EXIT_NONZERO")
 
     def test_compat_only_does_not_retry_on_warning(self):
+        # Fake standalone transport tests: construct the vetted child env
+        # without relying on the CI runner's real Windows variables.
+        patched = mock.patch.object(
+            p, "mxc_env_for_isolated_home",
+            return_value={"SystemDrive": "C:", "LOCALAPPDATA": "PRIVATE",
+                          "CODEX_HOME": "PRIVATE_TEST_HOME"})
+        patched.start()
+        self.addCleanup(patched.stop)
         with mock.patch.object(p, "require_pinned_nonadmin_windows"):
             with mock.patch.object(p, "run_subprocess",
                                    return_value=(b"", b"warning: PRIVATE", 1)) as run:
