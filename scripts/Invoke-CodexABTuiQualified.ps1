@@ -36,21 +36,19 @@ function Test-PythonRuntime {
     try {
         $probeArgs = @($Prefix) + @(
             '-c',
-            'import sys,tomllib;print("CODEX_AB_VERIFIED_PYTHON|" + sys.executable if sys.version_info >= (3,11) else "")'
+            'import sys,tomllib;print(sys.executable if sys.version_info >= (3,11) else None)'
         )
         $lines = @(& $CommandPath @probeArgs 2>$null)
         $code = $LASTEXITCODE
         if ($code -ne 0) { return $null }
         foreach ($line in $lines) {
             $line = [string]$line
-            if ($line.StartsWith('CODEX_AB_VERIFIED_PYTHON|')) {
-                $resolved = $line.Substring('CODEX_AB_VERIFIED_PYTHON|'.Length).Trim()
-                if ([System.IO.Path]::IsPathRooted($resolved) -and
-                    [System.IO.Path]::GetExtension($resolved).Equals(
-                        '.exe', [System.StringComparison]::OrdinalIgnoreCase) -and
-                    (Test-Path -LiteralPath $resolved -PathType Leaf)) {
-                    return $resolved
-                }
+            $resolved = $line.Trim()
+            if ([System.IO.Path]::IsPathRooted($resolved) -and
+                [System.IO.Path]::GetExtension($resolved).Equals(
+                    '.exe', [System.StringComparison]::OrdinalIgnoreCase) -and
+                (Test-Path -LiteralPath $resolved -PathType Leaf)) {
+                return $resolved
             }
         }
     }
