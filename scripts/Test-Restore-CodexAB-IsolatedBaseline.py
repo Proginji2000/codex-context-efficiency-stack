@@ -76,8 +76,17 @@ class RestoreTests(unittest.TestCase):
                             "NEVER_COPIED_PRIVATE_AUTH", str(root)):
                 self.assertNotIn(private, buf.getvalue())
             with patch.object(app.runner, "state", return_value=state):
+                # Already restored: refuse a pointless second write.
+                with self.assertRaisesRegex(ValueError, "NO_RESTORE_NEEDED"):
+                    app.restore(pilot, "backup-mxc-recovery", execute=True)
+                # If configuration drifts again, the previous audit label
+                # cannot be reused or overwritten.
+                (baseline / "config.toml").write_bytes(changed)
                 with self.assertRaisesRegex(ValueError, "BACKUP_ALREADY_EXISTS"):
                     app.restore(pilot, "backup-mxc-recovery", execute=True)
+            self.assertEqual(
+                (backup / "baseline-config-before-restore.toml").read_bytes(),
+                changed)
 
     def test_refuses_changed_candidate_and_does_not_touch_baseline(self):
         with tempfile.TemporaryDirectory() as name:
