@@ -9,11 +9,13 @@ workspaceWrite policy is NOT proof of effective Windows MXC enforcement.
 """
 import argparse
 import ctypes
+import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
 import queue
+import re
 import subprocess
 import sys
 import tempfile
@@ -93,8 +95,15 @@ class GateError(ValueError):
 
 
 def _safe_code(exc):
-    if isinstance(exc, GateError) and len(exc.args) == 1 and exc.args[0] in SAFE_CODES:
-        return exc.args[0]
+    if isinstance(exc, GateError):
+        if len(exc.args) == 1 and exc.args[0] in SAFE_CODES:
+            return exc.args[0]
+        # Only the SHA-256 method-name digest is permitted outside the static
+        # error allowlist. Never include event params, text, IDs, or paths.
+        if (len(exc.args) == 2 and exc.args[0] == "THREAD_NOTIFICATION_UNEXPECTED"
+                and isinstance(exc.args[1], str)
+                and re.fullmatch(r"[0-9A-F]{12}", exc.args[1])):
+            return "THREAD_NOTIFICATION_UNEXPECTED:METHOD_SHA256_" + exc.args[1]
     if isinstance(exc, h1.PreflightError):
         category = h1.safe_error_code(exc)
         return category if category in SAFE_CODES else "EXTERNAL_SCRIPT_FAILURE"
@@ -178,7 +187,12 @@ def _receive_thread_response(inbox, proc=None, timeout=THREAD_TIMEOUT_S):
         if method in STOP_PRE_REPLY_NOTIFICATIONS:
             raise GateError(STOP_PRE_REPLY_NOTIFICATIONS[method])
         if method not in PASSIVE_PRE_REPLY_NOTIFICATIONS:
-            raise GateError("THREAD_NOTIFICATION_UNEXPECTED")
+            # The earlier generic code prevented forensic classification.
+            # Hash ONLY the method name (not params or any message payload)
+            # and FAIL CLOSED. The digest can be compared offline against
+            # the exact pinned rust-v0.165.0 ServerNotification enum.
+            fingerprint = hashlib.sha256(method.encode("utf-8")).hexdigest()[:12].upper()
+            raise GateError("THREAD_NOTIFICATION_UNEXPECTED", fingerprint)
     raise GateError("THREAD_MESSAGE_LIMIT_EXCEEDED")
 
 
