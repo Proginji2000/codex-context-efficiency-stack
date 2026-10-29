@@ -1,0 +1,32 @@
+name: P1.1 TUI metrics offline synthetic tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Summarize-CodexAB-TUI-Repeats.py'
+      - 'scripts/Test-Summarize-CodexAB-TUI-Repeats.py'
+      - '.github/workflows/p1-1-tui-metrics.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Summarize-CodexAB-TUI-Repeats.py'
+      - 'scripts/Test-Summarize-CodexAB-TUI-Repeats.py'
+      - '.github/workflows/p1-1-tui-metrics.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-synthetic:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Validate read-only TUI results aggregation
+        run: python -B scripts/Test-Summarize-CodexAB-TUI-Repeats.py
