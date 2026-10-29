@@ -23,7 +23,19 @@ SPEC.loader.exec_module(runner)
 
 SCHEMA = 1
 MODEL = "gpt-6-luna"
-PROMPT_CONTRACT = "p1.1-git-diff-selfcheck-v2"
+PROMPT_CONTRACT = "p1.1-git-diff-psfallback-v3"
+
+
+def powershell_python_fallback_command(interpreter):
+    """Shell-correct, one-shot Python fallback for native Windows PowerShell.
+
+    The path is a literal single-quoted PowerShell string with original
+    backslashes, not a JSON-escaped string or a bare executable expression.
+    """
+    path = str(interpreter)
+    if not path or any(c in path for c in ("\\x00", "\\r", "\\n")):
+        raise ValueError("PYTHON_HINT_INTERPRETER_UNAVAILABLE")
+    return "& '" + path.replace("'", "''") + "' -B -m unittest discover -s tests -q"
 
 
 def validate_paths(pilot, output, repo):
@@ -511,10 +523,11 @@ def run(args):
             "python -m unittest discover -s tests -q command. Only if that "
             "command cannot START due to Python executable/WindowsApps "
             "resolution (not sandbox policy denial, test assertion failure, "
-            "or application error), retry it ONCE using this verified local "
-            "interpreter executable, with unchanged arguments and workspace: "
-            + json.dumps(str(interpreter)) +
-            " -B -m unittest discover -s tests -q. Keep the same sandbox, "
+            "or application error), retry it ONCE in PowerShell with this "
+            "exact native command (include the ampersand call operator; do "
+            "not copy JSON-style double backslashes into a PowerShell path): "
+            + powershell_python_fallback_command(interpreter) +
+            ". Keep the same sandbox, "
             "approval policy and scope. If it still cannot start, or an "
             "operation is denied by policy, report BLOCKED and STOP. Never "
             "install Python, edit the environment, access outside workspace "
