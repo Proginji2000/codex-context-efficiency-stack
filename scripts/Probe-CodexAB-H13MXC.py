@@ -196,6 +196,7 @@ def plan():
         "preflight": "official_mxc_compatibility_echo_before_fs_negative_test",
         "requires_explicit_nonadmin_flag": True,
         "read_only_os_build_check_available": True,
+        "compat_only_diagnostic_available": True,
         "standalone_mxc_runtime_verified": False,
         "appserver_turn_mxc_verified": False,
         "network_isolation_verified": False,
@@ -327,7 +328,8 @@ def run_subprocess(cmd, env, cwd, timeout=25):
     finally:
         stop_child(proc)
 
-def run_local():
+def require_pinned_nonadmin_windows():
+    """Preflight both isolated runtime modes; never elevate or change config."""
     if os.name != "nt":
         raise ProbeError("WINDOWS_ONLY")
     if ctypes.windll.shell32.IsUserAnAdmin():
@@ -348,6 +350,51 @@ def run_local():
         raise ProbeError("PINNED_VERSION_FAILED") from None
     if v.returncode != 0 or v.stdout.decode("utf-8", "replace").strip() != h1.VERSION:
         raise ProbeError("PINNED_VERSION_MISMATCH")
+
+
+def run_compatibility_only():
+    """One exact documented native MXC echo; NO filesystem negative canary.
+
+    Creates only a disposable CODEX_HOME and empty workspace. Does not read
+    real sessions, run app-server, change ACLs or fall back to another sandbox.
+    """
+    require_pinned_nonadmin_windows()
+    try:
+        with tempfile.TemporaryDirectory(prefix="p11-h13-compat-") as rt:
+            root = Path(rt)
+            home, workspace = root / "codex-home", root / "workspace"
+            home.mkdir()
+            workspace.mkdir()
+            env = h1.env_for_isolated_home(home)
+            out, err, rc = run_subprocess(
+                compatibility_command(h1.CLI), env, str(workspace))
+            evaluate_compatibility(out, err, rc)
+    except OSError:
+        raise ProbeError("TEMPORARY_CLEANUP_FAILED") from None
+    return {
+        "contract": CONTRACT,
+        "status": "MXC_COMPAT_STANDALONE_ECHO_PASS_NOT_ENFORCEMENT",
+        "target_cli": h1.VERSION,
+        "mode": "EXPLICIT_COMPAT_ONLY_NO_MODEL",
+        "windows_build_threshold_met": True,
+        "mxc_cli_backend_requested": True,
+        "compatibility_echo_observed": True,
+        "stderr_empty": True,
+        "filesystem_negative_test_executed": False,
+        "appserver_turn_mxc_verified": False,
+        "standalone_filesystem_isolation_verified": False,
+        "network_isolation_verified": False,
+        "worker_provenance_verified": False,
+        "child_tree_cleanup_independently_attested": False,
+        "model_calls_made": 0,
+        "turn_start_sent": False,
+        "temporary_profile_and_workspace_deleted": True,
+        "candidate_merge_authorized": False,
+    }
+
+
+def run_local():
+    require_pinned_nonadmin_windows()
     try:
         with tempfile.TemporaryDirectory(prefix="p11-h13-work-") as rt:
             # Outside is a NEW single-purpose directory in the user profile,
@@ -401,10 +448,14 @@ def main(argv=None):
                        help="Explicit standalone Windows MXC negative test; no model")
     group.add_argument("--check-windows-build", action="store_true",
                        help="Read only Windows build and UBR from HKLM, no subprocess")
+    group.add_argument("--execute-local-mxc-compat-only", action="store_true",
+                       help="One pinned MXC echo only, no filesystem negative test or model")
     args = parser.parse_args(argv)
     try:
         if args.check_windows_build:
             result = windows_build_report(*query_windows_build())
+        elif args.execute_local_mxc_compat_only:
+            result = run_compatibility_only()
         elif args.execute_local_mxc_probe:
             result = run_local()
         else:
