@@ -63,6 +63,8 @@ class CandidateRestoreTests(unittest.TestCase):
             report = json.loads(out.getvalue())
             self.assertEqual(report["status"], "RESTORED")
             self.assertTrue(report["candidate_matches_recorded_original"])
+            self.assertTrue(report["previous_candidate_archived"])
+            self.assertNotIn("previous_baseline_archived", report)
             self.assertTrue(report["baseline_original_unchanged"])
             self.assertFalse(report["credentials_copied"])
             self.assertEqual(report["codex_model_calls"], 0)
