@@ -32,7 +32,7 @@ class AppServerHarnessTests(unittest.TestCase):
             result = h.simulate(case["id"])
             self.assertEqual(result["status"], "SYNTHETIC_PROTOCOL_SIMULATION_PASS")
             self.assertEqual(result["request_sequence"],
-                             ["initialize", "thread/start", "turn/start"])
+                             ["initialize", "initialized", "thread/start", "turn/start"])
             self.assertEqual(result["model_calls"], 0)
             self.assertEqual(result["files_written"], 0)
             self.assertFalse(result["real_app_server_connected"])
@@ -80,6 +80,7 @@ class AppServerHarnessTests(unittest.TestCase):
     def test_thread_policy_mismatch_denied(self):
         server = h.MockEndpoint()
         server.call(h.initialize_request())
+        server.notify({"jsonrpc": "2.0", "method": "initialized"})
         req = h.thread_request(h.cases()[0])
         response = server.call(req)
         response["result"]["approvalPolicy"] = "on-request"
@@ -92,6 +93,7 @@ class AppServerHarnessTests(unittest.TestCase):
                                      ("type", "dangerFullAccess")):
             server = h.MockEndpoint()
             server.call(h.initialize_request())
+            server.notify({"jsonrpc": "2.0", "method": "initialized"})
             req = h.thread_request(h.cases()[0])
             response = server.call(req)
             response["result"]["sandbox"][bad_field] = bad_value
@@ -101,6 +103,7 @@ class AppServerHarnessTests(unittest.TestCase):
     def test_bad_thread_request_rejected(self):
         server = h.MockEndpoint()
         server.call(h.initialize_request())
+        server.notify({"jsonrpc": "2.0", "method": "initialized"})
         req = h.thread_request(h.cases()[0])
         req["params"]["approvalPolicy"] = "on-request"
         with self.assertRaisesRegex(h.HarnessError, "INVALID_THREAD_REQUEST"):
@@ -109,6 +112,7 @@ class AppServerHarnessTests(unittest.TestCase):
     def test_mock_events_require_single_worker_and_completed_turn(self):
         server = h.MockEndpoint()
         server.call(h.initialize_request())
+        server.notify({"jsonrpc": "2.0", "method": "initialized"})
         server.call(h.thread_request(h.cases()[0]))
         server.call(h.turn_request(h.cases()[0], server.thread_id))
         events = server.synthetic_events()
@@ -123,6 +127,7 @@ class AppServerHarnessTests(unittest.TestCase):
     def test_missing_start_or_agent_event_rejected(self):
         server = h.MockEndpoint()
         server.call(h.initialize_request())
+        server.notify({"jsonrpc": "2.0", "method": "initialized"})
         server.call(h.thread_request(h.cases()[0]))
         server.call(h.turn_request(h.cases()[0], server.thread_id))
         events = server.synthetic_events()
