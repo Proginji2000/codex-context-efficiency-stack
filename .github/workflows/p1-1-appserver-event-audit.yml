@@ -1,0 +1,32 @@
+name: P1.1 pinned app-server event audit offline tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Audit-CodexAppServer-Events.py'
+      - 'scripts/Test-Audit-CodexAppServer-Events.py'
+      - '.github/workflows/p1-1-appserver-event-audit.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Audit-CodexAppServer-Events.py'
+      - 'scripts/Test-Audit-CodexAppServer-Events.py'
+      - '.github/workflows/p1-1-appserver-event-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Synthetic privacy-constrained parser tests (no model)
+        run: python -B scripts/Test-Audit-CodexAppServer-Events.py
