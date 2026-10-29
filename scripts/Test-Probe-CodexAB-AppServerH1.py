@@ -8,6 +8,10 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
+import contextlib
+import io
+import queue
 
 MODULE = Path(__file__).with_name("Probe-CodexAB-AppServerH1.py")
 SPEC = importlib.util.spec_from_file_location("p11_h1", MODULE)
@@ -158,6 +162,40 @@ class H1StdioTests(unittest.TestCase):
         q.put(("line", b'{"jsonrpc":"2.0","id":1,"result":null}'))
         with self.assertRaisesRegex(h.PreflightError, "INITIALIZE_RPC_REJECTED"):
             h._wait_response(q, timeout=1)
+
+    def test_early_child_exit_has_safe_distinct_code(self):
+        class ExitedProcess:
+            def poll(self):
+                return 1
+        q = queue.Queue()
+        with self.assertRaisesRegex(h.PreflightError, "SERVER_EXITED_BEFORE_INITIALIZE"):
+            h._wait_response(q, timeout=1, process=ExitedProcess())
+
+    def test_fixed_diagnostic_does_not_echo_arbitrary_data(self):
+        self.assertEqual(h.safe_error_code(h.PreflightError("CLI_VERSION_PROBE_FAILED")),
+                         "CLI_VERSION_PROBE_FAILED")
+        self.assertEqual(h.safe_error_code(h.PreflightError("PRIVATE_API_TOKEN")),
+                         "OTHER_LOCAL_PREFLIGHT_FAILURE")
+        self.assertEqual(h.safe_error_code(OSError("C:\\PRIVATE\\auth.json")),
+                         "OTHER_LOCAL_PREFLIGHT_FAILURE")
+
+    def test_main_reports_allowlisted_failure_only(self):
+        stderr = io.StringIO()
+        with mock.patch.object(h, "run_local_preflight",
+                               side_effect=h.PreflightError("SERVER_EXITED_BEFORE_INITIALIZE")):
+            with contextlib.redirect_stderr(stderr):
+                self.assertEqual(h.main(["--execute-local-preflight"]), 2)
+        self.assertEqual(stderr.getvalue().strip(),
+                         "STOP: H1_LOCAL_PREFLIGHT_FAILED:SERVER_EXITED_BEFORE_INITIALIZE")
+
+    def test_main_redacts_unexpected_failure_text(self):
+        stderr = io.StringIO()
+        with mock.patch.object(h, "run_local_preflight",
+                               side_effect=OSError("PRIVATE_KEY_OR_LOCAL_PATH")):
+            with contextlib.redirect_stderr(stderr):
+                self.assertEqual(h.main(["--execute-local-preflight"]), 2)
+        self.assertEqual(stderr.getvalue().strip(),
+                         "STOP: H1_LOCAL_PREFLIGHT_FAILED:OTHER_LOCAL_PREFLIGHT_FAILURE")
 
     def test_no_cli_source_or_model_execution_in_mock_tests(self):
         source = MODULE.read_text(encoding="utf-8")
