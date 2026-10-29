@@ -102,6 +102,10 @@ def _wait_response(messages, timeout):
             raise PreflightError("INVALID_JSON_RESPONSE") from None
         if not isinstance(payload, dict):
             raise PreflightError("INVALID_JSON_RESPONSE")
+        if payload.get("jsonrpc") != "2.0":
+            raise PreflightError("INVALID_JSONRPC_VERSION")
+        if "id" in payload and payload.get("id") != 1:
+            raise PreflightError("RPC_ID_MISMATCH")
         if payload.get("id") == 1:
             if payload.get("error") is not None or not isinstance(payload.get("result"), dict):
                 raise PreflightError("INITIALIZE_RPC_REJECTED")
