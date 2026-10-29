@@ -81,8 +81,9 @@ class H13PrivateReviewTests(unittest.TestCase):
                                            side_effect=AssertionError("DISPLAY_CALL")):
                         # inspect_result has captured its default display at function
                         # definition time, so replace the dialog using a wrapper.
+                        original_inspect = p.inspect_result
                         def audited(out, err, code):
-                            return p.inspect_result(out, err, code, display=lambda _: None)
+                            return original_inspect(out, err, code, display=lambda _: None)
                         with mock.patch.object(p, "inspect_result", side_effect=audited):
                             j = p.run_single_review()
         self.assertEqual(call.call_count, 1)
