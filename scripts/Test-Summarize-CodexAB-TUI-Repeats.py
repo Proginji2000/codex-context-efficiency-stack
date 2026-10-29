@@ -91,15 +91,15 @@ class TuiReportTests(unittest.TestCase):
 
     def test_missing_and_duplicate_usage_rejected(self):
         source = self.log.read_text(encoding="utf-8")
-        self.log.write_text(source.replace("Token usage:", "NOT usage:", 1))
+        self.log.write_text(source.replace("Token usage:", "NOT usage:", 1), encoding="utf-8")
         with self.assertRaisesRegex(app.EvidenceError, "TERMINAL_PASS_INVALID"):
             app.analyze(str(self.base), terminal_log=str(self.log))
-        self.log.write_text(source.replace("INDEPENDENT_CANARY_PASS: p04:candidate", "Token usage: total=3 input=2 (+ 2 cached) output=1\nINDEPENDENT_CANARY_PASS: p04:candidate", 1))
+        self.log.write_text(source.replace("INDEPENDENT_CANARY_PASS: p04:candidate", "Token usage: total=3 input=2 (+ 2 cached) output=1\nINDEPENDENT_CANARY_PASS: p04:candidate", 1), encoding="utf-8")
         with self.assertRaisesRegex(app.EvidenceError, "TERMINAL_USAGE_INVALID"):
             app.analyze(str(self.base), terminal_log=str(self.log))
 
     def test_usage_accounting_mismatch_rejected(self):
-        self.log.write_text(self.log.read_text(encoding="utf-8").replace("total=26\u202f090", "total=26\u202f091"))
+        self.log.write_text(self.log.read_text(encoding="utf-8").replace("total=26\u202f090", "total=26\u202f091"), encoding="utf-8")
         with self.assertRaisesRegex(app.EvidenceError, "TERMINAL_USAGE_INCONSISTENT"):
             app.analyze(str(self.base), terminal_log=str(self.log))
 
