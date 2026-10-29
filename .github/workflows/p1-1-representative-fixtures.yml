@@ -1,0 +1,32 @@
+name: P1.1 representative A/B fixtures offline tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Plan-CodexAB-RepresentativeFixtures.py'
+      - 'scripts/Test-Plan-CodexAB-RepresentativeFixtures.py'
+      - '.github/workflows/p1-1-representative-fixtures.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Plan-CodexAB-RepresentativeFixtures.py'
+      - 'scripts/Test-Plan-CodexAB-RepresentativeFixtures.py'
+      - '.github/workflows/p1-1-representative-fixtures.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-synthetic:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Test deterministic fixture planning and seeded failure cases
+        run: python -B scripts/Test-Plan-CodexAB-RepresentativeFixtures.py
