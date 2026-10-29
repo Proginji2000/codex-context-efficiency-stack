@@ -164,3 +164,22 @@ This is a **real defect in the local environment-building contract**, although i
 - Fake-only tests verify all new environment invariants, reject invalid values and ensure only one additional key is passed. **No native MXC execution occurs in CI.**
 
 **Next evidence needed:** after full CI PASS, a **single explicit** local compatibility-only attempt can determine whether this omission affected startup. If another `MXC_LAUNCHER_FAILURE` occurs, STOP; do **not** make more speculative environment changes. Move instead to a privacy-controlled local examination of the original SDK error content, without copying sensitive output into GitHub or chat. H1.3 filesystem isolation, app-server parity, network and worker attestations remain not verified; the PR #14 stays open and A/B model calls are not authorized.
+
+## Sixième H1.3a — compatibility echo succeeded but warning remains (29 October 2026)
+
+The operator ran main `740d76356bb3d541353c882b3c935eb644f5fdef` after PR #83: **52/52** fake H1.3 launcher tests PASS, then the *single real compatibility command* produced:
+`STOP: H13_STANDALONE_MXC_FAILED:COMPAT_STDERR_PRESENT:GENERAL_WARNING:MARKER_PRESENT:EXIT_ZERO`.
+
+This is the **first observed success of the expected exact `MXC_OK` marker with process exit code 0**, after H1.3 restored the upstream-required `SystemDrive` to the disposable CLI environment. The prior error `MXC_LAUNCHER_FAILURE:MARKER_ABSENT:EXIT_NONZERO` did **not** recur. This temporal correlation suggests (but does not prove) that the missing variable caused some of the earlier launch failures. Crucially **stderr is still nonempty** and its exact content was never recorded; the existing strict probe correctly remains **STOP**. No filesystem negative test was run. **Do not mark OS MXC enforcement, network isolation, or app-server turn parity verified.**
+
+### One-shot LOCAL screen-only inspection — separate opt-in script
+
+The independent `scripts/Review-CodexAB-H13MXC-Warning.py` defaults to a no-process plan. Its separate explicit option `--execute-one-private-local-review` repeats **one** sandbox compatibility echo only, using all existing nonadmin/pinned-version/Windows-build checks, a new disposable `CODEX_HOME`, and the validated H1.3 `SystemDrive` child environment. No filesystem canary, model, turn, worker or A/B is involved.
+
+- If stderr remains nonempty (bounded to 8192 bytes), the script shows **only on the local interactive Windows desktop**, in a modal `MessageBoxW`, the exact stderr for **the user's own private review**. The raw text is **not printed into PowerShell**, written to a file, committed, uploaded to Github, or sent to a server by the script. It may contain paths, usernames, secrets or device-specific configuration. **Do not screenshot or paste that window into the conversation.**
+- After closing the local warning window, only a *fixed classification and status* appear in PowerShell, always with `LOCAL_WARNING_REVIEWED_STILL_STOP` and exit code **2** for nonempty stderr, **even if `MXC_OK` and exit code 0 were observed**. The user can describe the warning's general meaning without exposing raw values.
+- If no stderr is produced, the unchanged strict exact `MXC_OK`/exit 0 gate may report `MXC_COMPAT_ECHO_PASS_NO_WARNING_NOT_ENFORCEMENT`. That is still not a filesystem sandbox proof.
+- The message box is used instead of saving raw stderr to disk or risking accidental copy/paste of unfiltered console logs. There are no prompts for administrative rights, config changes, or permissions; closing the message box merely acknowledges local review.
+- CI tests use only fake subprocess outputs and mocked dialogs, on Windows and Ubuntu; no real Codex or native sandbox is started in CI.
+
+After this private review, identify the *source and severity* of the exact warning before considering a constrained allowlist. **Never globally ignore stderr, suppress warning generation, disable MXC or degrade the sandbox.** If warning content is sensitive, report only its generic category; in that case H1.3a may remain blocked pending a safely testable diagnostic.
