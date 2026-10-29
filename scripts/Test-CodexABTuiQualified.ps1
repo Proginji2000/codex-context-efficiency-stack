@@ -6,7 +6,10 @@ if (-not (Test-Path -LiteralPath $script)) {
 }
 
 # Only tests the interpreter probe; never invokes Codex, a model or a pilot.
-$python = Get-Command python.exe -CommandType Application -ErrorAction Stop
+$python = @(Get-Command python.exe -All -CommandType Application -ErrorAction Stop) |
+    Where-Object { Test-Path -LiteralPath $_.Source -PathType Leaf } |
+    Select-Object -First 1
+if ($null -eq $python) { throw 'CI_PYTHON_APP_MISSING' }
 Write-Host ('CI_PYTHON_RESOLUTION: application=' + [bool]($python.Source) +
             ' path_exists=' + (Test-Path -LiteralPath $python.Source -PathType Leaf))
 & $script -ProbeOnly -PythonExe $python.Source
