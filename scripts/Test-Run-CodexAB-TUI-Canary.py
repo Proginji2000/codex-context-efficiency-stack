@@ -19,6 +19,78 @@ SPEC.loader.exec_module(app)
 
 
 class TuiCanaryTests(unittest.TestCase):
+    def test_redacted_drift_reports_fixed_categories_without_dynamic_keys(self):
+        old = {
+            "tool_output_token_limit": 4000,
+            "agents": {"luna-medium": {"config_file": "agents/luna-medium.toml"}},
+        }
+        new = {
+            "tool_output_token_limit": 4000,
+            "agents": {"luna-medium": {"config_file": "agents/luna-medium.toml"}},
+            "windows": {"sandbox": "elevated"},
+            "projects": {"C:/PRIVATE/SECRET_PROJECT_PATH": {"trust_level": "trusted"}},
+            "notice": {"hidden_SECRET_NOTICE": True},
+            "mcp_servers": {"PRIVATE_MCP_NAME": {"token": "PRIVATE_TOKEN"}},
+            "private_secret_key_CANNOT_LEAK": "private_secret_value_CANNOT_LEAK",
+        }
+        categories = app.safe_config_drift_categories(old, new)
+        self.assertEqual(categories, sorted([
+            "windows.sandbox", "projects[*]", "notice[*]",
+            "mcp_servers[*]", "other_config_key",
+        ]))
+        output = json.dumps(categories)
+        for private in (
+            "SECRET_PROJECT_PATH", "hidden_SECRET_NOTICE", "PRIVATE_MCP_NAME",
+            "PRIVATE_TOKEN", "private_secret_key_CANNOT_LEAK",
+            "private_secret_value_CANNOT_LEAK",
+        ):
+            self.assertNotIn(private, output)
+
+    def test_readonly_diagnose_emits_only_categories_when_reference_is_intact(self):
+        import io
+        with tempfile.TemporaryDirectory() as name:
+            pilot = Path(name) / "pilot"
+            base = pilot / "baseline-home"
+            cand = pilot / "candidate-home"
+            base.mkdir(parents=True)
+            cand.mkdir()
+            original = b"tool_output_token_limit = 4000\n[agents]\nenabled = true\n"
+            changed = (
+                original
+                + b'[windows]\nsandbox = "elevated"\n'
+                + b'[projects."C:/PRIVATE/DO_NOT_SHOW"]\ntrust_level = "trusted"\n'
+            )
+            (base / "config.toml").write_bytes(changed)
+            (cand / "config.toml").write_bytes(original)
+            (base / "AGENTS.md").write_bytes(b"baseline")
+            (cand / "AGENTS.md").write_bytes(b"candidate")
+            data = {
+                "schema_version": 1,
+                "candidate_commit": app.runner.COMMIT,
+                "baseline_sha256": app.runner.digest(b"baseline"),
+                "candidate_sha256": app.runner.digest(b"candidate"),
+                "config_sha256": app.runner.digest(original),
+                "cli_version": "codex-cli 0.164.0",
+            }
+            (pilot / "benchmark-state.json").write_text(
+                json.dumps(data), encoding="utf-8")
+            output = io.StringIO()
+            with (patch.object(
+                        app.runner, "call_codex",
+                        return_value=SimpleNamespace(returncode=0,
+                                                     stdout="codex-cli 0.164.0\n")),
+                  patch("sys.stdout", output)):
+                status = app.diagnose(Namespace(pilot=str(pilot)))
+            self.assertEqual(status, 0)
+            report = json.loads(output.getvalue())
+            self.assertEqual(report["redacted_config_drift_categories"],
+                             ["projects[*]", "windows.sandbox"])
+            self.assertFalse(report["preflight_ready"])
+            self.assertFalse(report["mxc_sandbox_drift_eligible"])
+            self.assertEqual(report["model_calls_made"], 0)
+            self.assertNotIn("DO_NOT_SHOW", output.getvalue())
+            self.assertNotIn(str(pilot), output.getvalue())
+
     def test_safe_error_codes_do_not_reflect_private_exception_text(self):
         self.assertEqual(
             app.classified_error(ValueError("ISOLATED_CONFIG_HASH_MISMATCH")),
@@ -132,8 +204,10 @@ class TuiCanaryTests(unittest.TestCase):
                     self.assertEqual(
                         app.diagnose(Namespace(pilot=str(root))), 0)
                 report = json.loads(output.getvalue())
+                # The fixed label 'tool_output_token_limit' is an allowed
+                # category; neither private AGENTS contents nor paths may leak.
                 for secret in ("SECRET_BASE_AGENTS", "SECRET_CAND_AGENTS",
-                               "tool_output_token_limit", str(root)):
+                               str(root)):
                     self.assertNotIn(secret, output.getvalue())
                 self.assertEqual(report["model_calls_made"], 0)
                 return report

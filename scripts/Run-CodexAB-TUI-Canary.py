@@ -136,6 +136,63 @@ def classified_error(exc):
     return "UNCLASSIFIED_PREFLIGHT_FAILURE"
 
 
+def safe_config_drift_categories(original_toml, modified_toml):
+    """Categorize changed TOML paths without exposing user-controlled keys/values.
+
+    Category names are literal safe labels. In particular, dynamic project paths,
+    MCP server names, tokens and arbitrary top-level key names are never emitted.
+    """
+    unknown = object()
+    buckets = set()
+
+    def categorize(path):
+        if len(path) >= 2 and path[:2] == ("windows", "sandbox"):
+            return "windows.sandbox"
+        top = path[0] if path else None
+        fixed = {
+            "approval_policy": "approval_policy",
+            "sandbox_mode": "sandbox_mode",
+            "model": "model",
+            "model_reasoning_effort": "model_reasoning_effort",
+            "model_provider": "model_provider",
+            "tool_output_token_limit": "tool_output_token_limit",
+        }
+        if top in fixed:
+            return fixed[top]
+        if top == "windows":
+            return "windows.other"
+        if top == "projects":
+            return "projects[*]"
+        if top == "agents":
+            return "agents[*]"
+        if top == "mcp_servers":
+            return "mcp_servers[*]"
+        if top == "features":
+            return "features[*]"
+        if top == "profiles":
+            return "profiles[*]"
+        if top == "notice":
+            return "notice[*]"
+        if top == "sandbox_workspace_write":
+            return "sandbox_workspace_write[*]"
+        return "other_config_key"
+
+    def walk(old, new, path=()):
+        if (isinstance(old, dict) and isinstance(new, dict)) or (
+                old is unknown and isinstance(new, dict)) or (
+                new is unknown and isinstance(old, dict)):
+            left = {} if old is unknown else old
+            right = {} if new is unknown else new
+            for key in set(left).union(right):
+                walk(left.get(key, unknown), right.get(key, unknown),
+                     path + (key,))
+        elif old != new:
+            buckets.add(categorize(path))
+
+    walk(original_toml, modified_toml)
+    return sorted(buckets)
+
+
 def diagnose(args):
     """Zero-model, read-only status matrix. Never display hashes, paths or TOML text."""
     result = {
@@ -194,16 +251,27 @@ def diagnose(args):
                 isinstance(expected, str) and runner.digest(candidate_bytes) == expected
             )
             try:
+                baseline_toml = tomllib.loads(baseline_bytes.decode("utf-8"))
+                candidate_toml = tomllib.loads(candidate_bytes.decode("utf-8"))
                 result["baseline_candidate_config_semantics_match"] = (
-                    tomllib.loads(baseline_bytes.decode("utf-8")) ==
-                    tomllib.loads(candidate_bytes.decode("utf-8"))
+                    baseline_toml == candidate_toml
                 )
+                if result["candidate_config_matches_record"]:
+                    result["redacted_config_drift_categories"] = (
+                        safe_config_drift_categories(candidate_toml, baseline_toml)
+                    )
+                else:
+                    result["redacted_config_drift_categories"] = (
+                        ["reference_config_hash_mismatch"]
+                    )
             except (UnicodeError, ValueError):
                 result["baseline_candidate_config_semantics_match"] = False
+                result["redacted_config_drift_categories"] = ["toml_comparison_error"]
         except (OSError, ValueError):
             result["baseline_candidate_config_bytes_match"] = False
             result["candidate_config_matches_record"] = False
             result["baseline_candidate_config_semantics_match"] = False
+            result["redacted_config_drift_categories"] = ["config_files_unreadable"]
         try:
             validate_baseline_config_snapshot(
                 pilot, state_data, allow_sandbox_key_drift=True)
