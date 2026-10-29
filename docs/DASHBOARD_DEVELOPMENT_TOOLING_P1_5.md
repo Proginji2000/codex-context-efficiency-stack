@@ -28,6 +28,14 @@
 5. **Vérification :** build, tests, interactions, responsive et accessibilité proportionnés à la demande et au risque. Le résultat est qualifié seulement avec des preuves du worker et des outils effectivement utilisés.
 6. **Sécurité :** aucune installation globale, désactivation MCP, extension de permissions, connexion métier ni dépense de quota pour une démonstration non sollicitée.
 
+## Verified local tool availability (29 October 2026)
+
+- The operator observed official shadcn MCP connected to Codex CLI 0.164.0 with **7 tools** and actual read-only calls to `search_items_in_registries` and `view_items_in_registries` in a disposable directory. No project component installation was requested or observed.
+- The operator observed Serena 2.1.0 connected with **3 tools** and working LSP Python symbol inspection. Serena project-local Markdown memory was written, found on disk and retrieved in a **separate Codex session**. This does not attest cloud/automatic session-memory capture.
+- Both MCP entries remain `enabled=false` in the operator's global config. `scripts/Invoke-CodexScopedMcp.ps1` now exposes `-Scope ui -EnableShadcn -Interactive -Run` and optional `-EnableSerena` for `code` or `ui` scopes. **Choosing the launcher options precedes starting a session**; Luna cannot enable a disabled MCP halfway through an existing process merely by following a prompt.
+- The existing `ui-implementer` role and `frontend-design` skill already have automatic **worker selection** instructions; the worker template now explains how to use shadcn and Serena *if connected*. This does not prove UI worker use in a complete user-facing frontend task. Verify that only when an actual UI development request arrives.
+- No added persistent memory engine, dashboard application, global install or migration is required for this milestone.
+
 ## Qualification sans développer d'application
 
 **P1.5 (outillage) peut avancer sans créer de dashboard :**
