@@ -263,6 +263,8 @@ def kernel32():
         k.WaitForSingleObject.restype = wintypes.DWORD
         k.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
         k.TerminateJobObject.restype = wintypes.BOOL
+        k.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+        k.TerminateProcess.restype = wintypes.BOOL
         k.CloseHandle.argtypes = [wintypes.HANDLE]
         k.CloseHandle.restype = wintypes.BOOL
         return k
@@ -453,7 +455,8 @@ def run_real():
                     # directly-created disposable process before closing it.
                     if not assigned:
                         try:
-                            k.TerminateProcess(info.hProcess, 1)
+                            if not k.TerminateProcess(info.hProcess, 1):
+                                failure = GateError("JOB_TERMINATE_FAILED")
                         except (AttributeError, OSError):
                             failure = GateError("JOB_TERMINATE_FAILED")
                     k.CloseHandle(info.hThread)
