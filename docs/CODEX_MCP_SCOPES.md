@@ -1,4 +1,4 @@
-# Opt-in Codex MCP scopes — four installed servers
+# Opt-in Codex MCP scopes — original four servers plus optional Serena and shadcn
 
 The 2026-10-27 local TOML audit confirmed **four configured, declared enabled stdio MCP servers**: `code-review-graph`, `context7`, `node_repl`, and `playwright`. This list is *not* a runtime tool-schema inventory. The previous nine MCP counts were nested TOML headers, since corrected.
 
@@ -44,6 +44,36 @@ Run this **only when ready to consume Codex quota**:
 The wrapper always passes `codex exec -C <project> --ephemeral --sandbox read-only` unless an explicitly selected alternate sandbox is provided. For `git` scope a write sandbox is rejected. The individual MCP overrides use `-c mcp_servers.<id>.enabled=false`; none is written to disk. It invokes the `codex` executable already on PATH and returns its exit status. No update or installation is performed. The underlying Codex CLI can still access its standard system tools and built-in skills, as its sandbox permits.
 
 The optional `code` and `ui` scopes default to `read-only` as well. For a genuinely authorized code-writing task, you may explicitly select `-Sandbox workspace-write`, subject to the normal Codex approvals; this does **not** bypass sandboxing.
+
+## Serena and shadcn (verified locally on 29 October 2026)
+
+The operator verified `serena-agent==2.1.0` running in the Codex TUI (3 tools, LSP Python symbol lookups and project-memory persistence across **separate sessions**), and the official `shadcn@latest mcp` (7 tools; registry search and view on a disposable directory). Both MCP definitions are registered as `enabled=false` in the user's normal `config.toml`. The global configuration was backed up before each addition. These observed results do **not** mean the tools launch automatically on ordinary Codex sessions.
+
+New opt-in flags in the existing launcher (old calls unchanged):
+
+| Flag | Allowed scope | Effect only on selected invocation |
+| --- | --- | --- |
+| `-EnableSerena` | `code` or `ui` | `-c mcp_servers.serena.enabled=true` |
+| `-EnableShadcn` | `ui` | `-c mcp_servers.shadcn.enabled=true` |
+| `-Interactive` | Any scope | Start the interactive Codex TUI instead of noninteractive `codex exec`; `-Prompt` optional |
+
+**Preview without starting any model or MCP** (run from this repository):
+
+```powershell
+.\scripts\Invoke-CodexScopedMcp.ps1 -Scope code -EnableSerena -AsJson
+.\scripts\Invoke-CodexScopedMcp.ps1 -Scope ui -EnableShadcn -Interactive -AsJson
+.\scripts\Test-CodexScopedMcp.ps1
+```
+
+**A real UI project when explicitly selected**:
+
+```powershell
+.\scripts\Invoke-CodexScopedMcp.ps1 -Scope ui -EnableShadcn -Interactive -Run -ProjectDirectory 'C:\Dev\some-ui-project'
+```
+
+For deeper code navigation, choose `-Scope code -EnableSerena -Interactive -Run`; optional flags may be combined under `-Scope ui`. Actual `-Run` launches Codex and can consume quota, start MCPs and download any missing dependencies. Scope options apply **at launch time**, not automatically based on the semantics of a prompt in an already-running Codex session. Runtime subagent access still needs observation on a legitimate work item.
+
+The launcher does **not** install, enable globally, disable other managed bridges such as `codex_apps`, or modify `AGENTS.md`. Serena maintains project-local Markdown memories at `.serena/memories/`; global or cloud auto-capture is not part of this integration. Keep project memory writes scoped to approved repositories and review new metadata before committing. Do not run synthetic dashboard or memory projects to justify extra tools.
 
 ## Measurements and limitations
 
