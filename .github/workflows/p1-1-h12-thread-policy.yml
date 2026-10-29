@@ -1,0 +1,36 @@
+name: P1.1 H1.2 offline thread policy echo checks
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Check-CodexAB-H12ThreadPolicy.py'
+      - 'scripts/Test-Check-CodexAB-H12ThreadPolicy.py'
+      - '.github/workflows/p1-1-h12-thread-policy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Check-CodexAB-H12ThreadPolicy.py'
+      - 'scripts/Test-Check-CodexAB-H12ThreadPolicy.py'
+      - '.github/workflows/p1-1-h12-thread-policy.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-synthetic:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Run synthetic only H1.2 thread policy gates
+        run: python -B scripts/Test-Check-CodexAB-H12ThreadPolicy.py
+      - name: Inspect no-process H1.2 plan
+        run: python -B scripts/Check-CodexAB-H12ThreadPolicy.py
+      - name: Inspect simulated H1.2 policy echo
+        run: python -B scripts/Check-CodexAB-H12ThreadPolicy.py --simulate
