@@ -706,6 +706,121 @@ class TuiCanaryTests(unittest.TestCase):
                             python_test_fallback_hint=True))
             self.assertFalse((root / "unused").exists())
 
+    @unittest.skipUnless(os.name == "nt", "Paired TUI sandbox test is Windows-only")
+    def test_identical_tui_prompt_and_sandbox_for_baseline_candidate(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            repo = root / "repo"
+            repo.mkdir()
+            pilot = root / "pilot"
+            config = b"tool_output_token_limit=4000\n[agents]\nenabled=true\n"
+            for arm in ("baseline", "candidate"):
+                home = pilot / (arm + "-home")
+                (home / "agents").mkdir(parents=True)
+                (home / "config.toml").write_bytes(config)
+                (home / "AGENTS.md").write_text("FIXTURE_" + arm, encoding="utf-8")
+                for role in app.runner.ROLES:
+                    (home / "agents" / (role + ".toml")).write_bytes(
+                        ("identical-role-" + role).encode("utf-8"))
+            recorded = {}
+            real_run = subprocess.run
+
+            def fake_subprocess(cmd, **kwargs):
+                if cmd[0] in ("git", sys.executable):
+                    return real_run(cmd, **kwargs)
+                home_name = Path(kwargs["env"]["CODEX_HOME"]).name
+                arm = home_name.split("-")[0]
+                recorded[arm] = (cmd, home_name)
+                self.assertEqual(
+                    cmd[cmd.index("--sandbox") + 1], "workspace-write")
+                self.assertEqual(
+                    cmd[cmd.index("--ask-for-approval") + 1], "never")
+                self.assertIn("windows.sandbox=mxc", cmd)
+                self.assertNotIn("--yolo", cmd)
+                self.assertNotIn("danger-full-access", cmd)
+                (Path(kwargs["cwd"]) / "total.py").write_text(
+                    "def total(lignes):\n"
+                    "    return sum(prix * quantite for prix, quantite in lignes)\n",
+                    encoding="utf-8")
+                return SimpleNamespace(returncode=0)
+
+            with (patch.object(app.runner, "state", return_value={
+                    "model": "gpt-6-luna", "reasoning_effort": "medium",
+                    "sandbox": "workspace-write",
+                    "config_sha256": app.runner.digest(config),
+                }), patch.object(app.runner, "call_codex",
+                                 return_value=SimpleNamespace(returncode=0)),
+                  patch.object(app.runner, "resolve_codex_executable",
+                               return_value="fake-codex.cmd"),
+                  patch.object(app.subprocess, "run", side_effect=fake_subprocess),
+                  patch("sys.stdout")):
+                for arm in ("baseline", "candidate"):
+                    output = root / (arm + "-run")
+                    code = app.run(Namespace(
+                        pilot=str(pilot), repo=str(repo),
+                        output=str(output), execute=True, arm=arm,
+                        approval="never", windows_sandbox="mxc",
+                        python_test_fallback_hint=True))
+                    self.assertEqual(code, 0)
+                    report = json.loads(
+                        (output / "sanitized-tui-result.json").read_text())
+                    self.assertEqual(report["arm"], arm)
+                    self.assertTrue(report["functional_and_scope_pass"])
+                    self.assertTrue(report["python_test_fallback_hint_requested"])
+                    self.assertEqual(
+                        json.loads((output / "run-started.json").read_text())[
+                            "profile"], arm)
+            baseline_cmd = recorded["baseline"][0]
+            candidate_cmd = recorded["candidate"][0]
+            self.assertEqual(baseline_cmd[-1], candidate_cmd[-1])
+            self.assertEqual(baseline_cmd, candidate_cmd)
+            self.assertEqual(
+                (pilot / "baseline-home" / "config.toml").read_bytes(), config)
+            self.assertEqual(
+                (pilot / "candidate-home" / "config.toml").read_bytes(), config)
+
+    def test_candidate_refuses_mismatched_baseline_or_roles_before_model(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            pilot = root / "pilot"
+            repo = root / "repo"
+            repo.mkdir()
+            original = b"tool_output_token_limit=4000\n"
+            for arm in ("baseline", "candidate"):
+                home = pilot / (arm + "-home")
+                (home / "agents").mkdir(parents=True)
+                (home / "config.toml").write_bytes(original)
+                for role in app.runner.ROLES:
+                    (home / "agents" / (role + ".toml")).write_bytes(b"same")
+            state = {
+                "model": "gpt-6-luna", "reasoning_effort": "medium",
+                "sandbox": "workspace-write",
+                "config_sha256": app.runner.digest(original),
+            }
+            with (patch.object(app.runner, "state", return_value=state),
+                  patch.object(app.runner, "call_codex",
+                               side_effect=AssertionError("no model or login calls"))):
+                output = root / "never-created"
+                (pilot / "baseline-home" / "config.toml").write_text(
+                    "tool_output_token_limit=5000\n")
+                with self.assertRaisesRegex(
+                        ValueError, "PAIRED_CONFIG_SNAPSHOT_MISMATCH"):
+                    app.run(Namespace(pilot=str(pilot), output=str(output),
+                                      repo=str(repo), arm="candidate", execute=True))
+                (pilot / "baseline-home" / "config.toml").write_bytes(original)
+                (pilot / "candidate-home" / "agents" / (
+                    app.runner.ROLES[0] + ".toml")).write_bytes(b"different")
+                with self.assertRaisesRegex(
+                        ValueError, "ROLE_CONFIG_ARM_MISMATCH"):
+                    app.run(Namespace(pilot=str(pilot), output=str(output),
+                                      repo=str(repo), arm="candidate", execute=True))
+                with self.assertRaisesRegex(
+                        ValueError, "CANDIDATE_DRIFT_OVERRIDE_FORBIDDEN"):
+                    app.run(Namespace(pilot=str(pilot), output=str(output),
+                                      repo=str(repo), arm="candidate", execute=True,
+                                      accept_sandbox_key_drift=True))
+            self.assertFalse(output.exists())
+
     def test_invalid_windows_sandbox_override_fails_before_launch(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
