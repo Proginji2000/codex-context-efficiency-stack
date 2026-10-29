@@ -138,7 +138,7 @@ class H1StdioTests(unittest.TestCase):
             self.run_fake("hang", timeout=0.25)
 
     def test_rpc_wrong_id_is_rejected(self):
-        with self.assertRaisesRegex(h.PreflightError, "INVALID_STDIO_RESPONSE"):
+        with self.assertRaisesRegex(h.PreflightError, "RPC_ID_MISMATCH"):
             self.run_fake("wrong-id", timeout=1.6)
 
     def test_disallow_unexpected_notification(self):
