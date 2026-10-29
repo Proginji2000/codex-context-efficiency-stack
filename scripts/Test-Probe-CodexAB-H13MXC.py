@@ -74,8 +74,70 @@ class H13StandaloneTests(unittest.TestCase):
 
     def test_any_stderr_is_stop_no_waiver_for_warning(self):
         o, _, rc, a, b = self.sample()
-        with self.assertRaisesRegex(p.ProbeError, "SANDBOX_STDERR_PRESENT"):
+        with self.assertRaises(p.ProbeError) as caught:
             p.evaluate(o, b"PRIVATE_WARNING_PATH", rc, a, b)
+        self.assertEqual(
+            p.safe_reason(caught.exception),
+            "SANDBOX_STDERR_PRESENT:UNRECOGNIZED_STDERR:MARKER_PRESENT:EXIT_ZERO",
+        )
+
+    def test_categorized_stderr_never_leaks_contents(self):
+        cases = (
+            (b"windows sandbox failed: C:\\PRIVATE\\secret", "BACKEND_LAUNCH_ERROR"),
+            (b"windows sandbox failed to build runtime: PRIVATE", "BACKEND_LAUNCH_ERROR"),
+            (b"warning: world writable C:\\PRIVATE", "SECURITY_WARNING"),
+            (b"error: unexpected argument '--PRIVATE'", "CLI_USAGE_ERROR"),
+            (b"Usage: codex sandbox PRIVATE", "CLI_USAGE_ERROR"),
+            (b"failed to parse config C:\\PRIVATE", "CONFIG_ERROR"),
+            (b"Traceback (most recent call last): PRIVATE", "CHILD_PYTHON_ERROR"),
+            (b"warning: PRIVATE", "GENERAL_WARNING"),
+            (b"SecretToken PRIVATE", "UNRECOGNIZED_STDERR"),
+        )
+        out, _, _, _, _ = self.sample()
+        for raw, category in cases:
+            with self.subTest(category=category):
+                with self.assertRaises(p.ProbeError) as caught:
+                    p.evaluate(out, raw, 1, True, True)
+                exported = p.safe_reason(caught.exception)
+                self.assertEqual(
+                    exported,
+                    "SANDBOX_STDERR_PRESENT:" + category +
+                    ":MARKER_PRESENT:EXIT_NONZERO",
+                )
+                self.assertNotIn("PRIVATE", exported)
+                self.assertNotIn("\\", exported)
+                self.assertNotIn("SecretToken", exported)
+                self.assertNotIn("--", exported)
+
+    def test_marker_and_return_code_flags_when_child_did_not_run(self):
+        with self.assertRaises(p.ProbeError) as caught:
+            p.evaluate(b"", b"windows sandbox failed: PRIVATE", 1, False, True)
+        self.assertEqual(p.safe_reason(caught.exception),
+                         "SANDBOX_STDERR_PRESENT:BACKEND_LAUNCH_ERROR:"
+                         "MARKER_ABSENT:EXIT_NONZERO")
+
+    def test_categorized_stderr_must_always_fail_even_with_successful_child(self):
+        out, _, rc, a, b = self.sample()
+        with self.assertRaises(p.ProbeError) as caught:
+            p.evaluate(out, b"warning: PRIVATE", rc, a, b)
+        self.assertIn("GENERAL_WARNING", p.safe_reason(caught.exception))
+
+    def test_error_detail_injection_is_redacted(self):
+        for data in (
+            p.ProbeError("SANDBOX_STDERR_PRESENT", "PRIVATE",
+                         "MARKER_PRESENT", "EXIT_ZERO"),
+            p.ProbeError("SANDBOX_STDERR_PRESENT", "CLI_USAGE_ERROR",
+                         "PRIVATE_PATH", "EXIT_NONZERO"),
+            p.ProbeError("SANDBOX_STDERR_PRESENT", "CLI_USAGE_ERROR",
+                         "MARKER_PRESENT", "EXIT_NONZERO", "PRIVATE"),
+            p.ProbeError("PRIVATE_TOKEN"),
+        ):
+            self.assertEqual(p.safe_reason(data), "OTHER_LOCAL_FAILURE")
+
+    def test_capture_size_over_limit_is_still_denied(self):
+        out, _, rc, a, b = self.sample()
+        with self.assertRaisesRegex(p.ProbeError, "SANDBOX_STDERR_PRESENT"):
+            p.evaluate(out, b"warning: PRIVATE" * 2000, rc, a, b)
 
     def test_disallow_unknown_json_keys_and_types(self):
         cases = [
@@ -131,6 +193,7 @@ class H13StandaloneTests(unittest.TestCase):
                 self.assertEqual(p.main(["--execute-local-mxc-probe"]), 2)
         self.assertEqual(capture.getvalue().strip(),
                          "STOP: H13_STANDALONE_MXC_FAILED:SANDBOX_STDERR_PRESENT")
+        self.assertNotIn("PRIVATE", capture.getvalue())
 
     def test_error_codes_include_no_user_paths(self):
         for name in p.CODES:

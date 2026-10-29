@@ -60,9 +60,58 @@ CODES = frozenset({
     "TEMPORARY_CLEANUP_FAILED",
 })
 
+STDERR_CLASSES = frozenset({
+    "BACKEND_LAUNCH_ERROR", "SECURITY_WARNING", "CLI_USAGE_ERROR",
+    "CONFIG_ERROR", "CHILD_PYTHON_ERROR", "GENERAL_WARNING",
+    "UNRECOGNIZED_STDERR",
+})
+MARKER_FLAGS = frozenset({"MARKER_PRESENT", "MARKER_ABSENT"})
+EXIT_FLAGS = frozenset({"EXIT_ZERO", "EXIT_NONZERO", "EXIT_UNKNOWN"})
+
+
+def classify_stderr(data):
+    """Only coarse fixed categories; no raw stderr, path, token or hash escapes."""
+    if not isinstance(data, bytes):
+        return "UNRECOGNIZED_STDERR"
+    message = data[:MAX_CAPTURE].decode("utf-8", "replace").lower()
+    if ("worldwritable" in message or "world writable" in message
+            or "security warning" in message or "sandbox warning" in message):
+        return "SECURITY_WARNING"
+    if ("windows sandbox failed" in message or
+            "failed to build runtime" in message or
+            "missing mxc wrapper" in message):
+        return "BACKEND_LAUNCH_ERROR"
+    if ("usage: codex" in message or "unexpected argument" in message
+            or "unrecognized subcommand" in message
+            or "invalid value for" in message
+            or "the following required arguments" in message):
+        return "CLI_USAGE_ERROR"
+    if ("failed to load config" in message or
+            "failed to parse config" in message or
+            "invalid configuration" in message or
+            "unknown config key" in message or
+            "invalid type" in message):
+        return "CONFIG_ERROR"
+    if ("traceback (most recent call last)" in message or
+            "modulenotfounderror" in message or
+            "can't open file" in message or
+            "fatal python error" in message):
+        return "CHILD_PYTHON_ERROR"
+    if ("warning:" in message or "warn:" in message):
+        return "GENERAL_WARNING"
+    return "UNRECOGNIZED_STDERR"
+
+
 def safe_reason(exc):
-    if isinstance(exc, ProbeError) and len(exc.args) == 1 and exc.args[0] in CODES:
-        return exc.args[0]
+    if isinstance(exc, ProbeError):
+        if len(exc.args) == 1 and exc.args[0] in CODES:
+            return exc.args[0]
+        if (len(exc.args) == 4 and
+                exc.args[0] == "SANDBOX_STDERR_PRESENT" and
+                exc.args[1] in STDERR_CLASSES and
+                exc.args[2] in MARKER_FLAGS and
+                exc.args[3] in EXIT_FLAGS):
+            return ":".join(exc.args)
     return "OTHER_LOCAL_FAILURE"
 
 def plan():
@@ -88,8 +137,19 @@ def command_for(cli, python, child):
 def evaluate(out, err, rc, inside_ok, outside_unchanged):
     if not isinstance(out, bytes) or len(out) > MAX_CAPTURE:
         raise ProbeError("SANDBOX_STDOUT_INVALID")
-    if not isinstance(err, bytes) or len(err) > MAX_CAPTURE or err:
+    if not isinstance(err, bytes) or len(err) > MAX_CAPTURE:
         raise ProbeError("SANDBOX_STDERR_PRESENT")
+    if err:
+        # Retain fail-closed semantics: ANY stderr is STOP. Only emit fixed
+        # diagnostics derived from bounded text, stdout marker presence and
+        # exit-code class. Never echo or hash stderr (which may contain secrets).
+        marker_flag = ("MARKER_PRESENT" if isinstance(out, bytes) and
+                       out.startswith(MARKER.encode("utf-8"))
+                       else "MARKER_ABSENT")
+        exit_flag = ("EXIT_ZERO" if rc == 0 else
+                     "EXIT_NONZERO" if isinstance(rc, int) else "EXIT_UNKNOWN")
+        raise ProbeError("SANDBOX_STDERR_PRESENT", classify_stderr(err),
+                         marker_flag, exit_flag)
     try:
         lines = out.decode("utf-8").strip().splitlines()
         if len(lines) != 1 or not lines[0].startswith(MARKER):
