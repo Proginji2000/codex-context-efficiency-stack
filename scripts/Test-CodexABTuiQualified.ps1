@@ -6,8 +6,14 @@ if (-not (Test-Path -LiteralPath $script)) {
 }
 
 # Only tests the interpreter probe; never invokes Codex, a model or a pilot.
+$python = Get-Command python.exe -CommandType Application -ErrorAction Stop
+Write-Host ('CI_PYTHON_RESOLUTION: application=' + [bool]($python.Source) +
+            ' path_exists=' + (Test-Path -LiteralPath $python.Source -PathType Leaf))
+& $script -ProbeOnly -PythonExe $python.Source
+if (-not $?) { throw 'PYTHON_DIRECT_PROBE_FAILED' }
+
 & $script -ProbeOnly
-if (-not $?) { throw 'PYTHON_PROBE_FAILED' }
+if (-not $?) { throw 'PYTHON_AUTO_PROBE_FAILED' }
 
 $missing = Join-Path $env:TEMP 'codex-ab-nonexistent-interpreter-000000.exe'
 if (Test-Path -LiteralPath $missing) { throw 'TEST_PRECONDITION_FAILED' }
