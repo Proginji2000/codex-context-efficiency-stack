@@ -37,7 +37,6 @@ if mode == "notjson":
     time.sleep(1)
     sys.exit(0)
 payload = {
-    "jsonrpc": "2.0",
     "id": 1,
     "result": {
         "userAgent": "fake test",
@@ -46,7 +45,11 @@ payload = {
         "codexHome": os.environ["CODEX_HOME"],
     },
 }
-if mode == "bad-home":
+if mode == "with-version":
+    payload["jsonrpc"] = "2.0"
+elif mode == "bad-version":
+    payload["jsonrpc"] = "1.0"
+elif mode == "bad-home":
     payload["result"]["codexHome"] = "/FAKE-WRONG-HOME"
 elif mode == "error":
     payload.pop("result")
@@ -116,6 +119,17 @@ class H1StdioTests(unittest.TestCase):
     def test_good_fake_handshake(self):
         response = self.run_fake("ok")
         self.assertEqual(response, {"handshake": "PASS", "initialized_sent": True})
+
+    def test_codex_versionless_wire_envelope_succeeds(self):
+        # Upstream rpc.rs deliberately omits the jsonrpc member.
+        self.assertEqual(self.run_fake("ok")["handshake"], "PASS")
+
+    def test_explicit_correct_version_also_accepted(self):
+        self.assertEqual(self.run_fake("with-version")["handshake"], "PASS")
+
+    def test_conflicting_jsonrpc_version_still_denied(self):
+        with self.assertRaisesRegex(h.PreflightError, "INVALID_JSONRPC_VERSION"):
+            self.run_fake("bad-version")
 
     def test_schema_missing_field_fails_closed(self):
         with self.assertRaisesRegex(h.PreflightError, "INITIALIZE_REPLY_SCHEMA_MISMATCH"):

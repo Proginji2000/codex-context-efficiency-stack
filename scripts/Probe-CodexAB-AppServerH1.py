@@ -136,7 +136,10 @@ def _wait_response(messages, timeout, process=None):
             raise PreflightError("INVALID_JSON_RESPONSE") from None
         if not isinstance(payload, dict):
             raise PreflightError("INVALID_JSON_RESPONSE")
-        if payload.get("jsonrpc") != "2.0":
+        # Codex 0.165.0 uses JSON-RPC-like envelopes WITHOUT a required
+        # jsonrpc field (app-server-protocol/src/rpc.rs). Accept omission;
+        # reject a contradictory value if one is nevertheless present.
+        if "jsonrpc" in payload and payload["jsonrpc"] != "2.0":
             raise PreflightError("INVALID_JSONRPC_VERSION")
         if "id" in payload and payload.get("id") != 1:
             raise PreflightError("RPC_ID_MISMATCH")
@@ -209,7 +212,7 @@ def exchange(cmd, env, cwd, timeout=15):
     thread.start()
     finished = False
     try:
-        _send(proc, {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+        _send(proc, {"id": 1, "method": "initialize",
                      "params": {"clientInfo": {
                          "name": "p11-stdio-preflight", "title": "P1.1 isolated H1",
                          "version": "0.1"}, "capabilities": None}})
@@ -219,7 +222,7 @@ def exchange(cmd, env, cwd, timeout=15):
         if (reply.get("platformOs") != ("windows" if os.name == "nt" else "linux")
                 and not (os.name != "nt" and reply.get("platformOs") in ("linux", "macos"))):
             raise PreflightError("PLATFORM_MISMATCH")
-        _send(proc, {"jsonrpc": "2.0", "method": "initialized"})
+        _send(proc, {"method": "initialized"})
         return {"handshake": "PASS", "initialized_sent": True}
     finally:
         finished = _stop_child(proc)
