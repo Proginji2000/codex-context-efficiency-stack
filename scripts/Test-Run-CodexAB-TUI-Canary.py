@@ -619,6 +619,93 @@ class TuiCanaryTests(unittest.TestCase):
                             windows_sandbox=sandbox, accept_sandbox_key_drift=True))
             self.assertFalse((root / "never-created").exists())
 
+    @unittest.skipUnless(os.name == "nt", "Optional Python fallback is Windows MXC only")
+    def test_python_fallback_hint_preserves_mxc_policy_and_does_not_leak_path(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            repo = root / "repo"
+            repo.mkdir()
+            pilot = root / "pilot"
+            home = pilot / "baseline-home"
+            home.mkdir(parents=True)
+            original_config = b"[agents]\nenabled=true\n"
+            (home / "config.toml").write_bytes(original_config)
+            output = root / "python-hint-canary"
+            calls = []
+            real_subprocess_run = subprocess.run
+
+            def fake_subprocess(cmd, **kwargs):
+                if cmd[0] in ("git", sys.executable):
+                    return real_subprocess_run(cmd, **kwargs)
+                calls.append(cmd)
+                self.assertIn("windows.sandbox=mxc", cmd)
+                self.assertEqual(cmd[cmd.index("--sandbox") + 1], "workspace-write")
+                self.assertEqual(cmd[cmd.index("--ask-for-approval") + 1], "never")
+                self.assertNotIn("danger-full-access", cmd)
+                self.assertNotIn("--yolo", cmd)
+                self.assertEqual(
+                    Path(kwargs["env"]["CODEX_HOME"]).resolve(), home.resolve())
+                prompt = cmd[-1]
+                self.assertIn(json.dumps(sys.executable), prompt)
+                self.assertIn("retry it ONCE", prompt)
+                self.assertIn("not sandbox policy denial", prompt)
+                self.assertIn("report BLOCKED and STOP", prompt)
+                work = Path(kwargs["cwd"])
+                (work / "total.py").write_text(
+                    "def total(lignes):\n"
+                    "    return sum(prix * quantite for prix, quantite in lignes)\n",
+                    encoding="utf-8")
+                return SimpleNamespace(returncode=0)
+
+            with (patch.object(app.runner, "state", return_value={
+                    "model": "gpt-6-luna",
+                    "reasoning_effort": "medium",
+                    "sandbox": "workspace-write",
+                    "config_sha256": app.runner.digest(original_config),
+                }),
+                  patch.object(app.runner, "call_codex",
+                               return_value=SimpleNamespace(returncode=0)),
+                  patch.object(app.runner, "resolve_codex_executable",
+                               return_value="fake-codex.cmd"),
+                  patch.object(app.subprocess, "run", side_effect=fake_subprocess),
+                  patch("sys.stdout")):
+                status = app.run(Namespace(
+                    pilot=str(pilot), output=str(output), repo=str(repo),
+                    approval="never", windows_sandbox="mxc",
+                    python_test_fallback_hint=True, execute=True))
+            self.assertEqual(status, 0)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual((home / "config.toml").read_bytes(),
+                             original_config)
+            result_text = (output / "sanitized-tui-result.json").read_text(
+                encoding="utf-8")
+            result = json.loads(result_text)
+            self.assertTrue(result["python_test_fallback_hint_requested"])
+            self.assertTrue(result["functional_and_scope_pass"])
+            self.assertNotIn(sys.executable, result_text)
+            marker_text = (output / "run-started.json").read_text(
+                encoding="utf-8")
+            self.assertNotIn(sys.executable, marker_text)
+
+    def test_python_fallback_requires_windows_mxc_and_no_approvals(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            repo = root / "repo"
+            repo.mkdir()
+            pilot = root / "pilot"
+            pilot.mkdir()
+            with patch.object(app.runner, "state", return_value={}):
+                for approval, sandbox in (("never", None),
+                                          ("on-request", "mxc")):
+                    with self.assertRaisesRegex(
+                            ValueError, "PYTHON_HINT_REQUIRES_MXC_NEVER"):
+                        app.run(Namespace(
+                            pilot=str(pilot), output=str(root / "unused"),
+                            repo=str(repo), execute=True, approval=approval,
+                            windows_sandbox=sandbox,
+                            python_test_fallback_hint=True))
+            self.assertFalse((root / "unused").exists())
+
     def test_invalid_windows_sandbox_override_fails_before_launch(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
