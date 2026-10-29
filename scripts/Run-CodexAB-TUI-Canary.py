@@ -425,7 +425,7 @@ def run(args):
         interpreter = Path(sys.executable)
         if (not interpreter.is_absolute() or not interpreter.is_file()
                 or interpreter.suffix.lower() != ".exe"
-                or any(c in str(interpreter) for c in ('"', "\\r", "\\n"))):
+                or any(c in str(interpreter) for c in ('"', chr(13), chr(10)))):
             raise ValueError("PYTHON_HINT_INTERPRETER_UNAVAILABLE")
     output.mkdir(parents=True, exist_ok=False)
     workspace = output / "workspace"
