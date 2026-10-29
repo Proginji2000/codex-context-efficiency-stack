@@ -58,6 +58,9 @@ CODES = frozenset({
     "SANDBOX_OUTSIDE_WRITE_NOT_DENIED", "SANDBOX_OUTSIDE_FILE_CHANGED",
     "SANDBOX_CHILD_FAILED", "PROCESS_CLEANUP_UNVERIFIED",
     "TEMPORARY_CLEANUP_FAILED",
+    "COMPAT_STDOUT_INVALID",
+    "COMPAT_STDERR_PRESENT",
+    "COMPAT_EXIT_NONZERO",
 })
 
 STDERR_CLASSES = frozenset({
@@ -107,7 +110,7 @@ def safe_reason(exc):
         if len(exc.args) == 1 and exc.args[0] in CODES:
             return exc.args[0]
         if (len(exc.args) == 4 and
-                exc.args[0] == "SANDBOX_STDERR_PRESENT" and
+                exc.args[0] in ("SANDBOX_STDERR_PRESENT", "COMPAT_STDERR_PRESENT") and
                 exc.args[1] in STDERR_CLASSES and
                 exc.args[2] in MARKER_FLAGS and
                 exc.args[3] in EXIT_FLAGS):
@@ -118,7 +121,8 @@ def plan():
     return {
         "contract": CONTRACT, "mode": "PLAN_ONLY_NO_PROCESS",
         "cli_version": h1.VERSION, "backend_requested": "windows.sandbox=mxc",
-        "permissions_requested": "workspace-write",
+        "permissions_requested": ":workspace",
+        "preflight": "official_mxc_compatibility_echo_before_fs_negative_test",
         "requires_explicit_nonadmin_flag": True,
         "standalone_mxc_runtime_verified": False,
         "appserver_turn_mxc_verified": False,
@@ -130,9 +134,40 @@ def plan():
     }
 
 def command_for(cli, python, child):
-    return [str(cli), "-c", 'windows.sandbox="mxc"',
-            "-c", 'sandbox_mode="workspace-write"',
-            "sandbox", str(python), "-B", str(child)]
+    # Exact explicit MXC and :workspace permissions profile from the
+    # official Codex Windows diagnostic instructions (CLI >= 0.162.0).
+    # The -- separator prevents flags to the child being parsed by Codex.
+    return [str(cli), "-c", "windows.sandbox=mxc",
+            "sandbox", "--include-managed-config",
+            "--permission-profile", ":workspace", "--",
+            str(python), "-B", str(child)]
+
+
+def compatibility_command(cli):
+    # No file writes or model; run BEFORE the filesystem negative test.
+    return [str(cli), "-c", "windows.sandbox=mxc",
+            "sandbox", "--include-managed-config",
+            "--permission-profile", ":workspace", "--",
+            "cmd.exe", "/d", "/c", "echo", "MXC_OK"]
+
+
+def evaluate_compatibility(out, err, rc):
+    # A warning is never silently ignored, even if MXC_OK is printed.
+    if not isinstance(out, bytes) or len(out) > MAX_CAPTURE:
+        raise ProbeError("COMPAT_STDOUT_INVALID")
+    if not isinstance(err, bytes) or len(err) > MAX_CAPTURE:
+        raise ProbeError("COMPAT_STDOUT_INVALID")
+    if err:
+        marker = "MARKER_PRESENT" if out.strip() == b"MXC_OK" else "MARKER_ABSENT"
+        code = ("EXIT_ZERO" if rc == 0 else "EXIT_NONZERO"
+                if isinstance(rc, int) else "EXIT_UNKNOWN")
+        raise ProbeError("COMPAT_STDERR_PRESENT", classify_stderr(err), marker, code)
+    if rc != 0:
+        raise ProbeError("COMPAT_EXIT_NONZERO")
+    if out.strip() != b"MXC_OK":
+        raise ProbeError("COMPAT_STDOUT_INVALID")
+    return True
+
 
 def evaluate(out, err, rc, inside_ok, outside_unchanged):
     if not isinstance(out, bytes) or len(out) > MAX_CAPTURE:
@@ -171,6 +206,8 @@ def evaluate(out, err, rc, inside_ok, outside_unchanged):
         "contract": CONTRACT,
         "status": "STANDALONE_MXC_FILESYSTEM_NEGATIVE_PASS_NOT_APPSERVER",
         "backend_requested": "windows.sandbox=mxc",
+        "permissions_requested": ":workspace",
+        "documented_compatibility_probe_pass": True,
         "host_outside_control_writable": True,
         "inside_workspace_write_observed": True,
         "outside_write_denied_observed": True,
@@ -259,6 +296,15 @@ def run_local():
                 env = h1.env_for_isolated_home(home)
                 env["P11_H13_WORKSPACE"] = str(workspace)
                 env["P11_H13_OUTSIDE"] = str(outside)
+                # One documented MXC compatibility launch first. A failed
+                # or warning-emitting compatibility check blocks all subsequent
+                # filesystem test activity.
+                compat_out, compat_err, compat_rc = run_subprocess(
+                    compatibility_command(h1.CLI), env, str(workspace))
+                evaluate_compatibility(compat_out, compat_err, compat_rc)
+
+                # Only after the compatibility gate: single standalone
+                # filesystem negative probe. No model, auth or agent turn.
                 out, err, rc = run_subprocess(
                     command_for(h1.CLI, Path(sys.executable), child),
                     env, str(workspace))
