@@ -441,6 +441,9 @@ class TuiCanaryTests(unittest.TestCase):
                     cmd[cmd.index("--sandbox") + 1], "workspace-write")
                 self.assertNotIn("--yolo", cmd)
                 self.assertNotIn("danger-full-access", cmd)
+                self.assertIn("git diff --check", cmd[-1])
+                self.assertIn("extra blank line at EOF", cmd[-1])
+                self.assertIn("The parent must not edit files.", cmd[-1])
                 self.assertNotIn("admin", cmd)
                 self.assertEqual(
                     Path(kwargs["env"]["CODEX_HOME"]).resolve(), home.resolve())
@@ -823,6 +826,8 @@ class TuiCanaryTests(unittest.TestCase):
                     report = json.loads(
                         (output / "sanitized-tui-result.json").read_text())
                     self.assertEqual(report["arm"], arm)
+                    self.assertEqual(report["prompt_contract"],
+                                     "p1.1-git-diff-selfcheck-v2")
                     self.assertTrue(report["functional_and_scope_pass"])
                     self.assertTrue(report["python_test_fallback_hint_requested"])
                     self.assertEqual(
