@@ -11,6 +11,16 @@
 
 La réponse passe le vérificateur H1.2 strict déjà fusionné (`Check-CodexAB-H12ThreadPolicy.py`) : permissions et réseau **annoncés**, modèle/effort, cwd, limites des racines d'écriture, thread éphémère sans tours et sources d'instructions bornées aux deux dossiers temporaires. En cas de divergence, STOP et **aucun élargissement des permissions**. Seule une catégorie d'erreur fixe (sans noms de fichiers, IDs, logs de serveur ou identifiants privés) est affichée. `stderr` du serveur n'est pas publié.
 
+## Incident local : notification non reconnue — 29/10/2026
+
+L'opérateur a obtenu `GIT_VERIFIED`, **19/19 tests H1.2 policy PASS**, **18/18 tests du faux serveur PASS**, puis **`STOP: H12_REAL_THREAD_PROBE_FAILED:THREAD_NOTIFICATION_UNEXPECTED`** à la création réelle du premier thread. **Aucun thread réel ou contrôle MXC n'est validé par cet essai** : le retour n'est pas une réponse `thread/start` acceptée.
+
+Source figée : [Codex `rust-v0.165.0`, enum `ServerNotification`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/app-server-protocol/src/protocol/common.rs). Avant une réponse `thread/start`, des notifications telles que `skills/changed`, `mcpServer/startupStatus/updated`, `account/updated`, `account/rateLimits/updated` ou `app/list/updated` peuvent être diffusées. Le filtre initial acceptait uniquement les notifications de thread et quelques messages génériques ; l'exacte méthode reçue lors de cet essai **n'a pas été enregistrée** pour préserver la confidentialité. **Ne pas supposer qu'il s'agissait de l'un de ces événements.**
+
+Le correctif introduit une **liste bornée et explicite d'événements passifs**, sans afficher ni conserver leurs paramètres, mais maintient le refus des messages inconnus, requêtes serveur imprévues, réponses ID divergentes et flux excessifs. Les notifications de risque font **STOP avec code fixe** : `windows/worldWritableWarning` (`THREAD_WARNING_WINDOWS_WORLD_WRITABLE`), `configWarning`, `warning`, `guardianWarning`, `error`, `deprecationNotice`, `windowsSandbox/setupCompleted`, `thread/settings/updated`, `model/verification`. En particulier, **on ne passe jamais outre un avertissement de répertoire accessible en écriture à tous** pour valider MXC.
+
+La CI teste les notifications synthétiques passives et les avertissements à ne pas ignorer ; le vrai app-server n'est **jamais exécuté en CI**. Après fusion et une seule nouvelle tentative explicite, un éventuel `STOP` peut être un avertissement de sécurité et exige une analyse ciblée, sans élargissement des permissions ni contournement de sandbox.
+
 ## Limites de preuve
 
 - Un `THREAD_START_DECLARED_POLICY_PASS_UNATTESTED` confirme que **le vrai app-server a créé un thread et renvoyé la politique attendue**. Il **ne** prouve **pas** que le sandbox MXC applique la protection au niveau OS.
