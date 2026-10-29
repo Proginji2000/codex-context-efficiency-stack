@@ -134,6 +134,67 @@ class H13StandaloneTests(unittest.TestCase):
                 self.assertNotIn("PRIVATE", safe)
                 self.assertNotIn("HRESULT", safe)
 
+    def test_disposable_parent_outside_system_temp(self):
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="h13-fake-root-") as name:
+            root = Path(name)
+            system_temp = root / "temp"
+            system_temp.mkdir()
+            user_home = root / "user"
+            user_home.mkdir()
+            self.assertEqual(
+                p.validate_disposable_parent(user_home, system_temp),
+                user_home.resolve(),
+            )
+            # A folder inside the system temporary root is forbidden even
+            # when it is newly created, writable and disposable.
+            nested_home = system_temp / "home"
+            nested_home.mkdir()
+            for invalid in (system_temp, nested_home):
+                with self.subTest(invalid=invalid.name):
+                    with self.assertRaisesRegex(
+                            p.ProbeError,
+                            "MXC_DISPOSABLE_PROFILE_PARENT_UNSAFE"):
+                        p.validate_disposable_parent(invalid, system_temp)
+
+    def test_disposable_parent_rejects_missing_and_file_targets(self):
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="h13-fake-root-") as name:
+            root = Path(name)
+            sys_temp = root / "temp"
+            sys_temp.mkdir()
+            missing = root / "missing"
+            existing_file = root / "not-a-directory"
+            existing_file.write_text("test", encoding="utf-8")
+            for bad in (missing, existing_file):
+                with self.subTest(bad=bad.name):
+                    with self.assertRaisesRegex(p.ProbeError, "MXC_DISPOSABLE_PROFILE_PARENT_UNSAFE"):
+                        p.validate_disposable_parent(bad, sys_temp)
+
+    def test_disposable_root_is_fresh_and_cleaned_not_under_system_temp(self):
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="h13-fake-root-") as name:
+            parent = Path(name)
+            with mock.patch.object(p, "private_probe_parent", return_value=parent):
+                with p.disposable_probe_root("p11-h13-test-") as d:
+                    root = Path(d)
+                    self.assertTrue(root.is_dir())
+                    self.assertEqual(root.parent.resolve(), parent.resolve())
+                    self.assertTrue(root.name.startswith("p11-h13-test-"))
+                self.assertFalse(root.exists())
+
+    def test_all_h13_paths_use_disposable_private_root_without_h1_changes(self):
+        src = SRC.read_text(encoding="utf-8")
+        review_src = SRC.with_name("Review-CodexAB-H13MXC-Warning.py").read_text(encoding="utf-8")
+        self.assertIn('with disposable_probe_root("p11-h13-compat-")', src)
+        self.assertIn('with disposable_probe_root("p11-h13-work-")', src)
+        self.assertIn('with core.disposable_probe_root("p11-h13-review-")', review_src)
+        self.assertNotIn('with tempfile.TemporaryDirectory(prefix="p11-h13-compat-")', src)
+        self.assertNotIn('with tempfile.TemporaryDirectory(prefix="p11-h13-review-")', review_src)
+        self.assertNotIn("suppress_unstable_features_warning", src)
+        self.assertNotIn("suppress_unstable_features_warning", review_src)
+        self.assertNotIn("h1.SAFE_ENV =", src)
+
     def test_systemdrive_was_missing_from_prior_h1_isolated_allowlist(self):
         self.assertNotIn("SYSTEMDRIVE", p.h1.SAFE_ENV)
         source = {

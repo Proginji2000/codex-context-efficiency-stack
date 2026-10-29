@@ -183,3 +183,23 @@ The independent `scripts/Review-CodexAB-H13MXC-Warning.py` defaults to a no-proc
 - CI tests use only fake subprocess outputs and mocked dialogs, on Windows and Ubuntu; no real Codex or native sandbox is started in CI.
 
 After this private review, identify the *source and severity* of the exact warning before considering a constrained allowlist. **Never globally ignore stderr, suppress warning generation, disable MXC or degrade the sandbox.** If warning content is sensitive, report only its generic category; in that case H1.3a may remain blocked pending a safely testable diagnostic.
+
+## Source du warning MXC identifiée : garde de sécurité `arg0` (29 octobre 2026)
+
+L'opérateur a lu l'avertissement sur son bureau Windows après l'essai réel `4b75cd6eca605606a9437d5c5a2a84dd9c80a50f`: **52/52** tests synthétiques PASS, `MXC_OK` présent, exit code **0**, mais `GENERAL_WARNING` sur stderr donc STOP strict. Le texte (reproduit ici **uniquement sous forme paraphrasée sans aucun chemin personnel**) dit que Codex poursuit sans pouvoir créer ses alias PATH : les exécutables auxiliaires sont volontairement interdits sous un dossier temporaire système.
+
+La cause de **cet avertissement précis** est démontrée dans le code officiel épinglé [`openai/codex rust-v0.165.0 codex-rs/arg0/src/lib.rs`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/arg0/src/lib.rs) :
+- `prepare_path_entry_for_codex_aliases` lit `find_codex_home()`, puis refuse de placer les binaires auxiliaires lorsque `codex_home.starts_with(std::env::temp_dir())`, avec un message `Refusing to create helper binaries under temporary dir`.
+- Le gestionnaire d'erreur `prepare_path_env_var_with_aliases` émet `WARNING: proceeding, even though we could not create PATH aliases` et continue. Cet avertissement est donc **une protection voulue**, pas une raison de la supprimer.
+- Les lanceurs H1.3a précédents créaient `CODEX_HOME` au moyen de `tempfile.TemporaryDirectory(...)` sans `dir`, ce qui plaçait le profil **sous le TEMP système**, satisfaisant exactement la condition de refus. C'est un défaut de choix de chemin propre à notre probe, désormais vérifié.
+- La réussite du marqueur `MXC_OK` / exit 0 ne prouve **toujours pas** l'isolement des fichiers, du réseau, des workers ou d'un `turn/start`.
+
+### Correctif structurel H1.3a : dossier jetable utilisateur HORS TEMP système
+
+Le helper `validate_disposable_parent` / `disposable_probe_root` choisit maintenant le dossier de profil utilisateur **en dehors de l'arbre TEMP système résolu** et refuse les répertoires manquants, non-répertoires, parent symbolique ou imbriqué dans TEMP. Il crée un répertoire aléatoire **neuf** sous ce dossier, et y place `codex-home` et `workspace`. Le répertoire et tous ses fichiers sont ensuite nettoyés via `TemporaryDirectory`, sans jamais réutiliser le vrai dossier `~/.codex`, le contenu utilisateur existant ou un autre projet.
+
+Le correctif s'applique de manière cohérente aux modes `--execute-local-mxc-compat-only`, `--execute-local-mxc-probe` et au diagnostic privé `Review-CodexAB-H13MXC-Warning.py`. Il **ne change pas** les politiques de permissions, le profil `:workspace`, `windows.sandbox=mxc`, les appels modèles, la garde `arg0`, les variables Windows globales ou les probes H1.1/H1.2.
+
+Aucune exception générale de stderr ou d'avertissement n'a été ajoutée : toute erreur et tout warning restent **STOP**. Les nouveaux tests synthétiques garantissent la séparation des chemins temporaires, le nettoyage des nouveaux répertoires, l'absence de suppression de la garde et la portée strictement H1.3.
+
+**Étape suivante** : après CI Windows/Ubuntu/PowerShell PASS, une nouvelle tentative unique **compatibilité-only**, non-admin, épinglée sur le commit fusionné, pourra établir si `MXC_OK` est désormais obtenu sans cet avertissement. Aucune exécution du canary d'écriture, aucune vérification réseau ou tour IA à cette étape. H1.3a effectivité du confinement encore NON QUALIFIÉE, PR #14 ouverte, A/B non autorisés.

@@ -95,7 +95,7 @@ def run_single_review():
     # prerequisites, no privileges or global configuration modification.
     core.require_pinned_nonadmin_windows()
     try:
-        with tempfile.TemporaryDirectory(prefix="p11-h13-review-") as d:
+        with core.disposable_probe_root("p11-h13-review-") as d:
             root = Path(d)
             home, workspace = root / "codex-home", root / "workspace"
             home.mkdir()
