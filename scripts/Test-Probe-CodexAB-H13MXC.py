@@ -134,6 +134,73 @@ class H13StandaloneTests(unittest.TestCase):
                 self.assertNotIn("PRIVATE", safe)
                 self.assertNotIn("HRESULT", safe)
 
+    def test_systemdrive_was_missing_from_prior_h1_isolated_allowlist(self):
+        self.assertNotIn("SYSTEMDRIVE", p.h1.SAFE_ENV)
+        source = {
+            "SystemDrive": "C:", "LOCALAPPDATA": "PRIVATE_LOCAL",
+            "SYSTEMROOT": "PRIVATE_WINDOWS", "PATH": "PRIVATE_PATH",
+            "AUTH_SECRET": "PRIVATE_TOKEN",
+        }
+        child_h1 = p.h1.env_for_isolated_home("PRIVATE_TMP", source)
+        self.assertNotIn("SystemDrive", child_h1)
+        child = p.mxc_env_for_isolated_home("PRIVATE_TMP", source)
+        self.assertEqual(child["SystemDrive"], "C:")
+        self.assertEqual(child["CODEX_HOME"], "PRIVATE_TMP")
+        self.assertEqual(child["PYTHONDONTWRITEBYTECODE"], "1")
+        self.assertEqual(child["LOCALAPPDATA"], "PRIVATE_LOCAL")
+        self.assertNotIn("AUTH_SECRET", child)
+        self.assertEqual(set(child) - set(child_h1), {"SystemDrive"})
+
+    def test_isolated_systemdrive_accepts_case_variant_and_normalizes_letter(self):
+        source = {"systemdrive": "c:", "LOCALAPPDATA": "PRIVATE"}
+        child = p.mxc_env_for_isolated_home("PRIVATE_TMP", source)
+        self.assertEqual(child["SystemDrive"], "C:")
+        self.assertEqual(set(child) - set(p.h1.env_for_isolated_home("PRIVATE_TMP", source)),
+                         {"SystemDrive"})
+
+    def test_missing_or_invalid_systemdrive_is_stop_before_launch(self):
+        for bad in (None, "", "C:\\\\", "C:\\", "\\\\server", "22", "C", 3,
+                    "PRIVATETOKEN"):
+            source = {"LOCALAPPDATA": "PRIVATE_LOCAL"}
+            if bad is not None:
+                source["SystemDrive"] = bad
+            with self.subTest(bad=repr(bad)):
+                with self.assertRaises(p.ProbeError) as caught:
+                    p.mxc_env_for_isolated_home("PRIVATE_TMP", source)
+                self.assertIn(p.safe_reason(caught.exception),
+                              ("MXC_HOST_ENV_REQUIRED_MISSING",
+                               "MXC_HOST_SYSTEMDRIVE_INVALID"))
+
+    def test_missing_localappdata_does_not_fall_back_to_real_profile(self):
+        source = {"SystemDrive": "C:", "AUTH_SECRET": "PRIVATE"}
+        with self.assertRaisesRegex(
+                p.ProbeError, "MXC_HOST_ENV_REQUIRED_MISSING"):
+            p.mxc_env_for_isolated_home("PRIVATE_TMP", source)
+
+    def test_env_preflight_reports_validity_without_value(self):
+        from types import SimpleNamespace
+        env = {"SystemDrive": "C:", "LOCALAPPDATA": "PRIVATE_DIR",
+               "SystemRoot": "PRIVATE_ROOT"}
+        with mock.patch.object(p, "os", SimpleNamespace(name="nt", environ=env)):
+            r = p.host_environment_report()
+        self.assertTrue(r["system_drive_present"])
+        self.assertTrue(r["system_drive_format_valid"])
+        self.assertTrue(r["required_mxc_transport_host_env_present"])
+        self.assertNotIn("PRIVATE", json.dumps(r))
+        env["SystemDrive"] = "invalid-value"
+        with mock.patch.object(p, "os", SimpleNamespace(name="nt", environ=env)):
+            r2 = p.host_environment_report()
+        self.assertTrue(r2["system_drive_present"])
+        self.assertFalse(r2["system_drive_format_valid"])
+        self.assertTrue(r2["required_mxc_transport_host_env_present"])
+
+    def test_both_runtime_paths_use_derived_mxc_environment(self):
+        source = SRC.read_text(encoding="utf-8")
+        self.assertEqual(source.count("env = mxc_env_for_isolated_home(home)"), 2)
+        self.assertNotIn("env = h1.env_for_isolated_home(home)", source)
+        self.assertNotIn("h1.SAFE_ENV.add", source)
+        self.assertNotIn("h1.SAFE_ENV =", source)
+
     def test_mxc_host_transport_env_presence_case_insensitive(self):
         env = {
             "systemdrive": "C:",
