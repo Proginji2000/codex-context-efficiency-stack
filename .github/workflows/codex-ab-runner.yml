@@ -7,6 +7,8 @@ on:
       - 'scripts/Test-Restore-CodexAB-IsolatedBaseline.py'
       - 'scripts/Restore-CodexAB-IsolatedCandidate.py'
       - 'scripts/Test-Restore-CodexAB-IsolatedCandidate.py'
+      - 'scripts/Run-CodexAB-V5-RepeatPairs.py'
+      - 'scripts/Test-Run-CodexAB-V5-RepeatPairs.py'
       - 'scripts/Run-CodexAB.py'
       - 'scripts/Test-Run-CodexAB.py'
       - 'scripts/Run-CodexAB-TUI-Canary.py'
@@ -27,6 +29,8 @@ on:
       - 'scripts/Test-Restore-CodexAB-IsolatedBaseline.py'
       - 'scripts/Restore-CodexAB-IsolatedCandidate.py'
       - 'scripts/Test-Restore-CodexAB-IsolatedCandidate.py'
+      - 'scripts/Run-CodexAB-V5-RepeatPairs.py'
+      - 'scripts/Test-Run-CodexAB-V5-RepeatPairs.py'
       - 'scripts/Run-CodexAB.py'
       - 'scripts/Test-Run-CodexAB.py'
       - '.github/workflows/codex-ab-runner.yml'
@@ -63,3 +67,6 @@ jobs:
       - name: Verify audited isolated candidate restore (no Codex calls)
         shell: pwsh
         run: python .\scripts\Test-Restore-CodexAB-IsolatedCandidate.py
+      - name: Verify alternating P1.1 V5 A/B pair orchestration (no Codex calls)
+        shell: pwsh
+        run: python .\scripts\Test-Run-CodexAB-V5-RepeatPairs.py
