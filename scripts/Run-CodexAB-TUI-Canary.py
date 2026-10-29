@@ -289,6 +289,9 @@ def diagnose(args):
             result.get(field) is True for field in (
                 "experiment_state_valid", "baseline_agents_match",
                 "candidate_agents_match", "routing_config_match",
+                "candidate_config_matches_record",
+                "baseline_candidate_config_bytes_match",
+                "baseline_candidate_config_semantics_match",
                 "cli_version_matches", "toml_parseable",
             )
         ) and result["declared_policy"]["windows_sandbox"] not in (
