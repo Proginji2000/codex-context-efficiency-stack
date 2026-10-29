@@ -43,6 +43,18 @@ Le correctif accepte ce seul événement comme passif **si et seulement si** `pa
 
 Une réponse validée pourrait encore ne prouver **que** la politique déclarée par le thread. Il reste à démontrer séparément MXC réel, réseau, cycle worker et nettoyage complet de l'arbre de processus. Aucun tour IA et aucun benchmark A/B n'est lancé par la CI.
 
+## Premier échec de validation du vrai retour de politique — 29 octobre 2026
+
+Après PR #73, l'opérateur a vérifié `GIT_VERIFIED`, **19/19** tests de politique et **30/30** tests de transport. Le vrai app-server a émis la réponse RPC `thread/start` attendue, après traitement de la notification `remoteControl/status/changed`, mais la validation stricte a échoué avec `STOP: H12_REAL_THREAD_PROBE_FAILED:THREAD_ECHO_VALIDATION_FAILED`.
+
+**C'est une progression de protocole, pas un PASS de sécurité.** Le code ne connaissait pas l'assertion précise ayant échoué, car il ramenait volontairement les erreurs au même code. Il ne faut pas conclure que l'écho de sandbox, les racines d'écriture, l'absence de réseau, le modèle ou le caractère éphémère sont conformes.
+
+Les schémas officiels [`ThreadStartResponse`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/app-server-protocol/schema/typescript/v2/ThreadStartResponse.ts), [`Thread`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/app-server-protocol/schema/typescript/v2/Thread.ts) et [`SandboxPolicy`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/app-server-protocol/schema/typescript/v2/SandboxPolicy.ts) confirment qu'une réponse réelle comporte un `thread.ephemeral`, un `thread.turns` et un `sandbox` typé, entre autres. Une structure valide n'implique pas que ses valeurs correspondent à notre profil de sécurité.
+
+**Correction diagnostique uniquement :** si `policy.validate` échoue, le préflight conserve le STOP et ajoute une seule catégorie issue d'une **liste fermée de codes de notre validateur local** (par ex. `SANDBOX_NETWORK_UNPROVEN`, `WRITABLE_ROOTS_MISMATCH`, `UNEXPECTED_WRITABLE_ROOT`, `THREAD_NOT_EPHEMERAL`, `POLICY_ECHO_MISMATCH`). Ex. `THREAD_ECHO_VALIDATION_FAILED:SANDBOX_NETWORK_UNPROVEN`. Aucun texte d'exception arbitraire, aucune valeur réelle renvoyée, aucun chemin, ID, secret ou source d'instruction n'est imprimé. Les codes inconnus deviennent `OTHER_POLICY_VALIDATION_FAILURE`.
+
+**Interdit de faire passer ce gate en assouplissant les critères avant d'avoir examiné la catégorie exacte et sa pertinence par rapport au protocole officiel.** Un échec de sécurité (réseau, racines, sandbox, approval) doit rester bloquant. La CI reste un faux app-server et n'appelle jamais un modèle.
+
 ## Limites de preuve
 
 - Un `THREAD_START_DECLARED_POLICY_PASS_UNATTESTED` confirme que **le vrai app-server a créé un thread et renvoyé la politique attendue**. Il **ne** prouve **pas** que le sandbox MXC applique la protection au niveau OS.
