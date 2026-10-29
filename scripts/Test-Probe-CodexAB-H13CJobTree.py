@@ -72,7 +72,7 @@ class H13cTests(unittest.TestCase):
             with self.subTest(name=name):
                 with self.assertRaisesRegex(m.GateError, "JOB_PROCESS_STILL_ALIVE"):
                     m.verify_cleanup(broken, [])
-        for x in (True, 1, "true", None):
+        for x in (1, "true", None, False):
             with self.subTest(x=x):
                 with self.assertRaises(m.GateError):
                     m.verify_cleanup({"root": x, "child": True, "leaf": True}, [])
