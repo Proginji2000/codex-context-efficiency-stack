@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """P1.1: one opt-in INTERACTIVE Codex TUI canary; no raw chats collected.
 
-This is intentionally not codex exec. It uses the same preserved isolated
-baseline configuration and a NEW disposable Git fixture, checks results with
-independent unittest/Git, and does not execute the candidate or touch projects.
+This is intentionally not codex exec. It uses a preserved isolated
+baseline or candidate Codex home, a NEW disposable Git fixture, and verifies
+results with independent unittest/Git. No real projects are modified.
 """
 import argparse
 import importlib.util
@@ -69,13 +69,14 @@ def declared_sandbox_policy(home):
 
 def sanitized_report(workspace, exit_code, elapsed, approval="on-request",
                      declared_policy=None, windows_sandbox=None,
-                     config_snapshot_check=None, python_hint=False):
+                     config_snapshot_check=None, python_hint=False, arm="baseline"):
     checks = runner.verification_detail(workspace)
     # No TUI tool/event stream is available to this wrapper; evidence from the
     # interactive UI must be assessed separately, never synthesized.
     return {
         "schema_version": SCHEMA,
         "execution_surface": "codex-interactive-tui-not-exec",
+        "arm": arm,
         "model": MODEL,
         "sandbox": "workspace-write",
         "approval_policy_override_requested": approval,
@@ -91,7 +92,7 @@ def sanitized_report(workspace, exit_code, elapsed, approval="on-request",
         "worker_delegation_independently_verified": False,
         "worker_evidence_required": "Observe actual worker lifecycle in interactive TUI; stdout is not collected.",
         "raw_chat_saved_by_wrapper": False,
-        "profile_session_persistence": "Codex may save its interactive session in the isolated baseline-home.",
+        "profile_session_persistence": "Codex may save its interactive session in the isolated arm home.",
         "note": "A passing code change is not sufficient proof of delegation. No claim about quota or comparison against candidate.",
     }
 
@@ -112,6 +113,9 @@ SAFE_ERROR_CODES = frozenset({
     "CONFIG_DRIFT_FLAG_REQUIRES_MXC_NEVER",
     "PYTHON_HINT_REQUIRES_MXC_NEVER",
     "PYTHON_HINT_INTERPRETER_UNAVAILABLE",
+    "CANDIDATE_DRIFT_OVERRIDE_FORBIDDEN",
+    "PAIRED_CONFIG_SNAPSHOT_MISMATCH",
+    "ROLE_CONFIG_ARM_MISMATCH",
 })
 STATE_ERROR_CODES = {
     "invalid experiment state": "EXPERIMENT_STATE_INVALID",
@@ -344,15 +348,38 @@ def validate_baseline_config_snapshot(pilot, stored, *, allow_sandbox_key_drift=
     return "opt_in_sandbox_key_or_format_drift"
 
 
+def verify_candidate_arm_pair(pilot, stored):
+    """Match both immutable routing configs and role files before candidate TUI."""
+    expected = stored.get("config_sha256")
+    for arm in ("baseline", "candidate"):
+        home = pilot / (arm + "-home")
+        target = home / "config.toml"
+        if home.is_symlink() or target.is_symlink() or not home.is_dir():
+            raise ValueError("ISOLATED_PROFILE_INVALID")
+        if runner.digest(runner.read_file(target)) != expected:
+            raise ValueError("PAIRED_CONFIG_SNAPSHOT_MISMATCH")
+    for role in runner.ROLES:
+        rel = Path("agents") / (role + ".toml")
+        a = pilot / "baseline-home" / rel
+        b = pilot / "candidate-home" / rel
+        if (a.is_symlink() or b.is_symlink() or
+                runner.read_file(a) != runner.read_file(b)):
+            raise ValueError("ROLE_CONFIG_ARM_MISMATCH")
+    return True
+
+
 def policy(args):
-    """No model call, no file write: display declared fields and planned CLI override."""
+    """No model call, no file write: verify isolated arm configuration."""
     pilot = Path(args.pilot).expanduser().resolve(strict=True)
     stored = runner.state(pilot)
-    home = pilot / "baseline-home"
+    arm = getattr(args, "arm", "baseline")
+    home = pilot / (arm + "-home")
     if home.is_symlink() or (home / "config.toml").is_symlink():
         raise ValueError("ISOLATED_PROFILE_INVALID")
     if runner.digest(runner.read_file(home / "config.toml")) != stored.get("config_sha256"):
         raise ValueError("ISOLATED_CONFIG_HASH_MISMATCH")
+    if arm == "candidate":
+        verify_candidate_arm_pair(pilot, stored)
     declared = declared_sandbox_policy(home)
     if declared["windows_sandbox"] in ("disabled", "other_or_unrecognized"):
         raise ValueError("WINDOWS_SANDBOX_UNSUPPORTED")
@@ -362,7 +389,7 @@ def policy(args):
         "mode": "read_only_policy_preflight",
         "model_calls_made": 0,
         "codex_version_checked": True,
-        "profile": "isolated_baseline",
+        "profile": "isolated_" + arm,
         "declared_policy": declared,
         "planned_cli_override": {
             "approval": "never",
@@ -380,6 +407,7 @@ def run(args):
         raise ValueError("EXPLICIT_EXECUTE_REQUIRED")
     pilot, output = validate_paths(args.pilot, args.output, args.repo)
     stored = runner.state(pilot)
+    arm = getattr(args, "arm", "baseline")
     approval = getattr(args, "approval", "on-request")
     windows_sandbox = getattr(args, "windows_sandbox", None)
     accept_drift = getattr(args, "accept_sandbox_key_drift", False)
@@ -387,6 +415,8 @@ def run(args):
     if python_hint and (windows_sandbox != "mxc" or approval != "never"
                         or os.name != "nt"):
         raise ValueError("PYTHON_HINT_REQUIRES_MXC_NEVER")
+    if arm == "candidate" and accept_drift:
+        raise ValueError("CANDIDATE_DRIFT_OVERRIDE_FORBIDDEN")
     if accept_drift and (windows_sandbox != "mxc" or approval != "never"):
         raise ValueError("CONFIG_DRIFT_FLAG_REQUIRES_MXC_NEVER")
     if windows_sandbox not in (None, "mxc"):
@@ -399,12 +429,16 @@ def run(args):
         raise ValueError("MODEL_MISMATCH")
     if stored.get("reasoning_effort") != "medium" or stored.get("sandbox") != "workspace-write":
         raise ValueError("BENCHMARK_CONFIG_MISMATCH")
-    home = pilot / "baseline-home"
+    home = pilot / (arm + "-home")
     if home.is_symlink() or not home.is_dir() or (home / "config.toml").is_symlink():
         raise ValueError("ISOLATED_PROFILE_MISSING")
-    config_check = validate_baseline_config_snapshot(
-        pilot, stored, allow_sandbox_key_drift=accept_drift
-    )
+    if arm == "candidate":
+        verify_candidate_arm_pair(pilot, stored)
+        config_check = "strict_original_snapshot"
+    else:
+        config_check = validate_baseline_config_snapshot(
+            pilot, stored, allow_sandbox_key_drift=accept_drift
+        )
     declared = declared_sandbox_policy(home)
     if declared["windows_sandbox"] == "disabled":
         raise ValueError("WINDOWS_SANDBOX_DISABLED")
@@ -412,7 +446,7 @@ def run(args):
         raise ValueError("SANDBOX_MODE_FULL_ACCESS_DECLARED")
     if declared["windows_sandbox"] == "other_or_unrecognized":
         raise ValueError("WINDOWS_SANDBOX_MODE_UNKNOWN")
-    check = runner.call_codex(["login", "status"], env=runner.home_env(pilot, "baseline"))
+    check = runner.call_codex(["login", "status"], env=runner.home_env(pilot, arm))
     if check.returncode:
         raise ValueError("ISOLATED_PROFILE_REQUIRES_LOGIN")
     executable = runner.resolve_codex_executable()
@@ -433,7 +467,7 @@ def run(args):
     # Durable sentinel before launching TUI; never automatically retry a run.
     runner.save_json(output / "run-started.json", {
         "schema_version": SCHEMA,
-        "profile": "baseline",
+        "profile": arm,
         "execution_surface": "interactive-tui",
         "execute_authorized": True,
         "model": MODEL,
@@ -444,7 +478,7 @@ def run(args):
         "python_test_fallback_hint_requested": bool(python_hint),
         "declared_policy": declared,
     })
-    env = runner.home_env(pilot, "baseline")
+    env = runner.home_env(pilot, arm)
     # Do not ingest user transcripts or credentials. Keep normal TUI I/O,
     # allowing operator to see actual worker activity directly.
     prompt = (
@@ -494,6 +528,7 @@ def run(args):
           " windows_sandbox_override=" + (windows_sandbox or "none"), flush=True)
     print("CONFIG_DECLARED: " + json.dumps(declared, sort_keys=True), flush=True)
     print("CONFIG_SNAPSHOT_CHECK: " + config_check, flush=True)
+    print("ISOLATED_ARM: " + arm, flush=True)
     print("PYTHON_TEST_FALLBACK_HINT_REQUESTED: " + str(bool(python_hint)).lower(), flush=True)
     if approval == "never":
         print("STOP if Windows UAC/admin/sandbox provisioning prompts appear. Do not approve elevation.", flush=True)
@@ -507,7 +542,7 @@ def run(args):
         code = None
     elapsed = time.monotonic() - started
     report = sanitized_report(workspace, code, elapsed, approval, declared,
-                              windows_sandbox, config_check, python_hint)
+                              windows_sandbox, config_check, python_hint, arm)
     runner.save_json(output / "sanitized-tui-result.json", report)
     print(json.dumps(report, ensure_ascii=True, indent=2), flush=True)
     return 0 if code == 0 and report["functional_and_scope_pass"] else 1
@@ -538,8 +573,11 @@ def main(argv=None):
     pd.add_argument("--pilot", required=True)
     p0 = sub.add_parser("policy", help="Read-only policy/CLI fingerprint preflight; no model.")
     p0.add_argument("--pilot", required=True)
+    p0.add_argument("--arm", choices=("baseline", "candidate"), default="baseline")
     p = sub.add_parser("run", help="One explicitly authorized interactive TUI invocation.")
     p.add_argument("--pilot", required=True)
+    p.add_argument("--arm", choices=("baseline", "candidate"), default="baseline",
+                   help="Select one preserved isolated home; candidate requires strict paired config and role parity.")
     p.add_argument("--output", required=True)
     p.add_argument("--repo", default=str(Path(__file__).resolve().parent.parent))
     p.add_argument("--execute", action="store_true")
