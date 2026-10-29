@@ -333,6 +333,25 @@ Si le script répond `PYTHON_INTERPRETER_UNAVAILABLE_OR_ALIAS_ONLY`, ne pas rela
 ~~~
 
 Le test n'est déclenché qu'après préflight entièrement validé. Ne jamais réutiliser un dossier existant ; ne pas commencer candidate avant preuve de vérification *par le worker* et contrôles indépendants.
+## 29 octobre 2026 — Premier A/B : candidate fonctionnelle mais contrôle Git en échec
+
+La baseline v2 (TUI) passe les tests indépendants et le contrôle Git ; la candidate v1 a bien délégué au worker, effectué le repli Python et passé 2 tests, mais le rapport indépendant indique `git_diff_check_pass=false`. Seul `total.py` est suivi comme modifié et aucun fichier non suivi n'apparaît. **Le gate global reste FAIL** et les fichiers jetables de l'essai doivent être conservés sans correction avant extraction du diagnostic exact. La durée TUI `elapsed_s` inclut l'intervention humaine et ne mesure pas la seule exécution du worker.
+
+La candidate rapporte 20 860 tokens totaux (20 005 entrée + 855 sortie, 56 576 cached en sus) contre 39 185 totaux pour la baseline (38 236 entrée + 949 sortie, 174 336 cached en sus). Ne pas conclure à un gain de quota avec une seule paire, dont une branche a échoué un gate qualité. Les totaux de tokens ne représentent pas le quota de l'abonnement.
+
+Après l'essai, le diagnostic V4 avait une anomalie : `preflight_ready=true` alors que `candidate_config_matches_record=false`. Le préflight a été corrigé afin d'exiger les deux snapshots TOML originaux et l'égalité des configurations. Le lancement candidate avait déjà sa propre validation stricte ; ce correctif aligne le diagnostic hors modèle. Une nouvelle session ne doit jamais être lancée sans contrôles stricts.
+
+**Diagnostic local du contrôle Git (sans appel au modèle, sans modification des fichiers)** :
+
+~~~powershell
+$work = 'C:\Dev\codex-ab-tui-mxc-v4-ab-candidate-v1\workspace'
+& git -C $work diff --check
+Write-Host ('GIT_DIFF_CHECK_EXIT=' + $LASTEXITCODE)
+& git -C $work diff -- total.py
+& git -C $work status --short
+~~~
+
+Ne pas supprimer de fichiers ni appliquer de `git apply --whitespace=fix` avant d'avoir archivé la preuve. Si `git diff --check` rapporte des espaces en fin de ligne, cela reste un vrai défaut du run et non une raison de changer rétroactivement `functional_and_scope_pass=false` en PASS. Le cas échéant, tester une prochaine version du protocole avec le même contrôle pour les deux bras.
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
