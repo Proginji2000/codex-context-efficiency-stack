@@ -226,6 +226,64 @@ class TuiCanaryTests(unittest.TestCase):
             self.assertFalse(report["candidate_config_matches_record"])
             self.assertFalse(report["preflight_ready"])
 
+    def test_diagnose_blocks_candidate_only_config_drift_after_tui(self):
+        """Regression: a pristine baseline never makes a drifted candidate ready."""
+        import io
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name) / "pilot"
+            baseline, candidate = (root / "baseline-home", root / "candidate-home")
+            baseline.mkdir(parents=True)
+            candidate.mkdir(parents=True)
+            original = b"tool_output_token_limit = 4000\n"
+            drifted = original + b'[projects."PRIVATE_KEY"]\ntrust_level = "trusted"\n'
+            base_agents, cand_agents = b"BASELINE_AGENTS_PRIVATE", b"CANDIDATE_AGENTS_PRIVATE"
+            (baseline / "AGENTS.md").write_bytes(base_agents)
+            (candidate / "AGENTS.md").write_bytes(cand_agents)
+            (baseline / "config.toml").write_bytes(original)
+            (candidate / "config.toml").write_bytes(original)
+            record = {
+                "schema_version": 1, "candidate_commit": app.runner.COMMIT,
+                "baseline_sha256": app.runner.digest(base_agents),
+                "candidate_sha256": app.runner.digest(cand_agents),
+                "config_sha256": app.runner.digest(original),
+                "cli_version": "codex-cli 0.164.0",
+            }
+            (root / "benchmark-state.json").write_text(
+                json.dumps(record), encoding="utf-8")
+
+            def inspect():
+                out = io.StringIO()
+                with (patch.object(app.runner, "call_codex",
+                        return_value=SimpleNamespace(
+                            returncode=0, stdout="codex-cli 0.164.0\n")),
+                      patch("sys.stdout", out)):
+                    self.assertEqual(app.diagnose(Namespace(pilot=str(root))), 0)
+                for private in ("PRIVATE_KEY", "BASELINE_AGENTS_PRIVATE",
+                                "CANDIDATE_AGENTS_PRIVATE", str(root)):
+                    self.assertNotIn(private, out.getvalue())
+                return json.loads(out.getvalue())
+
+            # Both arms initially pristine; this state must be ready.
+            report = inspect()
+            self.assertTrue(report["candidate_config_matches_record"])
+            self.assertTrue(report["preflight_ready"])
+
+            # The observed user state: baseline clean, candidate TOML drifted.
+            (candidate / "config.toml").write_bytes(drifted)
+            report = inspect()
+            self.assertTrue(report["routing_config_match"])
+            self.assertFalse(report["candidate_config_matches_record"])
+            self.assertFalse(report["baseline_candidate_config_bytes_match"])
+            self.assertFalse(report["baseline_candidate_config_semantics_match"])
+            self.assertFalse(report["preflight_ready"])
+
+            # Even semantically equivalent but byte-drifted TOML must fail.
+            (candidate / "config.toml").write_bytes(original + b"\n")
+            report = inspect()
+            self.assertTrue(report["baseline_candidate_config_semantics_match"])
+            self.assertFalse(report["candidate_config_matches_record"])
+            self.assertFalse(report["preflight_ready"])
+
     def test_optin_required_before_files_or_codex(self):
         with patch.object(app.runner, "state", side_effect=AssertionError("called")):
             with self.assertRaisesRegex(ValueError, "EXPLICIT_EXECUTE_REQUIRED"):
