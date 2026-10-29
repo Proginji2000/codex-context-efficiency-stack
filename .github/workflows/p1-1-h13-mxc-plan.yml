@@ -7,6 +7,8 @@ on:
       - 'scripts/Test-Plan-CodexAB-H13MXC.py'
       - 'scripts/Probe-CodexAB-H13MXC.py'
       - 'scripts/Test-Probe-CodexAB-H13MXC.py'
+      - 'scripts/Review-CodexAB-H13MXC-Warning.py'
+      - 'scripts/Test-Review-CodexAB-H13MXC-Warning.py'
       - '.github/workflows/p1-1-h13-mxc-plan.yml'
   push:
     branches: [main]
@@ -15,6 +17,8 @@ on:
       - 'scripts/Test-Plan-CodexAB-H13MXC.py'
       - 'scripts/Probe-CodexAB-H13MXC.py'
       - 'scripts/Test-Probe-CodexAB-H13MXC.py'
+      - 'scripts/Review-CodexAB-H13MXC-Warning.py'
+      - 'scripts/Test-Review-CodexAB-H13MXC-Warning.py'
       - '.github/workflows/p1-1-h13-mxc-plan.yml'
 
 permissions:
@@ -38,6 +42,10 @@ jobs:
         run: python -B scripts/Test-Probe-CodexAB-H13MXC.py
       - name: Check real launcher defaults to no-process plan
         run: python -B scripts/Probe-CodexAB-H13MXC.py
+      - name: Test H1.3 private-warning local review with fake output only
+        run: python -B scripts/Test-Review-CodexAB-H13MXC-Warning.py
+      - name: Print private-warning review default no-process plan
+        run: python -B scripts/Review-CodexAB-H13MXC-Warning.py
       - name: Print H1.3 no-process plan
         run: python -B scripts/Plan-CodexAB-H13MXC.py
       - name: Print fabricated matrix validation
