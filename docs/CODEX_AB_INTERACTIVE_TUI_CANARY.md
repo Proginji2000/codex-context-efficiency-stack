@@ -194,6 +194,51 @@ python .\scripts\Run-CodexAB-TUI-Canary.py diagnose `
 
 Ne **pas** lancer `run` si `mxc_sandbox_drift_eligible=false`. Les champs supplémentaires servent seulement à choisir une résolution ciblée. Le fonctionnement MXC de `cmd.exe /d /c echo MXC_OK` reste acquis, mais l'autonomie TUI du worker sous MXC est non validée ; PR #14 reste ouverte.
 
+## V4 — récupération auditée du TOML baseline au lieu de poursuivre les exceptions (29 octobre 2026)
+
+Le dernier diagnostic V4 a établi : `candidate_config_matches_record=true` ; catégories modifiées `windows.sandbox`, `projects[*]` et `other_config_key`, `mxc_sandbox_drift_eligible=false`. Toute nouvelle tentative sous `--accept-sandbox-key-drift` reste donc **bloquée avant TUI** ; ne pas désactiver ce contrôle ni poursuivre des exceptions spéculatives.
+
+Le code source officiel Codex inclut des mécanismes persistants de changement de modèle, de notifications et de confiance de projet dans `config.toml` : https://github.com/openai/codex/blob/main/codex-rs/core/src/config/edit.rs. Cela explique pourquoi les changements de configuration peuvent être normaux après une session ; cela ne prouve pas l'origine exacte des trois différences locales.
+
+**Décision :** pour une nouvelle session de qualification, récupérer l'empreinte de configuration *initiale* en restaurant **seulement le TOML du profil baseline isolé V4**, sans créer de V5 ni copier les identifiants d'authentification. Un script dédié exige `--execute`, sauvegarde l'actuel `config.toml` localement dans un dossier d'audit **nouveau** à l'intérieur de V4, vérifie que `candidate-home/config.toml` correspond exactement au hash du snapshot original, contrôle les instructions AGENTS et la version du CLI, puis remplace atomiquement `baseline-home/config.toml` par la copie canonique. Aucune autre donnée n'est écrasée ; aucune donnée privée n'est publiée dans les sorties.
+
+**Important :** fermer auparavant les sessions Codex qui utilisent `C:\Dev\codex-ab-pr14-pilot-v4\baseline-home`. La restauration est un changement **explicite** du profil baseline de test, non une réparation automatique silencieuse. Le contenu archivé peut inclure des chemins privés ou des réglages sensibles : **ne pas le télécharger sur GitHub ou le partager**. Les anciennes traces et rapports restent dans leur emplacement ; ne pas considérer les essais d'avant restauration comme comparables à ceux d'après. Ne pas employer cette procédure sur le `CODEX_HOME` habituel ni sur la candidate.
+
+### Phase 1 — restauration sans modèle
+
+~~~powershell
+$ErrorActionPreference = 'Stop'
+Set-Location 'C:\Dev\codex-context-efficiency-stack'
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw 'Git pull failed' }
+
+python .\scripts\Test-Restore-CodexAB-IsolatedBaseline.py
+if ($LASTEXITCODE -ne 0) { throw 'Restore synthetic tests failed' }
+
+python .\scripts\Restore-CodexAB-IsolatedBaseline.py `
+    --pilot 'C:\Dev\codex-ab-pr14-pilot-v4' `
+    --backup-label 'backup-20261029-before-mxc-v4' `
+    --execute
+if ($LASTEXITCODE -ne 0) { throw 'Restore refused or failed' }
+
+python .\scripts\Run-CodexAB-TUI-Canary.py policy `
+    --pilot 'C:\Dev\codex-ab-pr14-pilot-v4'
+if ($LASTEXITCODE -ne 0) { throw 'Restored policy preflight failed' }
+~~~
+
+### Phase 2 — une seule nouvelle exécution, après réussite de la phase 1
+
+~~~powershell
+python .\scripts\Run-CodexAB-TUI-Canary.py run `
+    --pilot 'C:\Dev\codex-ab-pr14-pilot-v4' `
+    --output 'C:\Dev\codex-ab-tui-mxc-v4-baseline-after-restore-v1' `
+    --approval never `
+    --windows-sandbox mxc `
+    --execute
+~~~
+
+**Éléments à conserver :** JSON final, statut/lifecycle du worker, apparition éventuelle d'une fenêtre UAC, nombre d'interventions. Si MXC échoue encore sur les lectures, arrêtez la qualification ; pas de fallback `unelevated`, pas de `danger-full-access` ni de nouveau rétablissement automatique. La PR #14 reste ouverte ; l'objectif ici est uniquement de tester la viabilité du worker dans MXC.
+
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
