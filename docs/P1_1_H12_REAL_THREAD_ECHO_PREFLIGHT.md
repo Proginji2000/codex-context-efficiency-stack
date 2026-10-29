@@ -31,6 +31,18 @@ Une empreinte n'est pas une attestation cryptographique de la provenance du serv
 
 En cas de nouvel échec : rapporter le code et **STOP** sans nouvelle relance, puis confronter l'empreinte aux méthodes officiellement déclarées avant toute décision. Si l'empreinte ne correspond pas à une méthode officielle, l'événement reste inconnu et refusé.
 
+## Empreinte identifiée : notification de contrôle distant (29/10/2026)
+
+Le troisième essai local réel H1.2 (main `e6725ad52330ed8f2fc90c39c1aa46c5291bd362`) a confirmé : 19/19 tests de politique PASS, 26/26 tests de transport PASS, mais `THREAD_NOTIFICATION_UNEXPECTED:METHOD_SHA256_FC90BE8D31A9`. H1.2 réel **n'est pas encore PASS**.
+
+Une comparaison **hors modèle** avec les chaînes exactes des méthodes du fichier officiel [`app-server-protocol/src/protocol/common.rs` au tag `rust-v0.165.0`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/app-server-protocol/src/protocol/common.rs) donne **une correspondance exacte** : SHA-256 tronqué de `remoteControl/status/changed` = `FC90BE8D31A9`.
+
+Selon le schéma [`v2/remote_control.rs`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/app-server-protocol/src/protocol/v2/remote_control.rs), son champ `params.status` est l'une des quatre valeurs `disabled`, `connecting`, `connected`, `errored`. **L'empreinte de méthode ne renseigne pas le statut de contrôle à distance observé sur le PC.** Ne pas inférer que la fonction est activée ou désactivée sur cette base.
+
+Le correctif accepte ce seul événement comme passif **si et seulement si** `params.status == "disabled"`. Les trois autres valeurs entraînent `STOP: THREAD_REMOTE_CONTROL_NOT_DISABLED`. Une valeur absente, invalide ou un `params` mal formé entraîne `STOP: THREAD_REMOTE_CONTROL_STATE_INVALID`. Les identifiants `installationId`, `environmentId` et `serverName` ne sont ni copiés dans le rapport ni imprimés. Les avertissements Windows, les notifications inconnues et la limitation du nombre de messages conservent leurs protections précédentes.
+
+Une réponse validée pourrait encore ne prouver **que** la politique déclarée par le thread. Il reste à démontrer séparément MXC réel, réseau, cycle worker et nettoyage complet de l'arbre de processus. Aucun tour IA et aucun benchmark A/B n'est lancé par la CI.
+
 ## Limites de preuve
 
 - Un `THREAD_START_DECLARED_POLICY_PASS_UNATTESTED` confirme que **le vrai app-server a créé un thread et renvoyé la politique attendue**. Il **ne** prouve **pas** que le sandbox MXC applique la protection au niveau OS.

@@ -73,6 +73,27 @@ if mode == "benign-mcp":
     send({"method":"mcpServer/startupStatus/updated","params":{"private":"PRIVATE"}})
 if mode == "benign-account":
     send({"method":"account/updated","params":{"private":"PRIVATE"}})
+if mode == "remote-disabled":
+    send({"method":"remoteControl/status/changed",
+          "params":{"status":"disabled","serverName":"PRIVATE_SERVER_NAME",
+                    "installationId":"PRIVATE_INSTALL_ID","environmentId":None}})
+if mode in ("remote-connected", "remote-connecting", "remote-errored"):
+    send({"method":"remoteControl/status/changed",
+          "params":{"status":mode.split("-")[1],
+                    "serverName":"PRIVATE_SERVER_NAME",
+                    "installationId":"PRIVATE_INSTALL_ID","environmentId":"PRIVATE_ENV"}})
+    sys.exit(0)
+if mode == "remote-missing-status":
+    send({"method":"remoteControl/status/changed",
+          "params":{"serverName":"PRIVATE","installationId":"PRIVATE"}})
+    sys.exit(0)
+if mode == "remote-invalid-status":
+    send({"method":"remoteControl/status/changed",
+          "params":{"status":"enabled","secret":"PRIVATE"}})
+    sys.exit(0)
+if mode == "remote-null-params":
+    send({"method":"remoteControl/status/changed","params":None})
+    sys.exit(0)
 if mode == "bad-world-writable":
     send({"method":"windows/worldWritableWarning","params":{"path":"PRIVATE"}})
     sys.exit(0)
@@ -183,6 +204,43 @@ class RealH12OfflineTests(unittest.TestCase):
                 self.assertFalse(result["turn_start_sent"])
                 self.assertFalse(result["runtime_mxc_effectiveness_verified"])
                 self.assertNotIn("PRIVATE", json.dumps(result))
+
+    def test_pinned_remote_control_disabled_is_passive_without_identity_leak(self):
+        result = self.execute_fake("remote-disabled")
+        self.assertEqual(result["status"], "THREAD_START_DECLARED_POLICY_PASS_UNATTESTED")
+        self.assertTrue(result["real_thread_created"])
+        self.assertFalse(result["turn_start_sent"])
+        self.assertFalse(result["network_isolation_independently_verified"])
+        for sensitive in ("PRIVATE", "serverName", "installationId", "environmentId"):
+            self.assertNotIn(sensitive, json.dumps(result))
+
+    def test_pinned_remote_control_active_or_error_states_stop(self):
+        for mode in ("remote-connected", "remote-connecting", "remote-errored"):
+            with self.subTest(mode=mode):
+                with self.assertRaises(app.GateError) as caught:
+                    self.execute_fake(mode)
+                self.assertEqual(app._safe_code(caught.exception),
+                                 "THREAD_REMOTE_CONTROL_NOT_DISABLED")
+                self.assertNotIn("PRIVATE", app._safe_code(caught.exception))
+
+    def test_pinned_remote_control_invalid_state_stops(self):
+        for mode in ("remote-missing-status", "remote-invalid-status",
+                     "remote-null-params"):
+            with self.subTest(mode=mode):
+                with self.assertRaises(app.GateError) as caught:
+                    self.execute_fake(mode)
+                self.assertEqual(app._safe_code(caught.exception),
+                                 "THREAD_REMOTE_CONTROL_STATE_INVALID")
+                self.assertNotIn("PRIVATE", app._safe_code(caught.exception))
+
+    def test_remote_control_not_globally_whitelisted(self):
+        self.assertNotIn("remoteControl/status/changed",
+                         app.PASSIVE_PRE_REPLY_NOTIFICATIONS)
+        self.assertNotIn("remoteControl/status/changed",
+                         app.STOP_PRE_REPLY_NOTIFICATIONS)
+        self.assertEqual(
+            app._safe_code(app.GateError("THREAD_REMOTE_CONTROL_NOT_DISABLED")),
+            "THREAD_REMOTE_CONTROL_NOT_DISABLED")
 
     def test_security_warnings_stop_and_never_leak_payload(self):
         cases = {

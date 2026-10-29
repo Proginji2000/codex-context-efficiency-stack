@@ -57,6 +57,8 @@ SAFE_CODES = frozenset({
     "THREAD_PERMISSION_STATE_CHANGED",
     "THREAD_MODEL_VERIFICATION_EVENT",
     "THREAD_DEPRECATION_NOTICE",
+    "THREAD_REMOTE_CONTROL_NOT_DISABLED",
+    "THREAD_REMOTE_CONTROL_STATE_INVALID",
 })
 
 
@@ -184,6 +186,18 @@ def _receive_thread_response(inbox, proc=None, timeout=THREAD_TIMEOUT_S):
         method = body.get("method")
         if not isinstance(method, str):
             raise GateError("THREAD_MESSAGE_INVALID")
+        if method == "remoteControl/status/changed":
+            # Official rust-v0.165.0 RemoteControlConnectionStatus enum:
+            # disabled | connecting | connected | errored.
+            # Read ONLY the state flag. Server name, installation ID and
+            # environment ID are never copied, printed or persisted.
+            params = body.get("params")
+            if not isinstance(params, dict) or params.get("status") not in (
+                    "disabled", "connecting", "connected", "errored"):
+                raise GateError("THREAD_REMOTE_CONTROL_STATE_INVALID")
+            if params["status"] != "disabled":
+                raise GateError("THREAD_REMOTE_CONTROL_NOT_DISABLED")
+            continue
         if method in STOP_PRE_REPLY_NOTIFICATIONS:
             raise GateError(STOP_PRE_REPLY_NOTIFICATIONS[method])
         if method not in PASSIVE_PRE_REPLY_NOTIFICATIONS:
