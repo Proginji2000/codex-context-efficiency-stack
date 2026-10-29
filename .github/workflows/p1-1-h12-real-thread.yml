@@ -1,0 +1,34 @@
+name: P1.1 H1.2 real-thread transport gate — fake server only
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Probe-CodexAB-H12RealThread.py'
+      - 'scripts/Test-Probe-CodexAB-H12RealThread.py'
+      - '.github/workflows/p1-1-h12-real-thread.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Probe-CodexAB-H12RealThread.py'
+      - 'scripts/Test-Probe-CodexAB-H12RealThread.py'
+      - '.github/workflows/p1-1-h12-real-thread.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fake-server-only:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Test isolated fake app-server without a model
+        run: python -B scripts/Test-Probe-CodexAB-H12RealThread.py
+      - name: Verify default no-process plan
+        run: python -B scripts/Probe-CodexAB-H12RealThread.py
