@@ -29,14 +29,73 @@ class H13StandaloneTests(unittest.TestCase):
     def test_flags_request_mxc_and_workspace_write_explicitly(self):
         command = p.command_for("PINNED", "PY", "CHILD")
         self.assertEqual(command, [
-            "PINNED", "-c", 'windows.sandbox="mxc"',
-            "-c", 'sandbox_mode="workspace-write"',
-            "sandbox", "PY", "-B", "CHILD",
+            "PINNED", "-c", "windows.sandbox=mxc",
+            "sandbox", "--include-managed-config",
+            "--permission-profile", ":workspace", "--",
+            "PY", "-B", "CHILD",
+        ])
+        self.assertEqual(p.compatibility_command("PINNED"), [
+            "PINNED", "-c", "windows.sandbox=mxc",
+            "sandbox", "--include-managed-config",
+            "--permission-profile", ":workspace", "--",
+            "cmd.exe", "/d", "/c", "echo", "MXC_OK",
         ])
         self.assertNotIn("exec", command)
         self.assertNotIn("turn/start", command)
         self.assertNotIn("setup", command)
         self.assertNotIn("uninstall", command)
+
+    def test_documented_compatibility_gate_only_accepts_exact_echo(self):
+        self.assertTrue(p.evaluate_compatibility(b"MXC_OK\r\n", b"", 0))
+        self.assertTrue(p.evaluate_compatibility(b"MXC_OK\n", b"", 0))
+        for value in (b"", b"MXC_NOT_OK", b"MXC_OK\nPRIVATE",
+                      b"PRIVATE\nMXC_OK"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(p.ProbeError, "COMPAT_STDOUT_INVALID"):
+                    p.evaluate_compatibility(value, b"", 0)
+
+    def test_compatibility_nonzero_exit_blocks_child_probe(self):
+        with self.assertRaisesRegex(p.ProbeError, "COMPAT_EXIT_NONZERO"):
+            p.evaluate_compatibility(b"", b"", 1)
+
+    def test_compatibility_stderr_warning_always_stops(self):
+        cases = (
+            (b"WARNING: PRIVATE", "GENERAL_WARNING"),
+            (b"windows sandbox failed: PRIVATE", "BACKEND_LAUNCH_ERROR"),
+            (b"warning: world writable PRIVATE", "SECURITY_WARNING"),
+        )
+        for raw, category in cases:
+            with self.subTest(category=category):
+                with self.assertRaises(p.ProbeError) as captured:
+                    p.evaluate_compatibility(b"", raw, 1)
+                exported = p.safe_reason(captured.exception)
+                self.assertEqual(exported,
+                    "COMPAT_STDERR_PRESENT:" + category + ":MARKER_ABSENT:EXIT_NONZERO")
+                self.assertNotIn("PRIVATE", exported)
+
+    def test_compatibility_success_output_cannot_override_stderr(self):
+        with self.assertRaises(p.ProbeError) as captured:
+            p.evaluate_compatibility(b"MXC_OK\n", b"WARNING: PRIVATE", 0)
+        self.assertEqual(p.safe_reason(captured.exception),
+                         "COMPAT_STDERR_PRESENT:GENERAL_WARNING:MARKER_PRESENT:EXIT_ZERO")
+
+    def test_compatibility_rejects_invalid_capture_types_and_size(self):
+        for val in (None, "MXC_OK", b"X" * (p.MAX_CAPTURE + 1)):
+            with self.subTest(value_type=type(val).__name__):
+                with self.assertRaisesRegex(p.ProbeError, "COMPAT_STDOUT_INVALID"):
+                    p.evaluate_compatibility(val, b"", 0)
+        for val in (None, "WARN", b"X" * (p.MAX_CAPTURE + 1)):
+            with self.subTest(stderr_type=type(val).__name__):
+                with self.assertRaisesRegex(p.ProbeError, "COMPAT_STDOUT_INVALID"):
+                    p.evaluate_compatibility(b"MXC_OK", val, 0)
+
+    def test_compatibility_has_no_model_and_explicit_profile(self):
+        cmd = p.compatibility_command("PINNED")
+        self.assertIn(":workspace", cmd)
+        self.assertNotIn("sandbox_mode", " ".join(cmd))
+        self.assertNotIn("danger-full-access", " ".join(cmd))
+        self.assertNotIn("exec", cmd)
+        self.assertNotIn("turn/start", cmd)
 
     def test_synthetic_good_evidence_not_appserver(self):
         r = p.evaluate(*self.sample())
