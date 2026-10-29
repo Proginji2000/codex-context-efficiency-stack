@@ -2,6 +2,22 @@
 
 **Reference : 28 octobre 2026.** Projet : `codex-context-efficiency-stack`. Ce document est un backlog vivant : ajouter de nouveaux P1/P2/P3 apres les resultats sans retrograder des blocages connus. Priorite = importance et dependances, pas pourcentage d'avancement ni date de livraison.
 
+## Mise à jour vérifiée — 29 octobre 2026 (P1.1, après qualification V3)
+
+Ce bloc complète la baseline historique du 28 octobre ci-dessous, qui n'est pas modifiée rétroactivement. Références : [suivi #61](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/61), [qualification #34](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/34) et [PR #14](https://github.com/Proginji2000/codex-context-efficiency-stack/pull/14).
+
+| Changement | Résultat vérifié | Ce que cela **ne** prouve pas |
+|---|---|---|
+| PR #59 | Documentation V3 archivée ; 4/4 canaries TUI PASS sous le même contrat | Économie de tokens reproductible ; écart candidat −31,26 % puis +55,80 % suivant la paire |
+| PR #60 | Agrégateur des comptes TUI hors modèle ; CI Windows/Ubuntu PASS ; revue locale V3 4/4 PASS | Capture native de workers, coût/quota ou provenance cryptographique du terminal |
+| PR #62 | Analyseur des événements app-server v2 au tag Codex `rust-v0.165.0` ; tests synthétiques et CI PASS | Disponibilité de ces événements depuis les sessions TUI V3 existantes |
+| PR #63 | Trois scénarios synthétiques et un audit du backend TUI ; CI Windows/Ubuntu PASS | Lancement de ces nouveaux scénarios par un modèle |
+| PR #64 | **H0**, simulateur de contrat JSON-RPC app-server **uniquement en mémoire**, 15 tests et CI Windows/Ubuntu/PowerShell PASS ; plan A/B équilibré (3 cas × 2 répétitions × 2 bras) | **Aucun serveur réel connecté, aucun worker réel observé, aucune protection MXC effective attestée, aucun des 12 essais autorisé** |
+
+**Décision :** P1.1 reste **EN QUALIFICATION** ; PR #14 **OPEN, non fusionnée**. Le prochain gate **H1** est un client app-server isolé effectuant un préflight de connexion **sans `turn/start`**, suivi des preuves négatives de sandbox/autorisation sur une future session jetable, avant d'envisager de nouveaux canaries payants. Les profils, secrets, dépôts privés et sorties V2/V3 restent intacts.
+
+Les chantiers P1.2 (outils réellement exposés), P1.3 (profils MCP), P1.4/P1.6 (autocorrection et mesures), P1.5 (outillage UI/dashboard **à la demande seulement**) et P2 (multi-workers / reprise) restent ouverts selon leurs critères distincts. Les étapes VM P3/P4 ne sont pas autorisées avant la qualification des gates préalables.
+
 ## Objectif et principes non negociables
 
 Maximiser le **travail de developpement reussi et verifie par unite de quota et de temps**, en conservant un orchestrateur Luna qui delegue les taches de fond a des workers specialises et des controles deterministes (build, tests, lint, diff).
