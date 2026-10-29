@@ -203,3 +203,29 @@ Le correctif s'applique de manière cohérente aux modes `--execute-local-mxc-co
 Aucune exception générale de stderr ou d'avertissement n'a été ajoutée : toute erreur et tout warning restent **STOP**. Les nouveaux tests synthétiques garantissent la séparation des chemins temporaires, le nettoyage des nouveaux répertoires, l'absence de suppression de la garde et la portée strictement H1.3.
 
 **Étape suivante** : après CI Windows/Ubuntu/PowerShell PASS, une nouvelle tentative unique **compatibilité-only**, non-admin, épinglée sur le commit fusionné, pourra établir si `MXC_OK` est désormais obtenu sans cet avertissement. Aucune exécution du canary d'écriture, aucune vérification réseau ou tour IA à cette étape. H1.3a effectivité du confinement encore NON QUALIFIÉE, PR #14 ouverte, A/B non autorisés.
+
+
+## Qualification réelle H1.3a — PASS des restrictions d'écriture CLI autonome (29 octobre 2026)
+
+**Source : sortie PowerShell de l'opérateur sur Windows non administrateur, commit main épinglé `e21f22abd0fffa20be63e98abb9b006f306583f4`.** Les essais précédents (dont les échecs de démarrage et l'avertissement `arg0`) demeurent historiquement exacts ; ce résultat **ultérieur** valide uniquement le jalon ci-dessous.
+
+- Git `main` propre, `git pull --ff-only` « Already up to date », `GIT_VERIFIED`.
+- Tests synthétiques **11/11** matrice H1.3 et **56/56** lanceur PASS.
+- Une seule exécution explicite `--execute-local-mxc-probe` lance, sous le CLI Codex **0.165.0** avec `windows.sandbox=mxc` et profil `:workspace`, au maximum deux commandes autonomes successives (compatibilité `MXC_OK`, puis canary).
+- **Résultat : `STANDALONE_MXC_FILESYSTEM_NEGATIVE_PASS_NOT_APPSERVER` et `P1_1_H13_STANDALONE_MXC_PASS`.** Le contrôle hôte préalable a démontré qu'une écriture dans la sentinelle extérieure était normalement possible ; le processus enfant a effectivement écrit le témoin dans le workspace ; sa tentative de créer un témoin hors workspace a été refusée ; le parent a constaté que la sentinelle extérieure demeurait inchangée.
+- Flags observés `documented_compatibility_probe_pass=true`, `host_outside_control_writable=true`, `inside_workspace_write_observed=true`, `outside_write_denied_observed=true`, `outside_file_unchanged=true`, `real_standalone_sandbox_invoked=true`, `temporary_directories_removed=true`.
+- `model_calls_made=0`, `turn_start_sent=false`, `thread_start_sent=false`. Aucun benchmark A/B ni tour IA n'a été autorisé.
+
+**Décision : H1.3a PASS pour le comportement effectif de confinement d'écriture observé dans ce test CLI standalone.** La commande demande le backend MXC, mais ce test seul ne fournit pas d'attestation native indépendante de son identité interne. Il **ne** démontre **pas** que le même mécanisme s'appliquera à un `turn/start` app-server.
+
+Limites maintenues explicitement `false` : `appserver_turn_mxc_verified`, `network_isolation_verified`, `worker_provenance_verified`, `child_tree_cleanup_attested`, `candidate_merge_authorized`. La suppression des dossiers temporaires **n'atteste pas** indépendamment la fin de chaque processus descendant.
+
+### Prochaines qualifications séparées — aucune exécution modèle autorisée
+
+**H1.3d réseau : conception seulement.** Ne pas utiliser `localhost` / `127.0.0.1` comme unique preuve de refus réseau : le [schéma de configuration de `rust-v0.165.0`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/core/config.schema.json) indique que `allow_local_binding` autorise les serveurs locaux et le host-loopback, et qu'il vaut **true par défaut sous MXC**, qui ne peut imposer `false`. Un test loopback doit donc rester un contrôle auxiliaire, **pas** un critère de PASS ou FAIL d'isolation Internet. Pour vérifier l'egress, définir d'abord la portée exacte du proxy, les politiques `networkAccess` et une cible témoin indépendante contrôlée ; il ne faut ni joindre un service externe de l'utilisateur ni effectuer un appel réseau réel sans nouvelle autorisation explicite. Les faux tests doivent distinguer refus effectif et échec DNS, timeout ou serveur indisponible.
+
+**H1.3c process-tree :** définir une attestation indépendante des descendants et de leur nettoyage, sous environnement jetable, sans confondre fin du parent et absence de descendants.
+
+**H1.3b app-server :** toute vérification effective de la sandbox d'un tour via `turn/start` doit rester un jalon séparé nécessitant une autorisation explicite pour un éventuel appel modèle. La réussite CLI standalone ne l'autorise pas.
+
+**H1.2** reste PASS uniquement pour l'écho de permissions déclarées. [PR #14](https://github.com/Proginji2000/codex-context-efficiency-stack/pull/14) demeure OPEN/non fusionnée, et les 12 essais A/B sont **non autorisés**. Issues [#61](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/61) et [#34](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/34) consignent les sorties et le périmètre.
