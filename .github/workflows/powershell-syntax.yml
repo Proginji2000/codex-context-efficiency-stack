@@ -47,6 +47,9 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+      - name: Test fail-closed P1.1 Python bootstrap (no model calls)
+        shell: powershell
+        run: .\scripts\Test-CodexABTuiQualified.ps1
       - name: Test read-only MCP policy inventory (synthetic)
         shell: powershell
         run: python .\scripts\Test-CodexMcpPolicyAudit.py
