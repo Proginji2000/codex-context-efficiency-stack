@@ -298,6 +298,41 @@ Si `preflight_ready=false`, **STOP** : ne pas lancer de worker. Il peut être n�
 Après un diagnostic valide et une autorisation d'exécution, confirmer séparément `policy --arm baseline` et `policy --arm candidate`, puis lancer **un canary baseline** sur un nouveau workspace avec `--approval never --windows-sandbox mxc --python-test-fallback-hint --execute`. Ne lancer le canary candidate avec les **mêmes flags** que si la baseline réussit et si `policy --arm candidate` passe encore après la session baseline. Chaque exécution consomme du quota. Ne pas faire les deux d'un coup à l'aveugle. Toute invite UAC/admin/sandbox doit être refusée.
 
 Le comparatif nécessite la preuve du worker démarré/terminé, des tests effectués par le worker (et non seulement par le wrapper), zéro intervention manuelle, les vérifications Git/unittest indépendantes et les compteurs par bras. Une seule paire réussie ne valide pas un gain statistique de tokens ou de quota. La PR #14 reste ouverte.
+## 29 octobre 2026 — PowerShell ne trouve plus Python dans une nouvelle session
+
+Après mise à jour main vers PR #51, l'utilisateur a tenté d'exécuter le script de qualification dans une nouvelle session Windows PowerShell : chaque commande `python` a produit `Python was not found; run without arguments to install from the Microsoft Store...`, code **9009**. Les 24 tests, le diagnostic et le canary n'ont **pas** été lancés. L'ancien test MXC qui exécutait un chemin absolu vers Python avait réussi, mais cela ne prouve pas que cet interpréteur est encore disponible dans la nouvelle session. L'alias WindowsApps seul n'est pas un interpréteur.
+
+Les commandes avaient été collées une par une dans PowerShell : un `throw` a arrêté uniquement la commande en cours, puis les lignes suivantes ont pu être exécutées manuellement. Un parcours de qualification ne doit donc pas dépendre de vérifications dispersées.
+
+Le nouveau `scripts/Invoke-CodexABTuiQualified.ps1` est un **script unique fail-closed** :
+
+- vérifie effectivement un Python >=3.11 avec `tomllib`, essaie le lanceur Windows `py -3.13`, `py -3`, les exécutions trouvées dans le PATH puis les emplacements d'installation Python classiques ; ne fait confiance ni au simple chemin ni au nom `python`, et refuse un alias Store qui quitte en 9009 ;
+- ne fait aucune installation, modification d'alias, privilège UAC, copie d'authentification ni modification de configuration ; il affiche uniquement des statuts, pas les chemins potentiellement personnels de Python ;
+- sans option d'exécution, effectue seulement les 24 tests Python, `diagnose` puis `policy` baseline et candidate ; une erreur **stoppe le script entier** avant le modèle ;
+- option `-ProbeOnly` : vérifie uniquement Python, sans pilote ni appel Codex ;
+- option `-RunBaseline` et `-Output` explicitement requises pour autoriser **une seule** nouvelle exécution TUI, toujours `workspace-write`, `approval=never`, `windows.sandbox=mxc`, repli Python borné. Aucun retry du TUI et aucune restauration de configuration automatique.
+
+### Premier essai recommandé : uniquement préflight sans modèle
+
+~~~powershell
+Set-Location 'C:\Dev\codex-context-efficiency-stack'
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw 'Git pull failed' }
+& .\scripts\Invoke-CodexABTuiQualified.ps1 -Pilot 'C:\Dev\codex-ab-pr14-pilot-v4'
+~~~
+
+Si le script répond `PYTHON_INTERPRETER_UNAVAILABLE_OR_ALIAS_ONLY`, ne pas relancer Codex. Faire un inventaire local de `py -0p`, `Get-Command py,python -All` et des emplacements d'installation ; ne pas lancer l'installeur Microsoft Store sans qualification. Si `V4_PROFILE_NOT_READY`, conserver les fichiers et réutiliser la restauration auditée seulement après analyse.
+
+### Après succès du préflight et autorisation distincte
+
+~~~powershell
+& .\scripts\Invoke-CodexABTuiQualified.ps1 `
+    -Pilot 'C:\Dev\codex-ab-pr14-pilot-v4' `
+    -RunBaseline `
+    -Output 'C:\Dev\codex-ab-tui-mxc-v4-selfcheck-baseline-v1'
+~~~
+
+Le test n'est déclenché qu'après préflight entièrement validé. Ne jamais réutiliser un dossier existant ; ne pas commencer candidate avant preuve de vérification *par le worker* et contrôles indépendants.
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
