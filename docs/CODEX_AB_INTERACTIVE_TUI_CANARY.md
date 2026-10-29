@@ -274,6 +274,30 @@ python .\scripts\Run-CodexAB-TUI-Canary.py diagnose `
 
 Aucun nouveau test TUI n'est exécuté automatiquement : tout essai réel doit utiliser un **nouveau** dossier, demander une approbation explicite, et garder `--windows-sandbox mxc --approval never --python-test-fallback-hint`. Ne pas restaurer automatiquement la baseline si Codex la modifie encore ; utiliser seulement la procédure auditée existante, avec opt-in explicite.
 
+## P1.1 — A/B TUI baseline / candidate et autocorrection Python (29 octobre 2026)
+
+Le dernier canary baseline V4 a passé les deux tests et les contrôles Git **indépendants**. Le worker avait corrigé total.py mais n'a pas pu lancer lui-même Python depuis WindowsApps : le chemin absolu de l'interpréteur a ensuite réussi directement sous MXC. La délégation est observée dans le TUI ; la vérification *par le worker*, l'absence d'intervention et la sandbox effective ne sont pas encore démontrées.
+
+Le lanceur accepte désormais `--arm baseline` (défaut) ou `--arm candidate`, avec un prompt, modèle, effort, fixture, politique et mode MXC identiques. L'arm candidate utilise son propre CODEX_HOME/authentification et son AGENTS.md expérimental. Il exige avant lancement que les **deux TOML correspondent strictement au snapshot** et que tous les fichiers de rôles `agents/*.toml` soient identiques entre les homes. Les fingerprints AGENTS/version CLI restent requis, et les overrides de drift sont refusés pour la candidate. Aucun dossier existant ne peut servir de nouveau résultat.
+
+L'option `--python-test-fallback-hint`, strictement opt-in sous MXC + approval=never, ajoute au prompt une unique tentative de repli vers sys.executable quand le premier Python ne peut **pas démarrer**, mais jamais sur un refus sandbox, une erreur d'assertion ou une erreur applicative. Le wrapper ne peut pas attester le nombre de retries du worker ; l'observation du TUI reste nécessaire. Ne pas comparer les anciens runs avec les nouveaux : seules des paires lancées avec la même option sont comparables.
+
+### Contrôles hors modèle à exécuter avant d'autoriser une nouvelle session
+
+~~~powershell
+Set-Location 'C:\Dev\codex-context-efficiency-stack'
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw 'Git pull failed' }
+python .\scripts\Test-Run-CodexAB-TUI-Canary.py
+if ($LASTEXITCODE -ne 0) { throw 'Offline tests failed' }
+python .\scripts\Run-CodexAB-TUI-Canary.py diagnose --pilot 'C:\Dev\codex-ab-pr14-pilot-v4'
+~~~
+
+Si `preflight_ready=false`, **STOP** : ne pas lancer de worker. Il peut être nécessaire de restaurer **explicitement et avec sauvegarde** le seul TOML baseline selon la procédure auditée précédente, avec une étiquette de sauvegarde neuve. Ne jamais reprendre les mêmes sorties ni restaurer silencieusement. La candidate doit être authentifiée isolément, sans recopier auth.json.
+
+Après un diagnostic valide et une autorisation d'exécution, confirmer séparément `policy --arm baseline` et `policy --arm candidate`, puis lancer **un canary baseline** sur un nouveau workspace avec `--approval never --windows-sandbox mxc --python-test-fallback-hint --execute`. Ne lancer le canary candidate avec les **mêmes flags** que si la baseline réussit et si `policy --arm candidate` passe encore après la session baseline. Chaque exécution consomme du quota. Ne pas faire les deux d'un coup à l'aveugle. Toute invite UAC/admin/sandbox doit être refusée.
+
+Le comparatif nécessite la preuve du worker démarré/terminé, des tests effectués par le worker (et non seulement par le wrapper), zéro intervention manuelle, les vérifications Git/unittest indépendantes et les compteurs par bras. Une seule paire réussie ne valide pas un gain statistique de tokens ou de quota. La PR #14 reste ouverte.
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
