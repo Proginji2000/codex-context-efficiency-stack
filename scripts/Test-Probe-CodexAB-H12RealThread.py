@@ -4,6 +4,7 @@
 No Codex CLI, network, secrets, existing CODEX_HOME or model calls.
 """
 import contextlib
+import hashlib
 import importlib.util
 import io
 import json
@@ -238,6 +239,47 @@ class RealH12OfflineTests(unittest.TestCase):
     def test_unknown_notification_is_rejected(self):
         with self.assertRaisesRegex(app.GateError, "THREAD_NOTIFICATION_UNEXPECTED"):
             self.execute_fake("unknown-notification")
+
+    def test_unknown_notification_exposes_digest_of_method_only(self):
+        # Fixed method comes from synthetic fake server. No params, secrets,
+        # source paths, account/session IDs or raw method may be printed.
+        with self.assertRaises(app.GateError) as captured:
+            self.execute_fake("unknown-notification")
+        expected = hashlib.sha256(b"auth/secret").hexdigest()[:12].upper()
+        code = app._safe_code(captured.exception)
+        self.assertEqual(code,
+                         "THREAD_NOTIFICATION_UNEXPECTED:METHOD_SHA256_" + expected)
+        self.assertNotIn("auth/secret", code)
+        self.assertNotIn("PRIVATE", code)
+        self.assertNotIn("key", code.lower())
+
+    def test_untrusted_error_text_cannot_be_printed_as_fingerprint(self):
+        for bad in (
+                app.GateError("THREAD_NOTIFICATION_UNEXPECTED", "PRIVATE_TOKEN"),
+                app.GateError("THREAD_NOTIFICATION_UNEXPECTED", "a" * 12),
+                app.GateError("THREAD_NOTIFICATION_UNEXPECTED", "F" * 13),
+                app.GateError("THREAD_NOTIFICATION_UNEXPECTED", "F" * 12, "PRIVATE"),
+                OSError("PRIVATE_PATH"),
+        ):
+            with self.subTest(detail=type(bad).__name__):
+                self.assertEqual(app._safe_code(bad), "EXTERNAL_SCRIPT_FAILURE")
+
+    def test_security_notifications_remain_fixed_stop_without_hash(self):
+        warning = app.GateError("THREAD_WARNING_WINDOWS_WORLD_WRITABLE")
+        self.assertEqual(app._safe_code(warning),
+                         "THREAD_WARNING_WINDOWS_WORLD_WRITABLE")
+
+    def test_cli_prints_only_digest_failure_not_event_content(self):
+        stderr = io.StringIO()
+        digest = hashlib.sha256(b"unknown/custom").hexdigest()[:12].upper()
+        with mock.patch.object(app, "run_local",
+                               side_effect=app.GateError(
+                                   "THREAD_NOTIFICATION_UNEXPECTED", digest)):
+            with contextlib.redirect_stderr(stderr):
+                self.assertEqual(app.main(["--execute-local-thread-probe"]), 2)
+        self.assertEqual(stderr.getvalue().strip(),
+                         "STOP: H12_REAL_THREAD_PROBE_FAILED:"
+                         "THREAD_NOTIFICATION_UNEXPECTED:METHOD_SHA256_" + digest)
 
     def test_bounded_timeout(self):
         with self.assertRaisesRegex(app.GateError, "THREAD_RESPONSE_TIMEOUT"):

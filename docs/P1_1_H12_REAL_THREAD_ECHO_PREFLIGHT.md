@@ -21,6 +21,16 @@ Le correctif introduit une **liste bornée et explicite d'événements passifs**
 
 La CI teste les notifications synthétiques passives et les avertissements à ne pas ignorer ; le vrai app-server n'est **jamais exécuté en CI**. Après fusion et une seule nouvelle tentative explicite, un éventuel `STOP` peut être un avertissement de sécurité et exige une analyse ciblée, sans élargissement des permissions ni contournement de sandbox.
 
+## Deuxième échec réel — préflight H1.2 du 29/10/2026
+
+L'opérateur a de nouveau validé **19/19 tests de politique** et **22/22 tests de transport**, puis a reçu `STOP: H12_REAL_THREAD_PROBE_FAILED:THREAD_NOTIFICATION_UNEXPECTED`. Le correctif de la PR #71 n'a donc **pas** permis de qualifier la politique d'un thread réel. La méthode exacte demeure inconnue ; **ne pas élargir l'allowlist sans identification**.
+
+Le correctif de diagnostic suivant **ne modifie aucune permission, aucune notification admise et aucune politique MXC**. Pour toute notification encore inconnue, il conserve le STOP mais affiche une **empreinte SHA-256 tronquée à 12 caractères hexadécimaux** portant uniquement sur la chaîne du champ `method`. Le code est du type `THREAD_NOTIFICATION_UNEXPECTED:METHOD_SHA256_XXXXXXXXXXXX`. Il n'imprime **ni méthode brute, ni `params`, ni chemin, ni identifiant, ni stderr/stdout brut du serveur**. Toute empreinte mal formée est supprimée du diagnostic.
+
+Une empreinte n'est pas une attestation cryptographique de la provenance du serveur et peut théoriquement être rapprochée d'une liste publique de méthodes ; son seul objet est de comparer l'événement à l'énumération publique [`ServerNotification`, version rust-v0.165.0](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/app-server-protocol/src/protocol/common.rs) **hors ligne**, après un essai local explicitement initié. Aucun hash du message entier ou de données d'authentification n'est calculé. Les avertissements `windows/worldWritableWarning` et autres signaux de sécurité conservent leurs codes d'arrêt fixes.
+
+En cas de nouvel échec : rapporter le code et **STOP** sans nouvelle relance, puis confronter l'empreinte aux méthodes officiellement déclarées avant toute décision. Si l'empreinte ne correspond pas à une méthode officielle, l'événement reste inconnu et refusé.
+
 ## Limites de preuve
 
 - Un `THREAD_START_DECLARED_POLICY_PASS_UNATTESTED` confirme que **le vrai app-server a créé un thread et renvoyé la politique attendue**. Il **ne** prouve **pas** que le sandbox MXC applique la protection au niveau OS.
