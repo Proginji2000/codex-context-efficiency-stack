@@ -20,13 +20,13 @@ SPEC.loader.exec_module(app)
 
 class TuiCanaryTests(unittest.TestCase):
     def test_powershell_fallback_uses_shell_literal_not_json_backslash_escaping(self):
-        interpreter = r"C:\\Dev\\Python31314\\python.exe"
+        interpreter = r"C:\Dev\Python31314\python.exe"
         command = app.powershell_python_fallback_command(interpreter)
         self.assertEqual(
             command,
             "& 'C:\\Dev\\Python31314\\python.exe' -B -m unittest discover -s tests -q",
         )
-        self.assertNotIn(r"\\\\Dev", command)
+        self.assertNotIn(chr(92) * 2 + "Dev", command)
         self.assertEqual(command.count(" -B -m unittest discover -s tests -q"), 1)
 
     def test_powershell_fallback_escapes_quote_and_rejects_controls(self):
