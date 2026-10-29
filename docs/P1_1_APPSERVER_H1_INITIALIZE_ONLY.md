@@ -18,6 +18,14 @@ Références figées : [CLI `AppServerCommand` `--stdio`](https://github.com/ope
 - Le vrai serveur peut créer des fichiers temporaires ou réaliser de l'I/O au démarrage. **Aucune absence de trafic réseau ou d'usage de credentials par le serveur n'est démontrée par ce préflight**. Il n'atteste ni l'isolation MXC effective, ni la visibilité des workers, ni les permissions runtime des futurs threads.
 - Aucun texte brut issu de `stdout`/`stderr`, aucune clé, aucun identifiant, aucun chemin personnel ni session ID n'est imprimé. La sortie est un petit JSON de résultats fixes. Les tests refusent les réponses invalides et utilisent uniquement des chemins temporaires.
 
+## Diagnostic après premier essai réel non concluant (29/10/2026)
+
+L'opérateur a confirmé `GIT_VERIFIED`, 15/15 tests synthétiques et la planification sans processus. L'exécution réelle s'est arrêtée avec l'ancien message générique `STOP: H1_LOCAL_PREFLIGHT_FAILED` ; **le motif précis n'a pas été enregistré**, et aucun succès de connexion réelle ne doit être déclaré. Cette erreur ne prouve ni un défaut MXC ni un échec de délégation.
+
+La révision suivante conserve les mêmes permissions et messages JSON-RPC mais affiche une **catégorie fixe autorisée**, sans texte d'exception brut ni journal du serveur : `ELEVATED_SESSION_FORBIDDEN`, `PINNED_CLI_MISSING`, `CLI_VERSION_PROBE_FAILED`, `PINNED_VERSION_MISMATCH`, `APP_SERVER_START_FAILED`, `SERVER_EXITED_BEFORE_INITIALIZE`, `INITIALIZE_RESPONSE_TIMEOUT`, `INITIALIZE_RPC_REJECTED`, `ISOLATED_HOME_MISMATCH`, `CHILD_CLEANUP_UNVERIFIED`, etc. Toute erreur non répertoriée devient `OTHER_LOCAL_PREFLIGHT_FAILURE`. Un processus fermé avant `initialize` reçoit désormais un diagnostic distinct du timeout, lorsque son état est observable.
+
+**Aucun modèle réel n'est invoqué pour ce correctif.** Les tests de diagnostic sont entièrement synthétiques. Le démarrage local reste derrière `--execute-local-preflight`, sans élévation, sans désactivation de MXC ni accès aux profils historiques. S'il échoue à nouveau, **ne pas lancer de relance en boucle** : utiliser la catégorie précise pour décider du correctif ciblé.
+
 ## Contrôle sans vrai Codex : peut être exécuté immédiatement après Git pull
 
 ```powershell

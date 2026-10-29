@@ -33,6 +33,29 @@ class PreflightError(Exception):
     """Fixed non-sensitive diagnostic codes."""
 
 
+SAFE_FAILURE_CODES = frozenset({
+    "WINDOWS_ONLY_PREFLIGHT", "ELEVATED_SESSION_FORBIDDEN",
+    "PINNED_CLI_MISSING", "CLI_VERSION_PROBE_FAILED",
+    "PINNED_VERSION_MISMATCH", "APP_SERVER_START_FAILED",
+    "STDIN_WRITE_FAILED", "INITIALIZE_RESPONSE_TIMEOUT",
+    "SERVER_EXITED_BEFORE_INITIALIZE", "INVALID_STDIO_RESPONSE",
+    "INVALID_JSON_RESPONSE", "INVALID_JSONRPC_VERSION", "RPC_ID_MISMATCH",
+    "INITIALIZE_RPC_REJECTED", "INITIALIZE_REPLY_SCHEMA_MISMATCH",
+    "UNEXPECTED_STDIO_NOTIFICATION", "TOO_MANY_INITIALIZE_MESSAGES",
+    "ISOLATED_HOME_MISMATCH", "PLATFORM_MISMATCH",
+    "CHILD_CLEANUP_UNVERIFIED",
+})
+
+
+def safe_error_code(exc):
+    """Export ONLY fixed internal categories; never expose paths or stderr."""
+    if isinstance(exc, PreflightError) and len(exc.args) == 1:
+        code = exc.args[0]
+        if isinstance(code, str) and code in SAFE_FAILURE_CODES:
+            return code
+    return "OTHER_LOCAL_PREFLIGHT_FAILURE"
+
+
 def plan():
     return {
         "contract": "p1.1-appserver-h1-stdio-initialize-only-v1",
@@ -84,16 +107,27 @@ def _send(proc, message):
         raise PreflightError("STDIN_WRITE_FAILED") from None
 
 
-def _wait_response(messages, timeout):
+def _wait_response(messages, timeout, process=None):
+    """Bounded protocol reading; report safe early-exit and timeout codes."""
     deadline = time.monotonic() + timeout
-    for _ in range(30):
+    processed = 0
+    while processed < 30:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise PreflightError("INITIALIZE_RESPONSE_TIMEOUT")
         try:
-            typ, raw = messages.get(timeout=remaining)
+            typ, raw = messages.get(timeout=min(remaining, 0.25))
         except queue.Empty:
-            raise PreflightError("INITIALIZE_RESPONSE_TIMEOUT") from None
+            if process is not None and process.poll() is not None:
+                # Give the reader a brief chance to enqueue a final response
+                # before reporting that the child exited.
+                try:
+                    typ, raw = messages.get(timeout=min(0.15, max(0.01, deadline - time.monotonic())))
+                except queue.Empty:
+                    raise PreflightError("SERVER_EXITED_BEFORE_INITIALIZE") from None
+            else:
+                continue
+        processed += 1
         if typ != "line":
             raise PreflightError("INVALID_STDIO_RESPONSE")
         try:
@@ -118,7 +152,6 @@ def _wait_response(messages, timeout):
         if payload.get("method") not in ("error", "configWarning", "appServer/restartRequired"):
             raise PreflightError("UNEXPECTED_STDIO_NOTIFICATION")
     raise PreflightError("TOO_MANY_INITIALIZE_MESSAGES")
-
 
 def _stop_child(proc):
     """Best-effort child-tree shutdown, without touching unrelated processes."""
@@ -180,7 +213,7 @@ def exchange(cmd, env, cwd, timeout=15):
                      "params": {"clientInfo": {
                          "name": "p11-stdio-preflight", "title": "P1.1 isolated H1",
                          "version": "0.1"}, "capabilities": None}})
-        reply = _wait_response(messages, timeout)
+        reply = _wait_response(messages, timeout, process=proc)
         if Path(reply["codexHome"]).resolve(strict=False) != Path(env["CODEX_HOME"]).resolve(strict=False):
             raise PreflightError("ISOLATED_HOME_MISMATCH")
         if (reply.get("platformOs") != ("windows" if os.name == "nt" else "linux")
@@ -240,8 +273,10 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         result = run_local_preflight() if args.execute_local_preflight else plan()
-    except (PreflightError, OSError, ValueError):
-        print("STOP: H1_LOCAL_PREFLIGHT_FAILED", file=sys.stderr)
+    except (PreflightError, OSError, ValueError) as exc:
+        # Never display exception text from OS, subprocess, JSON or the
+        # app-server; only a fixed allowlisted local classification.
+        print("STOP: H1_LOCAL_PREFLIGHT_FAILED:" + safe_error_code(exc), file=sys.stderr)
         return 2
     print(json.dumps(result, ensure_ascii=True, indent=2))
     return 0
