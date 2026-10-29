@@ -1,0 +1,35 @@
+# P1.1 — H1.2 réel : lecture de la politique d'un thread éphémère (0 modèle)
+
+**Date : 29 octobre 2026.** H1.2 hors modèle a été validé sur Windows par l'opérateur : **19/19 tests**, `SYNTHETIC_THREAD_POLICY_ECHO_PASS`, `P1_1_H12_OFFLINE_POLICY_PASS`, commit `f211026f40b5f1be0361e4e777a4623398435b06`. Le vrai app-server **H1.1** a également passé l'initialisation `initialize` / `initialized` dans un `CODEX_HOME` neuf (rapport non attesté OS).
+
+## Nouveau composant
+
+`scripts/Probe-CodexAB-H12RealThread.py` est le client **H1.2 réel**, conçu d'après les schémas officiels du tag [`openai/codex rust-v0.165.0`](https://github.com/openai/codex/tree/rust-v0.165.0/codex-rs/app-server-protocol/schema/typescript/v2) et l'enveloppe JSON-RPC *sans* champ `jsonrpc` obligatoire. Il a deux modes stricts :
+
+- **Par défaut** : affiche un plan JSON sans lancer de processus ni créer de fichiers.
+- **`--execute-local-thread-probe`** : uniquement sur Windows **non administrateur**, vérifie le binaire Codex CLI 0.165.0 épinglé, crée un `CODEX_HOME` et un workspace temporaires et vides, démarre un seul `codex app-server --stdio` avec environnement restreint, puis envoie **exactement** `initialize`, `initialized` et **un** `thread/start` avec `ephemeral=true`, `approvalPolicy=never`, `sandbox=workspace-write`, `windows.sandbox=mxc`, modèle `gpt-6-luna` et effort `medium`. **Il n'envoie pas `turn/start`, aucun prompt, aucune tâche, aucun appel modèle, aucun outil.**
+
+La réponse passe le vérificateur H1.2 strict déjà fusionné (`Check-CodexAB-H12ThreadPolicy.py`) : permissions et réseau **annoncés**, modèle/effort, cwd, limites des racines d'écriture, thread éphémère sans tours et sources d'instructions bornées aux deux dossiers temporaires. En cas de divergence, STOP et **aucun élargissement des permissions**. Seule une catégorie d'erreur fixe (sans noms de fichiers, IDs, logs de serveur ou identifiants privés) est affichée. `stderr` du serveur n'est pas publié.
+
+## Limites de preuve
+
+- Un `THREAD_START_DECLARED_POLICY_PASS_UNATTESTED` confirme que **le vrai app-server a créé un thread et renvoyé la politique attendue**. Il **ne** prouve **pas** que le sandbox MXC applique la protection au niveau OS.
+- La sécurité réseau, la terminaison complète de tous les processus descendants, l'identité/runtime du worker et la délégation ne sont **pas attestées**. Ces vérifications sont des étapes distinctes après H1.2. Le démarrage du serveur peut effectuer des I/O internes même en l'absence de tours.
+- Le profil est neuf et non authentifié ; la demande `thread/start` peut être refusée au démarrage. Cela sera classé `THREAD_RPC_REJECTED`, **sans** copier d'`auth.json`, connecter des secrets ou élever les droits.
+- Le script ne réutilise jamais les sessions historiques V2/V3, ne modifie pas les fichiers globaux de Codex, n'accepte aucune exécution A/B, n'autorise pas la fusion de PR #14.
+
+## Vérification offline et CI
+
+La CI Windows et Ubuntu utilise **seulement un faux app-server Python**. Elle vérifie le transport, le handshake, les refus de réponses incohérentes, de notification imprévue, d'erreur serveur, de délais dépassés et d'élargissement de politique. Les tests du validateur strict H1.2 sont également conservés dans le dépôt.
+
+```powershell
+Set-Location 'C:\Dev\codex-context-efficiency-stack'
+& 'C:\Dev\Python31314\python.exe' -B .\scripts\Test-Probe-CodexAB-H12RealThread.py
+if ($LASTEXITCODE -ne 0) { throw 'STOP: H1.2 fake-server tests failed' }
+& 'C:\Dev\Python31314\python.exe' -B .\scripts\Probe-CodexAB-H12RealThread.py
+if ($LASTEXITCODE -ne 0) { throw 'STOP: H1.2 plan failed' }
+```
+
+Le premier essai réel est déclenché uniquement par un **appel séparé et explicite** à `--execute-local-thread-probe` après les tests et un contrôle Git/pinning. En cas d'échec, ne pas relancer en boucle ; transmettre uniquement le code `STOP: H12_REAL_THREAD_PROBE_FAILED:<CATEGORY>`.
+
+Suivi : [issue #61](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/61) ; [issue #34](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/34) ; [PR #14](https://github.com/Proginji2000/codex-context-efficiency-stack/pull/14) non fusionnée.
