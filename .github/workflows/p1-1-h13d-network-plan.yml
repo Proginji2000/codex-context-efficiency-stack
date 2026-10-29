@@ -5,12 +5,16 @@ on:
     paths:
       - 'scripts/Plan-CodexAB-H13DNetwork.py'
       - 'scripts/Test-Plan-CodexAB-H13DNetwork.py'
+      - 'scripts/Plan-CodexAB-H13DTarget.py'
+      - 'scripts/Test-Plan-CodexAB-H13DTarget.py'
       - '.github/workflows/p1-1-h13d-network-plan.yml'
   push:
     branches: [main]
     paths:
       - 'scripts/Plan-CodexAB-H13DNetwork.py'
       - 'scripts/Test-Plan-CodexAB-H13DNetwork.py'
+      - 'scripts/Plan-CodexAB-H13DTarget.py'
+      - 'scripts/Test-Plan-CodexAB-H13DTarget.py'
       - '.github/workflows/p1-1-h13d-network-plan.yml'
 
 permissions:
@@ -30,6 +34,10 @@ jobs:
           python-version: '3.13'
       - name: Validate H1.3d fail-closed fabricated evidence
         run: python -B scripts/Test-Plan-CodexAB-H13DNetwork.py
+      - name: Validate owned remote-target eligibility offline only
+        run: python -B scripts/Test-Plan-CodexAB-H13DTarget.py
+      - name: Confirm target selection defaults to no network
+        run: python -B scripts/Plan-CodexAB-H13DTarget.py
       - name: Confirm default starts no processes or network
         run: python -B scripts/Plan-CodexAB-H13DNetwork.py
       - name: Confirm fabricated matrix is rejected as runtime evidence
