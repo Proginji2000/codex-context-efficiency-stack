@@ -64,6 +64,7 @@ CODES = frozenset({
     "WINDOWS_BUILD_QUERY_FAILED",
     "MXC_DOCUMENTED_BUILD_TOO_OLD",
     "MXC_BUILD_OUTSIDE_DOCUMENTED_MATRIX",
+    "MXC_HOST_ENV_REQUIRED_MISSING",
 })
 
 STDERR_CLASSES = frozenset({
@@ -71,6 +72,11 @@ STDERR_CLASSES = frozenset({
     "CONFIG_ERROR", "CHILD_PYTHON_ERROR", "GENERAL_WARNING",
     "UNRECOGNIZED_STDERR", "MXC_NATIVE_UNAVAILABLE",
     "MXC_LAUNCHER_FAILURE", "MXC_POLICY_RESTRICTION",
+    "MXC_DENY_PATHS_UNAVAILABLE", "MXC_INVALID_LAUNCHER_REQUEST",
+    "MXC_ENV_UNICODE_INVALID", "MXC_WINDOWS_VOLUME_ERROR",
+    "MXC_PLATFORM_DIRECTORY_ERROR", "MXC_COM_INIT_ERROR",
+    "MXC_WINDOWS_DIRECTORY_ERROR", "MXC_CWD_INVALID",
+    "MXC_UNSUPPORTED_POLICY_MODE", "MXC_CHILD_WAIT_ERROR",
 })
 MARKER_FLAGS = frozenset({"MARKER_PRESENT", "MARKER_ABSENT"})
 EXIT_FLAGS = frozenset({"EXIT_ZERO", "EXIT_NONZERO", "EXIT_UNKNOWN"})
@@ -89,6 +95,30 @@ def classify_stderr(data):
     if ("native mxc is unavailable" in message or
             "mxc is unavailable on this windows build" in message):
         return "MXC_NATIVE_UNAVAILABLE"
+    # Exact pinned rust-v0.165.0 diagnostics, from mxc-sandbox:
+    # windows.rs, native.rs, policy.rs and lib.rs. Report only local
+    # fixed category codes and NEVER publish SDK error_message/paths/HRESULT.
+    if "cannot enforce native mxc deny paths" in message:
+        return "MXC_DENY_PATHS_UNAVAILABLE"
+    if "invalid mxc launcher request" in message:
+        return "MXC_INVALID_LAUNCHER_REQUEST"
+    if "mxc requires unicode environment variable" in message:
+        return "MXC_ENV_UNICODE_INVALID"
+    if "cannot enumerate windows volumes" in message:
+        return "MXC_WINDOWS_VOLUME_ERROR"
+    if "cannot locate required windows platform directory" in message:
+        return "MXC_PLATFORM_DIRECTORY_ERROR"
+    if "cannot initialize com" in message:
+        return "MXC_COM_INIT_ERROR"
+    if "cannot locate the windows directory" in message:
+        return "MXC_WINDOWS_DIRECTORY_ERROR"
+    if ("mxc requires an absolute policy working directory" in message
+            or "mxc requires an absolute command working directory" in message):
+        return "MXC_CWD_INVALID"
+    if "mxc native launch does not support permissivelearningmode" in message:
+        return "MXC_UNSUPPORTED_POLICY_MODE"
+    if "waiting for the mxc command" in message:
+        return "MXC_CHILD_WAIT_ERROR"
     if ("mxc launcher:" in message or
             "createprocesssecurityenvironment failed" in message or
             "failed to prepare mxc sandbox" in message):
@@ -188,6 +218,37 @@ def windows_build_report(build, ubr):
     }
 
 
+def _is_host_env_present(key, env):
+    # Windows environment variable names are case-insensitive; returning only
+    # a boolean avoids leaking the actual user-specific variable values.
+    return any(k.upper() == key.upper() and isinstance(v, str) and bool(v)
+               for k, v in env.items())
+
+
+def host_environment_report(env=None):
+    """Read-only, zero-process launch prerequisites from pinned MXC transport."""
+    if os.name != "nt":
+        raise ProbeError("WINDOWS_ONLY")
+    env = os.environ if env is None else env
+    keys = {
+        "system_drive_present": _is_host_env_present("SystemDrive", env),
+        "local_app_data_present": _is_host_env_present("LOCALAPPDATA", env),
+        "system_root_present": _is_host_env_present("SystemRoot", env),
+    }
+    return {
+        "contract": CONTRACT,
+        "mode": "READ_ONLY_MXC_HOST_ENV_CHECK",
+        **keys,
+        "required_mxc_transport_host_env_present":
+            keys["system_drive_present"] and keys["local_app_data_present"],
+        "mxc_native_capability_verified": False,
+        "standalone_mxc_runtime_verified": False,
+        "appserver_turn_mxc_verified": False,
+        "processes_launched": 0,
+        "model_calls_made": 0,
+    }
+
+
 def plan():
     return {
         "contract": CONTRACT, "mode": "PLAN_ONLY_NO_PROCESS",
@@ -197,6 +258,7 @@ def plan():
         "requires_explicit_nonadmin_flag": True,
         "read_only_os_build_check_available": True,
         "compat_only_diagnostic_available": True,
+        "read_only_host_env_check_available": True,
         "standalone_mxc_runtime_verified": False,
         "appserver_turn_mxc_verified": False,
         "network_isolation_verified": False,
@@ -340,6 +402,8 @@ def require_pinned_nonadmin_windows():
         raise ProbeError("MXC_DOCUMENTED_BUILD_TOO_OLD")
     if status != "DOCUMENTED_BUILD_THRESHOLD_MET":
         raise ProbeError("MXC_BUILD_OUTSIDE_DOCUMENTED_MATRIX")
+    if not host_environment_report()["required_mxc_transport_host_env_present"]:
+        raise ProbeError("MXC_HOST_ENV_REQUIRED_MISSING")
     if not h1.CLI.is_file() or h1.CLI.is_symlink():
         raise ProbeError("PINNED_CLI_MISSING")
     try:
@@ -450,10 +514,14 @@ def main(argv=None):
                        help="Read only Windows build and UBR from HKLM, no subprocess")
     group.add_argument("--execute-local-mxc-compat-only", action="store_true",
                        help="One pinned MXC echo only, no filesystem negative test or model")
+    group.add_argument("--check-mxc-host-environment", action="store_true",
+                       help="Read-only presence of MXC host env prerequisites, no process")
     args = parser.parse_args(argv)
     try:
         if args.check_windows_build:
             result = windows_build_report(*query_windows_build())
+        elif args.check_mxc_host_environment:
+            result = host_environment_report()
         elif args.execute_local_mxc_compat_only:
             result = run_compatibility_only()
         elif args.execute_local_mxc_probe:

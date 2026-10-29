@@ -96,6 +96,99 @@ class H13StandaloneTests(unittest.TestCase):
                 p.main(["--check-windows-build", "--execute-local-mxc-probe"])
         self.assertEqual(e.exception.code, 2)
 
+    def test_pinned_mxc_launcher_failure_subcategories_are_redacted(self):
+        cases = (
+            (b"MXC launcher: this Windows build cannot enforce native MXC deny paths",
+             "MXC_DENY_PATHS_UNAVAILABLE"),
+            (b"MXC launcher: invalid MXC launcher request",
+             "MXC_INVALID_LAUNCHER_REQUEST"),
+            (b"MXC launcher: MXC requires Unicode environment variable values",
+             "MXC_ENV_UNICODE_INVALID"),
+            (b"MXC launcher: cannot enumerate Windows volumes: PRIVATE",
+             "MXC_WINDOWS_VOLUME_ERROR"),
+            (b"MXC launcher: cannot locate required Windows platform directory: HRESULT PRIVATE",
+             "MXC_PLATFORM_DIRECTORY_ERROR"),
+            (b"MXC launcher: cannot initialize COM: HRESULT PRIVATE",
+             "MXC_COM_INIT_ERROR"),
+            (b"MXC launcher: cannot locate the Windows directory",
+             "MXC_WINDOWS_DIRECTORY_ERROR"),
+            (b"MXC launcher: MXC requires an absolute policy working directory",
+             "MXC_CWD_INVALID"),
+            (b"MXC launcher: MXC native launch does not support permissiveLearningMode",
+             "MXC_UNSUPPORTED_POLICY_MODE"),
+            (b"MXC launcher: waiting for the MXC command: PRIVATE",
+             "MXC_CHILD_WAIT_ERROR"),
+            (b"MXC launcher: SDK PRIVATE ERROR MESSAGE",
+             "MXC_LAUNCHER_FAILURE"),
+        )
+        for raw, expected in cases:
+            with self.subTest(expected=expected):
+                # Warnings elsewhere in stderr must NOT hide native errors.
+                raw = b"warning: PRIVATE_NONFATAL\n" + raw
+                self.assertEqual(p.classify_stderr(raw), expected)
+                with self.assertRaises(p.ProbeError) as caught:
+                    p.evaluate_compatibility(b"", raw, 1)
+                safe = p.safe_reason(caught.exception)
+                self.assertEqual(safe, "COMPAT_STDERR_PRESENT:" + expected +
+                                 ":MARKER_ABSENT:EXIT_NONZERO")
+                self.assertNotIn("PRIVATE", safe)
+                self.assertNotIn("HRESULT", safe)
+
+    def test_mxc_host_transport_env_presence_case_insensitive(self):
+        env = {
+            "systemdrive": "C:",
+            "LoCaLaPpDaTa": "PRIVATE_PATH",
+            "SystemRoot": "PRIVATE_WIN",
+        }
+        self.assertTrue(p._is_host_env_present("SystemDrive", env))
+        self.assertTrue(p._is_host_env_present("LOCALAPPDATA", env))
+        self.assertFalse(p._is_host_env_present("MISSING", env))
+        for bad in (None, "", 123):
+            env["systemdrive"] = bad
+            self.assertFalse(p._is_host_env_present("SystemDrive", env))
+
+    def test_mxc_host_env_check_readonly_with_no_process(self):
+        from types import SimpleNamespace
+        env = {"SystemDrive": "C:", "LOCALAPPDATA": "PRIVATE_PATH",
+               "SystemRoot": "PRIVATE_WIN"}
+        with mock.patch.object(p, "os", SimpleNamespace(name="nt", environ=env)):
+            with mock.patch.object(p, "run_local", side_effect=AssertionError("RUNTIME")):
+                with mock.patch.object(p, "run_compatibility_only",
+                                       side_effect=AssertionError("RUNTIME")):
+                    capture = io.StringIO()
+                    with contextlib.redirect_stdout(capture):
+                        self.assertEqual(p.main(["--check-mxc-host-environment"]), 0)
+        result = json.loads(capture.getvalue())
+        self.assertEqual(result["mode"], "READ_ONLY_MXC_HOST_ENV_CHECK")
+        self.assertTrue(result["system_drive_present"])
+        self.assertTrue(result["local_app_data_present"])
+        self.assertTrue(result["required_mxc_transport_host_env_present"])
+        self.assertEqual(result["processes_launched"], 0)
+        self.assertFalse(result["mxc_native_capability_verified"])
+        self.assertNotIn("PRIVATE", capture.getvalue())
+
+    def test_mxc_host_env_check_detects_required_missing_without_runtime(self):
+        from types import SimpleNamespace
+        with mock.patch.object(p, "os", SimpleNamespace(
+                name="nt", environ={"SystemRoot": "PRIVATE_PATH"})):
+            result = p.host_environment_report()
+        self.assertFalse(result["system_drive_present"])
+        self.assertFalse(result["local_app_data_present"])
+        self.assertFalse(result["required_mxc_transport_host_env_present"])
+        self.assertFalse(result["standalone_mxc_runtime_verified"])
+        self.assertEqual(result["processes_launched"], 0)
+
+    def test_mxc_env_mode_is_exclusive_with_live_probe(self):
+        for flags in (
+                ["--check-mxc-host-environment", "--execute-local-mxc-probe"],
+                ["--check-mxc-host-environment", "--execute-local-mxc-compat-only"],
+                ["--check-mxc-host-environment", "--check-windows-build"]):
+            with self.subTest(flags=flags):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    with self.assertRaises(SystemExit) as exc:
+                        p.main(flags)
+                self.assertEqual(exc.exception.code, 2)
+
     def test_native_mxc_errors_take_precedence_over_generic_warning(self):
         samples = [
             (b"WARNING: PRIVATE\nMXC launcher: native MXC is unavailable on this Windows build",
