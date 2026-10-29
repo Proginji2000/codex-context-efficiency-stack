@@ -12,9 +12,12 @@ $python = @(Get-Command python.exe -All -CommandType Application -ErrorAction St
 if ($null -eq $python) { throw 'CI_PYTHON_APP_MISSING' }
 Write-Host ('CI_PYTHON_RESOLUTION: application=' + [bool]($python.Source) +
             ' path_exists=' + (Test-Path -LiteralPath $python.Source -PathType Leaf))
-$directProbe = @(& $python.Source -c 'import sys,tomllib;print("CODEX_AB_VERIFIED_PYTHON|" + sys.executable if sys.version_info >= (3,11) else "")' 2>$null)
+$directProbe = @(& $python.Source -c 'import sys,tomllib;print(sys.executable if sys.version_info >= (3,11) else None)' 2>$null)
 Write-Host ('CI_PYTHON_RAW_PROBE: exit=' + $LASTEXITCODE + ' count=' + $directProbe.Count +
-            ' valid_marker=' + [bool](@($directProbe | Where-Object { ([string]$_).StartsWith('CODEX_AB_VERIFIED_PYTHON|') }).Count))
+            ' rooted_exe=' + [bool](@($directProbe | Where-Object {
+                [System.IO.Path]::IsPathRooted([string]$_) -and
+                ([string]$_).EndsWith('.exe', [System.StringComparison]::OrdinalIgnoreCase)
+            }).Count))
 & $script -ProbeOnly -PythonExe $python.Source
 if (-not $?) { throw 'PYTHON_DIRECT_PROBE_FAILED' }
 
