@@ -47,11 +47,36 @@ WAIT_OBJECT_0 = 0
 WAIT_TIMEOUT = 258
 MAX_READY_BYTES = 256
 
-RUNNER = r'''import json, os, subprocess
+RUNNER = r'''import json, os, subprocess, threading
+from pathlib import Path
 cmd = json.loads(os.environ["P11_H13C_CMD"])
-subprocess.run(cmd, cwd=os.getcwd(), env=os.environ.copy(),
-               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-               stderr=subprocess.DEVNULL, timeout=25, check=False)
+w = Path(os.environ["P11_H13C_WORKSPACE"])
+observed = w / "h13c-stderr-present"
+watcher = w / "h13c-stderr-observer-ready"
+
+# Raw stderr is read in memory and discarded, never printed or persisted.
+# The first byte or any observer failure writes only a fixed boolean marker.
+def observe(stream):
+    try:
+        first = stream.read(1)
+        if first:
+            observed.write_bytes(b"1")
+            while stream.read(4096):
+                pass
+    except BaseException:
+        observed.write_bytes(b"1")
+
+with subprocess.Popen(
+        cmd, cwd=os.getcwd(), env=os.environ.copy(),
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE) as child:
+    thread = threading.Thread(target=observe, args=(child.stderr,), daemon=True)
+    thread.start()
+    watcher.write_bytes(b"1")
+    child.wait(timeout=25)
+    thread.join(timeout=1)
+    if thread.is_alive():
+        observed.write_bytes(b"1")
 '''
 
 LEAF = r'''import time
@@ -89,6 +114,8 @@ SAFE_CODES = frozenset({
     "JOB_TERMINATE_FAILED", "JOB_PROCESS_STILL_ALIVE",
     "JOB_NOT_EMPTY_AFTER_TERMINATE", "TEMPORARY_CLEANUP_FAILED",
     "HARNESS_PRECONDITION_FAILED",
+    "MXC_SANDBOX_STDERR_OBSERVED",
+    "MXC_STDERR_OBSERVER_NOT_READY",
 })
 
 
@@ -362,6 +389,7 @@ def report(snapshot, cleanup):
         "target_cli": core.h1.VERSION,
         "root_assigned_suspended_before_resume": True,
         "job_kill_on_close_enabled": True,
+        "sandbox_stderr_boolean_marker_absent": True,
         **snapshot, **cleanup,
         "termination_actor": "test_harness_terminate_job_object",
         "codex_automatic_descendant_cleanup_verified": False,
@@ -416,9 +444,17 @@ def run_real():
                     raise GateError("ROOT_RESUME_FAILED")
 
                 ready = workspace / "h13c-ready.json"
+                observed_stderr = workspace / "h13c-stderr-present"
+                watcher_ready = workspace / "h13c-stderr-observer-ready"
                 deadline = time.monotonic() + READY_TIMEOUT_S
                 while not ready.exists() and time.monotonic() < deadline:
+                    if observed_stderr.exists():
+                        raise GateError("MXC_SANDBOX_STDERR_OBSERVED")
                     time.sleep(0.05)
+                if observed_stderr.exists():
+                    raise GateError("MXC_SANDBOX_STDERR_OBSERVED")
+                if not watcher_ready.exists():
+                    raise GateError("MXC_STDERR_OBSERVER_NOT_READY")
                 ids = ready_pids(ready)
                 root_pid = int(info.dwProcessId)
                 snapshot = verify_snapshot(
@@ -463,6 +499,10 @@ def run_real():
                     k.CloseHandle(info.hProcess)
                 if job:
                     k.CloseHandle(job)
+            # Enforce a final independent check even if the child warning
+            # appeared after ready and before the test harness terminated it.
+            if (workspace / "h13c-stderr-present").exists():
+                failure = GateError("MXC_SANDBOX_STDERR_OBSERVED")
             if failure:
                 raise failure
             if not snapshot or not cleanup:
