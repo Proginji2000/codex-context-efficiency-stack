@@ -5,12 +5,16 @@ on:
     paths:
       - 'scripts/Plan-CodexAB-H13MXC.py'
       - 'scripts/Test-Plan-CodexAB-H13MXC.py'
+      - 'scripts/Probe-CodexAB-H13MXC.py'
+      - 'scripts/Test-Probe-CodexAB-H13MXC.py'
       - '.github/workflows/p1-1-h13-mxc-plan.yml'
   push:
     branches: [main]
     paths:
       - 'scripts/Plan-CodexAB-H13MXC.py'
       - 'scripts/Test-Plan-CodexAB-H13MXC.py'
+      - 'scripts/Probe-CodexAB-H13MXC.py'
+      - 'scripts/Test-Probe-CodexAB-H13MXC.py'
       - '.github/workflows/p1-1-h13-mxc-plan.yml'
 
 permissions:
@@ -30,6 +34,10 @@ jobs:
           python-version: '3.13'
       - name: Test H1.3 synthetic acceptance criteria only
         run: python -B scripts/Test-Plan-CodexAB-H13MXC.py
+      - name: Test H1.3 opt-in real launcher against synthetic evidence only
+        run: python -B scripts/Test-Probe-CodexAB-H13MXC.py
+      - name: Check real launcher defaults to no-process plan
+        run: python -B scripts/Probe-CodexAB-H13MXC.py
       - name: Print H1.3 no-process plan
         run: python -B scripts/Plan-CodexAB-H13MXC.py
       - name: Print fabricated matrix validation

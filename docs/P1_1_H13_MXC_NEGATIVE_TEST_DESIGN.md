@@ -44,4 +44,20 @@ if ($LASTEXITCODE -ne 0) { throw 'STOP: H1.3 offline tests failed' }
 if ($LASTEXITCODE -ne 0) { throw 'STOP: H1.3 synthetic matrix failed' }
 ```
 
-**Aucun lanceur H1.3 réel n'est inclus dans cette PR**, aucun droit de déclenchement implicite n'est accordé. Suivi [#61](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/61), [#34](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/34), [PR #14](https://github.com/Proginji2000/codex-context-efficiency-stack/pull/14).
+**La PR #76 était exclusivement hors modèle et sans lanceur réel.** Elle n'autorisait aucune exécution OS. Suivi [#61](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/61), [#34](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/34), [PR #14](https://github.com/Proginji2000/codex-context-efficiency-stack/pull/14).
+
+## H1.3a — lanceur réel opt-in ajouté séparément (non exécuté)
+
+`scripts/Probe-CodexAB-H13MXC.py` est le premier lanceur **standalone CLI sandbox**. Le mode par défaut affiche un plan sans processus. L'option **distincte** `--execute-local-mxc-probe` (Windows non-administrateur uniquement) :
+
+- Vérifie le chemin du CLI épinglé et exige exactement `codex-cli 0.165.0`.
+- Crée un nouveau `CODEX_HOME`, un workspace et un script Python **uniquement factices** dans une arborescence temporaire ; crée en parallèle un répertoire sentinelle neuf directement sous le profil utilisateur (hors `%TEMP%` pour éviter les droits temporaires implicites), sans lire ni modifier de fichier utilisateur existant.
+- Confirme **avant le sandbox** que l'utilisateur non privilégié peut écrire puis lire un fichier témoin dans la sentinelle et le supprimer ; faute de quoi toute preuve de refus serait invalide.
+- Lance une unique sous-commande `codex -c windows.sandbox="mxc" -c sandbox_mode="workspace-write" sandbox ...`, pour exécuter le script Python factice ; **aucun modèle, aucune commande de setup/uninstall, aucun `turn/start` ni `thread/start`**.
+- Exige que le fils écrive une marque fixe **dans le workspace**, que sa tentative de création d'un fichier **hors workspace** soit refusée, et que le parent vérifie ensuite l'existence du témoin interne ainsi que l'absence du fichier extérieur. Tout écart, stdout imprévu, stderr non vide (y compris un avertissement de sécurité), exit code non nul ou timeout => **STOP**.
+- Arrête le processus lancé avec une tentative de nettoyage ciblé. Les dossiers de test jetables sont supprimés par leurs gestionnaires de contexte. Cette opération ne prouve **pas** la terminaison indépendante de tous les descendants.
+- Renvoie uniquement des marqueurs booléens et codes de résultat fixés : aucun contenu brut, chemin, nom de compte, ID, journal, texte de sandbox ni secret n'est répercuté.
+
+**Limites** : un succès `STANDALONE_MXC_FILESYSTEM_NEGATIVE_PASS_NOT_APPSERVER` constitue une preuve négative d'écriture pour **cette seule invocation standalone**, sous le backend MXC **demandé**. Il ne constitue pas une attestation indépendante complète de la provenance interne du backend, de la sécurité réseau, de l'usage MXC par le vrai chemin app-server `turn/start`, du confinement du worker ou du nettoyage intégral du process-tree. Le backend peut être indisponible et doit alors échouer sans demander d'élévation ni de changement des protections.
+
+**Tests CI** : `scripts/Test-Probe-CodexAB-H13MXC.py` teste uniquement la construction de la commande et des preuves **fabriquées** et des STOP (écriture extérieure permise, échec d'écriture interne, altération de sentinelle, stderr, sortie invalide), sous Windows et Ubuntu. Il n'invoque jamais le vrai CLI sandbox. Le déclenchement réel demeure une décision locale et séparée.
