@@ -61,6 +61,35 @@ SAFE_CODES = frozenset({
     "THREAD_REMOTE_CONTROL_STATE_INVALID",
 })
 
+# A policy failure after a successful thread/start reply must remain BLOCKED.
+# Only codes raised by our own pinned H1.2 strict policy validator can be
+# shown, never arbitrary server-provided messages, IDs, paths, or values.
+ALLOWED_POLICY_FAILURE_CODES = frozenset({
+    "HOME_AND_WORKSPACE_OVERLAP",
+    "INVALID_METHOD",
+    "POLICY_REQUEST_MISMATCH",
+    "INVALID_RPC_ID",
+    "INVALID_RPC_RESPONSE",
+    "INVALID_WIRE_VERSION",
+    "RPC_REJECTED",
+    "POLICY_ECHO_MISMATCH",
+    "REASONING_ECHO_MISMATCH",
+    "INVALID_ABSOLUTE_PATH",
+    "INVALID_DRIVE_PATH",
+    "CWD_ECHO_MISMATCH",
+    "SANDBOX_TYPE_MISMATCH",
+    "SANDBOX_NETWORK_UNPROVEN",
+    "WRITABLE_ROOTS_MISSING",
+    "WRITABLE_ROOTS_MISMATCH",
+    "UNEXPECTED_WRITABLE_ROOT",
+    "THREAD_NOT_EPHEMERAL",
+    "THREAD_ID_ABSENT",
+    "TURNS_ALREADY_PRESENT",
+    "INSTRUCTION_SOURCES_UNKNOWN",
+    "INSTRUCTION_OUTSIDE_ISOLATION",
+})
+
+
 
 # Exact method strings from openai/codex rust-v0.165.0,
 # app-server-protocol/src/protocol/common.rs (ServerNotification enum).
@@ -106,10 +135,25 @@ def _safe_code(exc):
                 and isinstance(exc.args[1], str)
                 and re.fullmatch(r"[0-9A-F]{12}", exc.args[1])):
             return "THREAD_NOTIFICATION_UNEXPECTED:METHOD_SHA256_" + exc.args[1]
+        if (len(exc.args) == 2 and exc.args[0] == "THREAD_ECHO_VALIDATION_FAILED"
+                and isinstance(exc.args[1], str)
+                and exc.args[1].startswith("THREAD_ECHO_VALIDATION_FAILED:")
+                and (exc.args[1].split(":", 1)[1] in ALLOWED_POLICY_FAILURE_CODES
+                     or exc.args[1].split(":", 1)[1] == "OTHER_POLICY_VALIDATION_FAILURE")):
+            return exc.args[1]
     if isinstance(exc, h1.PreflightError):
         category = h1.safe_error_code(exc)
         return category if category in SAFE_CODES else "EXTERNAL_SCRIPT_FAILURE"
     return "EXTERNAL_SCRIPT_FAILURE"
+
+
+def _safe_policy_code(exc):
+    """Expose only a code from the pinned validator, never exception text."""
+    if isinstance(exc, policy.PolicyError) and len(exc.args) == 1:
+        code = exc.args[0]
+        if isinstance(code, str) and code in ALLOWED_POLICY_FAILURE_CODES:
+            return "THREAD_ECHO_VALIDATION_FAILED:" + code
+    return "THREAD_ECHO_VALIDATION_FAILED:OTHER_POLICY_VALIDATION_FAILURE"
 
 
 def plan():
@@ -254,8 +298,11 @@ def perform_exchange(command, environment, root, home, workspace,
         # rather than broadening writable roots or permissions at runtime.
         try:
             summary = policy.validate(request, response, str(workspace), str(home))
-        except (policy.PolicyError, TypeError, ValueError, KeyError):
-            raise GateError("THREAD_ECHO_VALIDATION_FAILED") from None
+        except (policy.PolicyError, TypeError, ValueError, KeyError) as exc:
+            # No policy is weakened or auto-corrected. Preserve only a fixed
+            # local predicate category for an actionable subsequent review.
+            raise GateError("THREAD_ECHO_VALIDATION_FAILED",
+                            _safe_policy_code(exc)) from None
         return {
             "status": "THREAD_START_DECLARED_POLICY_PASS_UNATTESTED",
             "contract": CONTRACT,
