@@ -454,25 +454,25 @@ def require_pinned_nonadmin_windows():
         raise ProbeError("PINNED_VERSION_MISMATCH")
 
 
-def private_probe_parent():
-    """Select disposable user-owned parent OUTSIDE system TEMP.
-
-    Pinned Codex 0.165.0 intentionally refuses to create PATH helper aliases
-    when CODEX_HOME is below %TEMP%. Do not suppress the warning: give this
-    opt-in no-model probe a new disposable CODEX_HOME under the user profile.
-    Never reuse the actual user CODEX_HOME or modify an existing workspace.
-    """
+def validate_disposable_parent(home_path, system_temp_path):
+    """Pure policy check against the Codex arg0 CODEX_HOME-under-TEMP guard."""
     try:
-        raw_home = Path.home()
-        if raw_home.is_symlink():
+        home = Path(home_path)
+        if home.is_symlink():
             raise ProbeError("MXC_DISPOSABLE_PROFILE_PARENT_UNSAFE")
-        user_home = raw_home.resolve(strict=True)
-        system_temp = Path(tempfile.gettempdir()).resolve(strict=True)
-        if not user_home.is_dir() or user_home == system_temp or user_home.is_relative_to(system_temp):
+        actual_home = home.resolve(strict=True)
+        actual_temp = Path(system_temp_path).resolve(strict=True)
+        if (not actual_home.is_dir() or actual_home == actual_temp or
+                actual_home.is_relative_to(actual_temp)):
             raise ProbeError("MXC_DISPOSABLE_PROFILE_PARENT_UNSAFE")
-        return user_home
-    except (OSError, RuntimeError, ValueError):
+        return actual_home
+    except (OSError, RuntimeError, ValueError, TypeError):
         raise ProbeError("MXC_DISPOSABLE_PROFILE_PARENT_UNSAFE") from None
+
+
+def private_probe_parent():
+    """Private user profile, never SYSTEM TEMP or the existing CODEX_HOME."""
+    return validate_disposable_parent(Path.home(), tempfile.gettempdir())
 
 
 def disposable_probe_root(prefix):
