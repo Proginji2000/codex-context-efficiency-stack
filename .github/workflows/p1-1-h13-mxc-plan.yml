@@ -1,0 +1,36 @@
+name: P1.1 H1.3 offline Windows MXC runtime acceptance design
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Plan-CodexAB-H13MXC.py'
+      - 'scripts/Test-Plan-CodexAB-H13MXC.py'
+      - '.github/workflows/p1-1-h13-mxc-plan.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Plan-CodexAB-H13MXC.py'
+      - 'scripts/Test-Plan-CodexAB-H13MXC.py'
+      - '.github/workflows/p1-1-h13-mxc-plan.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-only:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Test H1.3 synthetic acceptance criteria only
+        run: python -B scripts/Test-Plan-CodexAB-H13MXC.py
+      - name: Print H1.3 no-process plan
+        run: python -B scripts/Plan-CodexAB-H13MXC.py
+      - name: Print fabricated matrix validation
+        run: python -B scripts/Plan-CodexAB-H13MXC.py --simulate
