@@ -1,0 +1,36 @@
+name: P1.1 H1.3c offline Job Object process-tree qualification
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Probe-CodexAB-H13CJobTree.py'
+      - 'scripts/Test-Probe-CodexAB-H13CJobTree.py'
+      - '.github/workflows/p1-1-h13c-job-tree.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Probe-CodexAB-H13CJobTree.py'
+      - 'scripts/Test-Probe-CodexAB-H13CJobTree.py'
+      - '.github/workflows/p1-1-h13c-job-tree.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-only:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Run fake-only H1.3c Job tree tests
+        run: python -B scripts/Test-Probe-CodexAB-H13CJobTree.py
+      - name: Verify no-process default plan
+        run: python -B scripts/Probe-CodexAB-H13CJobTree.py
+      - name: Python syntax checks
+        run: python -B -c "import ast, pathlib; [ast.parse(pathlib.Path(p).read_text(encoding='utf-8')) for p in ('scripts/Probe-CodexAB-H13CJobTree.py', 'scripts/Test-Probe-CodexAB-H13CJobTree.py')]"
