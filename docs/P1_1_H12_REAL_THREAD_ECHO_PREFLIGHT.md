@@ -55,6 +55,16 @@ Les schémas officiels [`ThreadStartResponse`](https://github.com/openai/codex/b
 
 **Interdit de faire passer ce gate en assouplissant les critères avant d'avoir examiné la catégorie exacte et sa pertinence par rapport au protocole officiel.** Un échec de sécurité (réseau, racines, sandbox, approval) doit rester bloquant. La CI reste un faux app-server et n'appelle jamais un modèle.
 
+## H1.2 réel : racines supplémentaires vides — correction du contrat (29/10/2026)
+
+Sur main `26cf5c7fc5f7932ffa4c7465b6008363f6d08016`, l'opérateur a validé **19/19 tests de politique**, **34/34 tests de transport**, puis obtenu du vrai app-server `STOP: H12_REAL_THREAD_PROBE_FAILED:THREAD_ECHO_VALIDATION_FAILED:WRITABLE_ROOTS_MISSING`. Les autres assertions n'ont pas été entièrement vérifiées au cours de cette réponse refusée : **H1.2 réel reste BLOQUÉ**.
+
+**Vérification directe sur le code source épinglé `rust-v0.165.0`** : la fonction [`SandboxPolicy::new_workspace_write_policy`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/protocol/src/protocol.rs) initialise `writable_roots: vec![]` et documente que le répertoire courant est autorisé en écriture. Le schéma [`v2/SandboxPolicy`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/app-server-protocol/src/protocol/v2/permissions.rs) autorise une liste `writable_roots` vide, et la réponse `thread/start` contient le sandbox déclaré ; `writableRoots` **ne signifie pas que le cwd doit être répété explicitement**.
+
+**Correctif du validateur uniquement :** `writableRoots: []` est conforme **si** les contrôles séparés restent vrais : `sandbox.type=workspaceWrite`, `networkAccess=false`, `cwd` égal au workspace jetable, modèle/effort/approbation exacts, thread éphémère et sans tours, sources d'instructions confinées. Le champ `writableRoots` doit **toujours être présent et être une liste**, même vide ; les racines explicites supplémentaires étrangères, les doublons et les réponses non conformes restent STOP. `allowed_root_count=0` signifie zéro racine **supplémentaire déclarée**, pas zéro accès au workspace ni attestation MXC.
+
+Des tests synthétiques et transport négatifs couvrent cette distinction. **Aucune racine étrangère n'a été autorisée, aucun changement de configuration, MXC, privilèges, réseau, auth ni appel modèle n'a été effectué.** Une future réussite ne prouvera que l'écho de politique, pas l'isolation OS effective.
+
 ## Limites de preuve
 
 - Un `THREAD_START_DECLARED_POLICY_PASS_UNATTESTED` confirme que **le vrai app-server a créé un thread et renvoyé la politique attendue**. Il **ne** prouve **pas** que le sandbox MXC applique la protection au niveau OS.
