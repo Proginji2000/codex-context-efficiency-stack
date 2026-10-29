@@ -1,0 +1,34 @@
+name: P1.1 H1 isolated stdio handshake synthetic tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/Probe-CodexAB-AppServerH1.py'
+      - 'scripts/Test-Probe-CodexAB-AppServerH1.py'
+      - '.github/workflows/p1-1-h1-stdio-preflight.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/Probe-CodexAB-AppServerH1.py'
+      - 'scripts/Test-Probe-CodexAB-AppServerH1.py'
+      - '.github/workflows/p1-1-h1-stdio-preflight.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fake-server-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Run fake-stdio-server tests only
+        run: python -B scripts/Test-Probe-CodexAB-AppServerH1.py
+      - name: Verify default plan never starts Codex
+        run: python -B scripts/Probe-CodexAB-AppServerH1.py
