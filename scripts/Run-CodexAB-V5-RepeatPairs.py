@@ -65,9 +65,14 @@ def paths(pilot, repo, output_base, pairs):
     return pilot, repo, planned
 
 
-def check_cli_and_homes(tui, pilot):
-    # Native executable resolution relies on the *temporary* caller PATH.
+def check_cli_and_homes(tui, pilot, codex_cli):
+    # Fail closed unless PATH selects the explicit locally pinned CLI launcher.
     runner = tui.runner
+    expected_cli = Path(codex_cli).expanduser().resolve(strict=True)
+    discovered = runner.resolve_codex_executable()
+    if (not expected_cli.is_file() or not discovered or
+            Path(discovered).resolve(strict=True) != expected_cli):
+        raise ValueError("ISOLATED_CLI_PATH_MISMATCH")
     actual = runner.call_codex(["--version"])
     if actual.returncode or actual.stdout.strip() != VERSION:
         raise ValueError("PINNED_CLI_VERSION_MISMATCH")
@@ -173,7 +178,7 @@ def run(args):
     if any(p not in (2, 3) for p in pair_ids):
         raise ValueError("PAIRS_MUST_BE_02_OR_03")
     pilot, repo, planned = paths(args.pilot, args.repo, args.output_base, pair_ids)
-    state = check_cli_and_homes(tui, pilot)
+    state = check_cli_and_homes(tui, pilot, args.codex_cli)
     for _, _, output in planned:
         # Validate all destinations *before* the first model invocation.
         tui.validate_paths(str(pilot), str(output), str(repo))
@@ -194,7 +199,7 @@ def run(args):
     for pair, arm, output in planned:
         # Fresh independent gates before *every* paid call. Bail out on any
         # failure; never retry an existing output or run remaining trials.
-        check_cli_and_homes(tui, pilot)
+        check_cli_and_homes(tui, pilot, args.codex_cli)
         restore_one(tui, (baseline_restore, candidate_restore),
                     pilot, state, pair, arm, allowed=args.audited_restore)
         preflight(tui, pilot)
@@ -220,6 +225,8 @@ def run(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pilot", required=True)
+    parser.add_argument("--codex-cli", required=True,
+                        help="Exact pinned Codex 0.165.0 launcher, also selected first in PATH")
     parser.add_argument("--repo", default=str(ROOT.parent))
     parser.add_argument("--output-base", required=True)
     parser.add_argument("--start-pair", type=int, choices=(2, 3), default=2)
