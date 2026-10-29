@@ -377,6 +377,43 @@ if ($LASTEXITCODE -ne 0) { throw 'Candidate restore failed' }
 ~~~
 
 Cette procédure ne lance aucun modèle par défaut. Si le TOML baseline lui-même a dérivé, le restore candidate refuse de le prendre comme référence ; ne pas contourner le contrôle. Si les deux profils sont revenus à la référence mais que le workspace affiche une confirmation de confiance, celle-ci reste une **décision manuelle documentée**, non une élévation UAC. Il faudra maîtriser ce facteur dans la comparaison des durées.
+## P1.1 V5 — Répétitions A/B sous Codex 0.165.0 (29 octobre 2026)
+
+La première paire V5 a réussi les vérifications indépendantes sur les deux bras sous le contrat `p1.1-git-diff-selfcheck-v2` : baseline 13 548 tokens rapportés / 94,474 s lanceur ; candidate 12 440 tokens / 101,286 s. Ces durées incluent l'intervention humaine. Une seule paire ne démontre aucun gain fiable de quota.
+
+Le lanceur `scripts/Run-CodexAB-V5-RepeatPairs.py` organise deux paires supplémentaires en alternant l'ordre : **02 candidate puis baseline**, **03 baseline puis candidate**. Mode plan read-only par défaut ; `--execute --audited-restore --pairs 2` autorise explicitement jusqu'à **quatre canaries interactifs et payants**, avec vérification indépendante entre chaque run. L'opérateur reste présent pour les confirmations de confiance du dossier.
+
+Avant chaque appel, il vérifie le chemin exact du CLI 0.165.0, la version épinglée, les deux logins isolés, la parité AGENTS et TOML, les politiques et la fraîcheur des outputs. Si un seul TOML isolé a dérivé, il est restauré sous sauvegarde auditée à partir de l'autre TOML vérifié contre le hash original, **uniquement** avec `--audited-restore`. Si les deux dérivent, STOP. Aucune désactivation de sandbox, aucun partage des identifiants, aucune altération des résultats historiques. Le moindre échec fonctionnel/Git/politique arrête la suite, sans retry de modèle.
+
+Commande Windows PowerShell (après fermeture des sessions V5 existantes) :
+
+~~~powershell
+& {
+    $ErrorActionPreference = 'Stop'
+    Set-Location 'C:\Dev\codex-context-efficiency-stack'
+    git pull --ff-only
+    if ($LASTEXITCODE -ne 0) { throw 'Git pull failed' }
+    $py = 'C:\Dev\Python31314\python.exe'
+    $bin = 'C:\Dev\codex-cli-0165\node_modules\.bin'
+    $cli = Join-Path $bin 'codex.cmd'
+    $script = '.\scripts\Run-CodexAB-V5-RepeatPairs.py'
+    $pilot = 'C:\Dev\codex-ab-pr14-pilot-v5-0165'
+    $base = 'C:\Dev\codex-ab-tui-mxc-v5-0165-repeat'
+    $oldPath = $env:PATH
+    try {
+        $env:PATH = "$bin;$oldPath"
+        & $py $script --pilot $pilot --codex-cli $cli --output-base $base --start-pair 2 --pairs 2
+        if ($LASTEXITCODE -ne 0) { throw 'Planning failed' }
+        & $py $script --pilot $pilot --codex-cli $cli --output-base $base --start-pair 2 --pairs 2 --audited-restore --execute
+        if ($LASTEXITCODE -ne 0) { throw 'Repeat qualification stopped; preserve evidence' }
+    }
+    finally { $env:PATH = $oldPath }
+}
+~~~
+
+Outputs: chemin préfixe `C:\Dev\codex-ab-tui-mxc-v5-0165-repeat` plus `-pair02-candidate`, `-pair02-baseline`, `-pair03-baseline`, `-pair03-candidate`. Si la paire 02 est terminée et la 03 encore neuve, reprendre avec `--start-pair 3 --pairs 1` sans modifier les sorties existantes. Ne jamais réutiliser un output après un échec : récupérer les preuves et diagnostiquer.
+
+Le lanceur ne capture pas les compteurs de tokens du TUI ; relever les lignes `Token usage` et comparer des périmètres identiques. Les durées incluent les actions humaines. La délégation worker visible dans l'interface reste non attestée automatiquement. Trois paires ne constituent qu'une qualification exploratoire, insuffisante pour une conclusion statistique sur la PR #14.
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
