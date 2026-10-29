@@ -69,7 +69,7 @@ def declared_sandbox_policy(home):
 
 def sanitized_report(workspace, exit_code, elapsed, approval="on-request",
                      declared_policy=None, windows_sandbox=None,
-                     config_snapshot_check=None):
+                     config_snapshot_check=None, python_hint=False):
     checks = runner.verification_detail(workspace)
     # No TUI tool/event stream is available to this wrapper; evidence from the
     # interactive UI must be assessed separately, never synthesized.
@@ -81,6 +81,7 @@ def sanitized_report(workspace, exit_code, elapsed, approval="on-request",
         "approval_policy_override_requested": approval,
         "windows_sandbox_override_requested": windows_sandbox or "none",
         "baseline_config_snapshot_check": config_snapshot_check,
+        "python_test_fallback_hint_requested": bool(python_hint),
         "declared_policy": declared_policy,
         "policy_effectiveness": "not_runtime_attested",
         "codex_cli_exit_code": exit_code,
@@ -109,6 +110,8 @@ SAFE_ERROR_CODES = frozenset({
     "ISOLATED_CONFIG_DRIFT_NOT_ALLOWLISTED",
     "ORIGINAL_CANDIDATE_CONFIG_CHANGED",
     "CONFIG_DRIFT_FLAG_REQUIRES_MXC_NEVER",
+    "PYTHON_HINT_REQUIRES_MXC_NEVER",
+    "PYTHON_HINT_INTERPRETER_UNAVAILABLE",
 })
 STATE_ERROR_CODES = {
     "invalid experiment state": "EXPERIMENT_STATE_INVALID",
@@ -380,6 +383,10 @@ def run(args):
     approval = getattr(args, "approval", "on-request")
     windows_sandbox = getattr(args, "windows_sandbox", None)
     accept_drift = getattr(args, "accept_sandbox_key_drift", False)
+    python_hint = getattr(args, "python_test_fallback_hint", False)
+    if python_hint and (windows_sandbox != "mxc" or approval != "never"
+                        or os.name != "nt"):
+        raise ValueError("PYTHON_HINT_REQUIRES_MXC_NEVER")
     if accept_drift and (windows_sandbox != "mxc" or approval != "never"):
         raise ValueError("CONFIG_DRIFT_FLAG_REQUIRES_MXC_NEVER")
     if windows_sandbox not in (None, "mxc"):
@@ -411,6 +418,15 @@ def run(args):
     executable = runner.resolve_codex_executable()
     if not executable:
         raise ValueError("CODEX_NOT_FOUND")
+    interpreter = None
+    if python_hint:
+        # This is the local trusted interpreter used by the independent verifier.
+        # Never log its potentially private filesystem path to stdout/results.
+        interpreter = Path(sys.executable)
+        if (not interpreter.is_absolute() or not interpreter.is_file()
+                or interpreter.suffix.lower() != ".exe"
+                or any(c in str(interpreter) for c in ('"', chr(13), chr(10)))):
+            raise ValueError("PYTHON_HINT_INTERPRETER_UNAVAILABLE")
     output.mkdir(parents=True, exist_ok=False)
     workspace = output / "workspace"
     runner.make_fixture(workspace)
@@ -425,6 +441,7 @@ def run(args):
         "approval_policy_override_requested": approval,
         "windows_sandbox_override_requested": windows_sandbox or "none",
         "baseline_config_snapshot_check": config_check,
+        "python_test_fallback_hint_requested": bool(python_hint),
         "declared_policy": declared,
     })
     env = runner.home_env(pilot, "baseline")
@@ -446,6 +463,23 @@ def run(args):
             "BLOCKED and STOP; do not request administrator rights, alter "
             "Windows sandbox settings, disable safeguards or escalate."
         )
+    if python_hint:
+        # Optional prompt guidance only: cannot independently attest that
+        # the worker tried the retry, how often it ran, or what caused failure.
+        prompt += (
+            " Windows-specific test runner: first try the exact requested "
+            "python -m unittest discover -s tests -q command. Only if that "
+            "command cannot START due to Python executable/WindowsApps "
+            "resolution (not sandbox policy denial, test assertion failure, "
+            "or application error), retry it ONCE using this verified local "
+            "interpreter executable, with unchanged arguments and workspace: "
+            + json.dumps(str(interpreter)) +
+            " -B -m unittest discover -s tests -q. Keep the same sandbox, "
+            "approval policy and scope. If it still cannot start, or an "
+            "operation is denied by policy, report BLOCKED and STOP. Never "
+            "install Python, edit the environment, access outside workspace "
+            "except to execute this interpreter, elevate or request approval."
+        )
     cmd = [
         executable, "--cd", str(workspace),
         "--model", MODEL, "--sandbox", "workspace-write",
@@ -460,6 +494,7 @@ def run(args):
           " windows_sandbox_override=" + (windows_sandbox or "none"), flush=True)
     print("CONFIG_DECLARED: " + json.dumps(declared, sort_keys=True), flush=True)
     print("CONFIG_SNAPSHOT_CHECK: " + config_check, flush=True)
+    print("PYTHON_TEST_FALLBACK_HINT_REQUESTED: " + str(bool(python_hint)).lower(), flush=True)
     if approval == "never":
         print("STOP if Windows UAC/admin/sandbox provisioning prompts appear. Do not approve elevation.", flush=True)
     print("The UI may persist its session in isolated baseline-home; no chats are read by this wrapper.", flush=True)
@@ -472,7 +507,7 @@ def run(args):
         code = None
     elapsed = time.monotonic() - started
     report = sanitized_report(workspace, code, elapsed, approval, declared,
-                              windows_sandbox, config_check)
+                              windows_sandbox, config_check, python_hint)
     runner.save_json(output / "sanitized-tui-result.json", report)
     print(json.dumps(report, ensure_ascii=True, indent=2), flush=True)
     return 0 if code == 0 and report["functional_and_scope_pass"] else 1
@@ -512,6 +547,8 @@ def main(argv=None):
                    default="on-request", help="Override approvals for only this TUI invocation.")
     p.add_argument("--windows-sandbox", choices=("mxc",), default=None,
                    help="Windows only: one-shot MXC, without modifying config.toml.")
+    p.add_argument("--python-test-fallback-hint", action="store_true",
+                   help="Windows MXC/never only: tell worker to try original test first, then one verified absolute Python path retry on launch failures.")
     p.add_argument("--accept-sandbox-key-drift", action="store_true",
                    help="Only with MXC/never: allow an explicitly reviewed Windows sandbox key or formatting drift; candidate must remain original.")
     q = sub.add_parser("inspect", help="Offline deterministic post-TUI check.")
