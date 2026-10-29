@@ -178,9 +178,14 @@ def safe_config_drift_categories(original_toml, modified_toml):
         return "other_config_key"
 
     def walk(old, new, path=()):
-        if isinstance(old, dict) and isinstance(new, dict):
-            for key in set(old).union(new):
-                walk(old.get(key, unknown), new.get(key, unknown), path + (key,))
+        if (isinstance(old, dict) and isinstance(new, dict)) or (
+                old is unknown and isinstance(new, dict)) or (
+                new is unknown and isinstance(old, dict)):
+            left = {} if old is unknown else old
+            right = {} if new is unknown else new
+            for key in set(left).union(right):
+                walk(left.get(key, unknown), right.get(key, unknown),
+                     path + (key,))
         elif old != new:
             buckets.add(categorize(path))
 
