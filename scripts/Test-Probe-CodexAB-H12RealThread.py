@@ -66,6 +66,36 @@ if mode == "unknown-notification":
     sys.exit(0)
 if mode == "notification":
     send({"method":"thread/started","params":{"threadId":"PRIVATE"}})
+if mode == "benign-skills":
+    send({"method":"skills/changed","params":{"private":"PRIVATE"}})
+if mode == "benign-mcp":
+    send({"method":"mcpServer/startupStatus/updated","params":{"private":"PRIVATE"}})
+if mode == "benign-account":
+    send({"method":"account/updated","params":{"private":"PRIVATE"}})
+if mode == "bad-world-writable":
+    send({"method":"windows/worldWritableWarning","params":{"path":"PRIVATE"}})
+    sys.exit(0)
+if mode == "bad-config-warning":
+    send({"method":"configWarning","params":{"summary":"PRIVATE"}})
+    sys.exit(0)
+if mode == "bad-guardian":
+    send({"method":"guardianWarning","params":{"message":"PRIVATE"}})
+    sys.exit(0)
+if mode == "bad-error":
+    send({"method":"error","params":{"message":"PRIVATE"}})
+    sys.exit(0)
+if mode == "bad-deprecation":
+    send({"method":"deprecationNotice","params":{"message":"PRIVATE"}})
+    sys.exit(0)
+if mode == "bad-sandbox-setup":
+    send({"method":"windowsSandbox/setupCompleted","params":{"private":"PRIVATE"}})
+    sys.exit(0)
+if mode == "bad-thread-settings":
+    send({"method":"thread/settings/updated","params":{"private":"PRIVATE"}})
+    sys.exit(0)
+if mode == "bad-model-verification":
+    send({"method":"model/verification","params":{"private":"PRIVATE"}})
+    sys.exit(0)
 p = req["params"]
 send({"id":2,"result":{
     "approvalPolicy":p["approvalPolicy"],"model":p["model"],
@@ -143,6 +173,51 @@ class RealH12OfflineTests(unittest.TestCase):
 
     def test_known_notification_before_reply(self):
         self.assertTrue(self.execute_fake("notification")["real_thread_created"])
+
+    def test_pinned_passive_startup_notifications_are_ignored_boundedly(self):
+        for mode in ("benign-skills", "benign-mcp", "benign-account"):
+            with self.subTest(mode=mode):
+                result = self.execute_fake(mode)
+                self.assertTrue(result["real_thread_created"])
+                self.assertFalse(result["turn_start_sent"])
+                self.assertFalse(result["runtime_mxc_effectiveness_verified"])
+                self.assertNotIn("PRIVATE", json.dumps(result))
+
+    def test_security_warnings_stop_and_never_leak_payload(self):
+        cases = {
+            "bad-world-writable": "THREAD_WARNING_WINDOWS_WORLD_WRITABLE",
+            "bad-config-warning": "THREAD_WARNING_CONFIG",
+            "bad-guardian": "THREAD_WARNING_GUARDIAN",
+            "bad-error": "THREAD_ERROR_NOTIFICATION",
+            "bad-deprecation": "THREAD_DEPRECATION_NOTICE",
+            "bad-sandbox-setup": "THREAD_WINDOWS_SANDBOX_SETUP_EVENT",
+            "bad-thread-settings": "THREAD_PERMISSION_STATE_CHANGED",
+            "bad-model-verification": "THREAD_MODEL_VERIFICATION_EVENT",
+        }
+        for mode, code in cases.items():
+            with self.subTest(mode=mode):
+                with self.assertRaises(app.GateError) as ctx:
+                    self.execute_fake(mode)
+                self.assertEqual(str(ctx.exception), code)
+                self.assertEqual(app._safe_code(ctx.exception), code)
+                self.assertNotIn("PRIVATE", str(ctx.exception))
+
+    def test_no_unknown_or_cross_request_notification_bypass(self):
+        self.assertNotIn("windows/worldWritableWarning",
+                         app.PASSIVE_PRE_REPLY_NOTIFICATIONS)
+        self.assertNotIn("warning", app.PASSIVE_PRE_REPLY_NOTIFICATIONS)
+        self.assertNotIn("error", app.PASSIVE_PRE_REPLY_NOTIFICATIONS)
+        self.assertNotIn("thread/settings/updated",
+                         app.PASSIVE_PRE_REPLY_NOTIFICATIONS)
+        self.assertTrue(app.PASSIVE_PRE_REPLY_NOTIFICATIONS.isdisjoint(
+            app.STOP_PRE_REPLY_NOTIFICATIONS))
+
+    def test_unbounded_passive_notification_burst_is_stopped(self):
+        inbox = queue.Queue()
+        for _ in range(app.MAX_RECEIVED_MESSAGES):
+            inbox.put(("line", b'{"method":"skills/changed","params":{"secret":"PRIVATE"}}'))
+        with self.assertRaisesRegex(app.GateError, "THREAD_MESSAGE_LIMIT_EXCEEDED"):
+            app._receive_thread_response(inbox, timeout=1)
 
     def test_wrong_reply_id_is_rejected(self):
         with self.assertRaisesRegex(app.GateError, "THREAD_RPC_ID_MISMATCH"):
