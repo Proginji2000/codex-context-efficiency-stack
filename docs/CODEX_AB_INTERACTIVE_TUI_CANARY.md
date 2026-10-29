@@ -239,6 +239,41 @@ python .\scripts\Run-CodexAB-TUI-Canary.py run `
 
 **Éléments à conserver :** JSON final, statut/lifecycle du worker, apparition éventuelle d'une fenêtre UAC, nombre d'interventions. Si MXC échoue encore sur les lectures, arrêtez la qualification ; pas de fallback `unelevated`, pas de `danger-full-access` ni de nouveau rétablissement automatique. La PR #14 reste ouverte ; l'objectif ici est uniquement de tester la viabilité du worker dans MXC.
 
+## 29 octobre 2026 — MXC fonctionnel, worker bloqué par la résolution de Python
+
+Résultats de la dernière expérience baseline V4 restaurée, réalisée sous `--approval never --windows-sandbox mxc` :
+
+- Cycle de vie du worker visible dans le TUI : `Started /root/total_fix` puis `Completed /root/total_fix` ; diff observé de `total.py` limité au calcul `prix * quantite`.
+- Le worker a déclaré `BLOCKED` sur **sa propre** exécution de `python -m unittest discover -s tests -q` : `python.exe` résolu via WindowsApps n'a pas pu être lancé dans son contexte d'exécution.
+- Le wrapper et son mode `inspect` ont indépendamment exécuté les tests avec `sys.executable` : deux tests réussis, `functional_and_scope_pass=true`, un seul fichier modifié, aucun non-suivi, diff Git valide, CLI code 0. L'utilisateur a également réussi un test **sans modèle** sous la commande `codex -c windows.sandbox=mxc sandbox ... -- $pythonExe -B -m unittest discover -s tests -q` (2 tests réussis, code 0). Donc **Python s'exécute dans MXC avec le chemin absolu**, mais le worker lui-même n'a pas encore vérifié sa correction.
+- L'utilisateur pense avoir accepté la première option du menu de provisioning sandbox Windows à un moment donné. Le moment et la politique Windows effectivement appliquée dans le TUI ne sont pas attestés par le wrapper. Ne pas revendiquer d'absence de prompts administrateur ni d'autonomie sans intervention.
+
+### Ajustement borné, sans relâcher la sécurité
+
+Le lanceur accepte une option facultative **`--python-test-fallback-hint`**, seulement avec `--approval never --windows-sandbox mxc` sous Windows. Elle ne modifie ni `AGENTS.md`, ni le prompt baseline original enregistré, ni `config.toml`, ni le chemin d'interpréteur dans l'environnement, ni les ACL Windows.
+
+Le lanceur vérifie que `sys.executable` est un fichier exécutable absolu `.exe` local et **fournit son chemin seulement dans le prompt privé du TUI** (donc susceptible de persister dans le profil isolé). Les sorties JSON et terminal ne publient pas ce chemin. L'instruction transmise au worker exige de :
+
+1. Essayer d'abord `python -m unittest discover -s tests -q` tel que prévu ;
+2. Si et **seulement si** cette commande **ne démarre pas**, à cause de la résolution de `python.exe` / WindowsApps, refaire au maximum **un essai** avec l'exécutable absolu communiqué et `-B -m unittest discover -s tests -q` ;
+3. **Ne pas réessayer** si les tests échouent par assertion, si la sandbox oppose un refus de politique ou si une opération exigerait des droits supplémentaires. Dans ce cas `BLOCKED`, sans installation, réseau ni modification de permissions.
+
+Cette règle est une **instruction au worker**, pas un mécanisme pouvant garantir ou observer de façon indépendante la fréquence de retries dans le TUI. Les vérifications déterministes du wrapper restent indispensables. Pour une comparaison A/B valide, l'option et le prompt complet doivent être strictement identiques dans les deux bras ; ne pas utiliser les tentatives historiques comme comparateurs.
+
+Préflight hors modèle uniquement (préserver l'expérience en cas de nouvelle dérive) :
+
+~~~powershell
+Set-Location 'C:\Dev\codex-context-efficiency-stack'
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw 'Git pull failed' }
+python .\scripts\Test-Run-CodexAB-TUI-Canary.py
+if ($LASTEXITCODE -ne 0) { throw 'Offline tests failed' }
+python .\scripts\Run-CodexAB-TUI-Canary.py diagnose `
+    --pilot 'C:\Dev\codex-ab-pr14-pilot-v4'
+~~~
+
+Aucun nouveau test TUI n'est exécuté automatiquement : tout essai réel doit utiliser un **nouveau** dossier, demander une approbation explicite, et garder `--windows-sandbox mxc --approval never --python-test-fallback-hint`. Ne pas restaurer automatiquement la baseline si Codex la modifie encore ; utiliser seulement la procédure auditée existante, avec opt-in explicite.
+
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
