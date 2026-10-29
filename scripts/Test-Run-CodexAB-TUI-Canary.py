@@ -19,6 +19,27 @@ SPEC.loader.exec_module(app)
 
 
 class TuiCanaryTests(unittest.TestCase):
+    def test_powershell_fallback_uses_shell_literal_not_json_backslash_escaping(self):
+        interpreter = r"C:\Dev\Python31314\python.exe"
+        command = app.powershell_python_fallback_command(interpreter)
+        self.assertEqual(
+            command,
+            "& 'C:\\Dev\\Python31314\\python.exe' -B -m unittest discover -s tests -q",
+        )
+        self.assertNotIn(chr(92) * 2 + "Dev", command)
+        self.assertEqual(command.count(" -B -m unittest discover -s tests -q"), 1)
+
+    def test_powershell_fallback_escapes_quote_and_rejects_controls(self):
+        command = app.powershell_python_fallback_command(
+            "C:\\Users\\O'Brien\\python.exe")
+        self.assertIn("O''Brien", command)
+        for path in ("C:\\Temp\\python.exe" + chr(10) + "bad",
+                     "C:\\Temp\\python.exe" + chr(13) + "bad",
+                     "C:\\Temp\\python.exe" + chr(0) + "bad"):
+            with self.assertRaisesRegex(ValueError,
+                                        "PYTHON_HINT_INTERPRETER_UNAVAILABLE"):
+                app.powershell_python_fallback_command(path)
+
     def test_redacted_drift_reports_fixed_categories_without_dynamic_keys(self):
         old = {
             "tool_output_token_limit": 4000,
@@ -707,7 +728,11 @@ class TuiCanaryTests(unittest.TestCase):
                 self.assertEqual(
                     Path(kwargs["env"]["CODEX_HOME"]).resolve(), home.resolve())
                 prompt = cmd[-1]
-                self.assertIn(json.dumps(sys.executable), prompt)
+                expected_fallback = app.powershell_python_fallback_command(sys.executable)
+                self.assertIn(expected_fallback, prompt)
+                self.assertIn("PowerShell", prompt)
+                self.assertIn("include the ampersand call operator", prompt)
+                self.assertNotIn(json.dumps(sys.executable), prompt)
                 self.assertIn("retry it ONCE", prompt)
                 self.assertIn("not sandbox policy denial", prompt)
                 self.assertIn("report BLOCKED and STOP", prompt)
@@ -827,7 +852,7 @@ class TuiCanaryTests(unittest.TestCase):
                         (output / "sanitized-tui-result.json").read_text())
                     self.assertEqual(report["arm"], arm)
                     self.assertEqual(report["prompt_contract"],
-                                     "p1.1-git-diff-selfcheck-v2")
+                                     "p1.1-git-diff-psfallback-v3")
                     self.assertTrue(report["functional_and_scope_pass"])
                     self.assertTrue(report["python_test_fallback_hint_requested"])
                     self.assertEqual(

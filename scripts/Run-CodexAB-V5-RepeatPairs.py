@@ -17,7 +17,7 @@ import sys
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parent
-CONTRACT = "p1.1-git-diff-selfcheck-v2"
+CONTRACT = "p1.1-git-diff-psfallback-v3"
 VERSION = "codex-cli 0.165.0"
 REQUIRED_DIAG = (
     "experiment_state_valid", "baseline_agents_match",
@@ -56,7 +56,7 @@ def paths(pilot, repo, output_base, pairs):
         raise ValueError("UNSAFE_INPUT")
     planned = []
     for number in pairs:
-        order = ("candidate", "baseline") if number == 2 else ("baseline", "candidate")
+        order = ("candidate", "baseline") if number % 2 == 0 else ("baseline", "candidate")
         for arm in order:
             output = Path(str(base) + "-pair%02d-%s" % (number, arm))
             planned.append((number, arm, output))
@@ -174,9 +174,11 @@ def verify_report(tui, output, arm):
 
 def run(args):
     tui, baseline_restore, candidate_restore = contexts()
+    if getattr(tui, "PROMPT_CONTRACT", None) != CONTRACT:
+        raise ValueError("PROMPT_CONTRACT_MISMATCH")
     pair_ids = tuple(range(args.start_pair, args.start_pair + args.pairs))
-    if any(p not in (2, 3) for p in pair_ids):
-        raise ValueError("PAIRS_MUST_BE_02_OR_03")
+    if any(p not in (4, 5) for p in pair_ids):
+        raise ValueError("PAIRS_MUST_BE_04_OR_05")
     pilot, repo, planned = paths(args.pilot, args.repo, args.output_base, pair_ids)
     state = check_cli_and_homes(tui, pilot, args.codex_cli)
     for _, _, output in planned:
@@ -229,7 +231,7 @@ def main(argv=None):
                         help="Exact pinned Codex 0.165.0 launcher, also selected first in PATH")
     parser.add_argument("--repo", default=str(ROOT.parent))
     parser.add_argument("--output-base", required=True)
-    parser.add_argument("--start-pair", type=int, choices=(2, 3), default=2)
+    parser.add_argument("--start-pair", type=int, choices=(4, 5), default=4)
     parser.add_argument("--pairs", type=int, choices=(1, 2), default=1)
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--audited-restore", action="store_true",

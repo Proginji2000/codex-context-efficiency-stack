@@ -414,6 +414,21 @@ Commande Windows PowerShell (après fermeture des sessions V5 existantes) :
 Outputs: chemin préfixe `C:\Dev\codex-ab-tui-mxc-v5-0165-repeat` plus `-pair02-candidate`, `-pair02-baseline`, `-pair03-baseline`, `-pair03-candidate`. Si la paire 02 est terminée et la 03 encore neuve, reprendre avec `--start-pair 3 --pairs 1` sans modifier les sorties existantes. Ne jamais réutiliser un output après un échec : récupérer les preuves et diagnostiquer.
 
 Le lanceur ne capture pas les compteurs de tokens du TUI ; relever les lignes `Token usage` et comparer des périmètres identiques. Les durées incluent les actions humaines. La délégation worker visible dans l'interface reste non attestée automatiquement. Trois paires ne constituent qu'une qualification exploratoire, insuffisante pour une conclusion statistique sur la PR #14.
+## 29 octobre 2026 — Paire 02 V2 interrompue, correction de quoting V3
+
+La candidate de la paire 02 (contrat `p1.1-git-diff-selfcheck-v2`) a passé les tests et les contrôles Git indépendants (27 395 tokens rapportés, 70,343 s lanceur). Le worker baseline de la même paire a déclaré BLOCKED : l'alias WindowsApps ne démarrait pas et la tentative de repli par chemin Python absolu a échoué au **parsing PowerShell avant de démarrer l'interpréteur**. Le rapport indépendant confirme `unittest_pass=false`, aucun fichier modifié, `functional_and_scope_pass=false` (17 645 tokens, 97,064 s). La paire 03 prévue par le batch n'a pas démarré. La tentative baseline de paire 02 et son output restent **FAIL**, sans correction rétroactive.
+
+Cause potentielle du défaut de parsing : dans le prompt V2, l'exécutable Windows était sérialisé comme JSON, avec doubles antislashs, au lieu d'une commande PowerShell native. Le contrat V3 `p1.1-git-diff-psfallback-v3` fournit un appel *PowerShell* syntaxiquement explicite, de la forme :
+
+~~~powershell
+& 'C:\Dev\Python31314\python.exe' -B -m unittest discover -s tests -q
+~~~
+
+Le modèle doit d'abord lancer la commande `python -m unittest discover -s tests -q` d'origine. L'appel PowerShell ci-dessus est toujours permis **une seule fois**, uniquement si l'alias WindowsApps empêche de démarrer Python ; jamais pour contourner une erreur de tests, une interdiction de sandbox, ou un refus d'accès. Les antislashs sont littéraux (pas JSON-échappés), le chemin est single-quoted et le préfixe `&` lance l'exécutable dans PowerShell. Les deux bras reçoivent exactement le même contrat V3, le même MXC et les mêmes politiques.
+
+**Les essais V2 ne sont PAS comparables à un bras V3.** Pour continuer, utiliser quatre sorties totalement nouvelles, `-pair04-candidate`, `-pair04-baseline`, `-pair05-baseline`, `-pair05-candidate`, sous un préfixe V3 neuf. Le lanceur exige désormais le marqueur V3 et le bloque avant toute invocation payante si le contrat diffère. Le mode plan reste sans modèle. Conserver les anciens workspaces et toutes leurs preuves, et ne pas prétendre disposer de trois paires comparables tant qu'elles n'existent pas sous un même contrat.
+
+Exécution recommandée : piloter d'abord le mode plan read-only avec `--start-pair 4 --pairs 2 --output-base C:\Dev\codex-ab-tui-mxc-v5-0165-v3`, CLI isolé 0.165.0 vérifié, puis seulement une exécution autorisée `--audited-restore --execute` sous le même préfixe. Maximum quatre appels TUI, arrêt au premier échec. Fermer les sessions avant toute restauration ; les validations de confiance pour les dépôts jetables restent manuelles.
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
