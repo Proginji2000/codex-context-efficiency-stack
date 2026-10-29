@@ -46,7 +46,46 @@ SAFE_CODES = frozenset({
     "THREAD_RESPONSE_MISSING", "THREAD_MESSAGE_LIMIT_EXCEEDED",
     "EXTERNAL_SCRIPT_FAILURE", "REPO_DEPENDENCY_MISSING",
     "WORKSPACE_PROBE_PRECONDITION_FAILED",
+    "THREAD_WARNING_WINDOWS_WORLD_WRITABLE",
+    "THREAD_WARNING_CONFIG",
+    "THREAD_WARNING_GENERAL",
+    "THREAD_WARNING_GUARDIAN",
+    "THREAD_ERROR_NOTIFICATION",
+    "THREAD_WINDOWS_SANDBOX_SETUP_EVENT",
+    "THREAD_PERMISSION_STATE_CHANGED",
+    "THREAD_MODEL_VERIFICATION_EVENT",
+    "THREAD_DEPRECATION_NOTICE",
 })
+
+
+# Exact method strings from openai/codex rust-v0.165.0,
+# app-server-protocol/src/protocol/common.rs (ServerNotification enum).
+# Passive events contain data we do NOT inspect, persist, print or trust.
+# Cap the count to prevent indefinite consumption of unsolicited messages.
+PASSIVE_PRE_REPLY_NOTIFICATIONS = frozenset({
+    "thread/started",
+    "thread/status/changed",
+    "skills/changed",
+    "mcpServer/startupStatus/updated",
+    "account/updated",
+    "account/rateLimits/updated",
+    "app/list/updated",
+})
+
+# These signals require an operator review; NEVER silently ignore them.
+# Especially world-writable Windows temp/workspace paths cannot be treated as
+# proof that the requested MXC policy provides isolation.
+STOP_PRE_REPLY_NOTIFICATIONS = {
+    "windows/worldWritableWarning": "THREAD_WARNING_WINDOWS_WORLD_WRITABLE",
+    "windowsSandbox/setupCompleted": "THREAD_WINDOWS_SANDBOX_SETUP_EVENT",
+    "configWarning": "THREAD_WARNING_CONFIG",
+    "warning": "THREAD_WARNING_GENERAL",
+    "guardianWarning": "THREAD_WARNING_GUARDIAN",
+    "error": "THREAD_ERROR_NOTIFICATION",
+    "deprecationNotice": "THREAD_DEPRECATION_NOTICE",
+    "thread/settings/updated": "THREAD_PERMISSION_STATE_CHANGED",
+    "model/verification": "THREAD_MODEL_VERIFICATION_EVENT",
+}
 
 
 class GateError(ValueError):
@@ -95,7 +134,6 @@ def _receive_thread_response(inbox, proc=None, timeout=THREAD_TIMEOUT_S):
     """
     deadline = time.monotonic() + timeout
     count = 0
-    ignored = 0
     while count < MAX_RECEIVED_MESSAGES:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
@@ -131,13 +169,16 @@ def _receive_thread_response(inbox, proc=None, timeout=THREAD_TIMEOUT_S):
             if not isinstance(body.get("result"), dict):
                 raise GateError("THREAD_MESSAGE_INVALID")
             return body
-        # Only known informational notifications are accepted before a reply.
-        # Do not log method names, payload or IDs.
-        if body.get("method") not in (
-                "configWarning", "appServer/restartRequired", "error",
-                "thread/started", "thread/status/changed"):
+        # A notification may arrive before the matching thread/start response.
+        # Distinguish known, passive background updates from safety warnings.
+        # Server requests (with id) and unknown events remain fail-closed.
+        method = body.get("method")
+        if not isinstance(method, str):
+            raise GateError("THREAD_MESSAGE_INVALID")
+        if method in STOP_PRE_REPLY_NOTIFICATIONS:
+            raise GateError(STOP_PRE_REPLY_NOTIFICATIONS[method])
+        if method not in PASSIVE_PRE_REPLY_NOTIFICATIONS:
             raise GateError("THREAD_NOTIFICATION_UNEXPECTED")
-        ignored += 1
     raise GateError("THREAD_MESSAGE_LIMIT_EXCEEDED")
 
 
