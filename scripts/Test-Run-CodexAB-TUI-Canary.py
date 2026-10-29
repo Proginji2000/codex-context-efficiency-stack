@@ -204,8 +204,10 @@ class TuiCanaryTests(unittest.TestCase):
                     self.assertEqual(
                         app.diagnose(Namespace(pilot=str(root))), 0)
                 report = json.loads(output.getvalue())
+                # The fixed label 'tool_output_token_limit' is an allowed
+                # category; neither private AGENTS contents nor paths may leak.
                 for secret in ("SECRET_BASE_AGENTS", "SECRET_CAND_AGENTS",
-                               "tool_output_token_limit", str(root)):
+                               str(root)):
                     self.assertNotIn(secret, output.getvalue())
                 self.assertEqual(report["model_calls_made"], 0)
                 return report
