@@ -352,6 +352,31 @@ Write-Host ('GIT_DIFF_CHECK_EXIT=' + $LASTEXITCODE)
 ~~~
 
 Ne pas supprimer de fichiers ni appliquer de `git apply --whitespace=fix` avant d'avoir archivé la preuve. Si `git diff --check` rapporte des espaces en fin de ligne, cela reste un vrai défaut du run et non une raison de changer rétroactivement `functional_and_scope_pass=false` en PASS. Le cas échéant, tester une prochaine version du protocole avec le même contrôle pour les deux bras.
+## 29 octobre 2026 — Diagnostic exact du premier A/B et préparation d'un v2 équitable
+
+Sur la candidate v1, la sortie locale `git diff --check` donne **`total.py:3: new blank line at EOF.`** (`exit=2`). Le patch de `total.py` corrige correctement l'arithmétique, mais ajoute une troisième ligne vide. Les deux tests Python étaient verts, mais l'acceptation globale du run reste **FAIL** comme enregistré, avec `git_diff_check_pass=false`. Ne modifier ni le dépôt jetable ni son rapport pour transformer rétrospectivement cet échec en succès.
+
+Le diagnostic de drift corrigé par PR #53 signale à juste titre qu'après le run la candidate possède un `config.toml` différent du snapshot original. Pour préparer un éventuel nouveau benchmark, `Restore-CodexAB-IsolatedCandidate.py` fournit un rétablissement **explicitement demandé et archivé** du seul TOML candidate à partir du TOML baseline, sous réserve que ce dernier corresponde octet par octet au SHA d'origine enregistré. La sauvegarde du TOML candidate est écrite dans un nouveau sous-dossier `audit-backups/backup-...`; ni `AGENTS.md`, ni les tokens/authentifications, ni les profils globaux, ni les traces des runs ne sont modifiés. Ne lancer cette restauration qu'avec toutes les sessions V4 fermées, et après les tests hors modèle.
+
+Le contrat du prompt du nouveau TUI est désormais `p1.1-git-diff-selfcheck-v2` **pour les deux bras**. Il demande au worker de lancer `git diff --check` avant de déclarer la tâche terminée, de vérifier que seul `total.py` est modifié et de corriger les lignes vides/espaces introduits, puis de revérifier. Le parent reste superviseur. Cette évolution change le prompt ; les résultats du premier A/B **v1** sont historiques et ne peuvent pas servir de baseline statistique pour un nouveau bras **v2**. Toute qualification v2 exige deux nouveaux runs disposant du même contrat et des mêmes flags, et une vérification indépendante.
+
+### Restauration candidate, strictement hors modèle et seulement sur décision explicite
+
+~~~powershell
+$py = 'C:\Dev\Python31314\python.exe'
+$pilot = 'C:\Dev\codex-ab-pr14-pilot-v4'
+Set-Location 'C:\Dev\codex-context-efficiency-stack'
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw 'Git pull failed' }
+& $py .\scripts\Test-Restore-CodexAB-IsolatedCandidate.py
+if ($LASTEXITCODE -ne 0) { throw 'Candidate restore tests failed' }
+$label = 'backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss-ffff') + '-candidate-v2'
+& $py .\scripts\Restore-CodexAB-IsolatedCandidate.py --pilot $pilot --backup-label $label --execute
+if ($LASTEXITCODE -ne 0) { throw 'Candidate restore failed' }
+& .\scripts\Invoke-CodexABTuiQualified.ps1 -Pilot $pilot
+~~~
+
+Cette procédure ne lance aucun modèle par défaut. Si le TOML baseline lui-même a dérivé, le restore candidate refuse de le prendre comme référence ; ne pas contourner le contrôle. Si les deux profils sont revenus à la référence mais que le workspace affiche une confirmation de confiance, celle-ci reste une **décision manuelle documentée**, non une élévation UAC. Il faudra maîtriser ce facteur dans la comparaison des durées.
 ## Interprétation des résultats
 
 - `functional_and_scope_pass=true` et comportement worker vu dans TUI : **canary TUI fonctionnel, sous réserve de confirmer visuellement la délégation**. Cela ne valide pas encore l'A/B ni un nombre de runs statistiques.
