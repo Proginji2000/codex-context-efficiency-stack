@@ -73,6 +73,14 @@ if mode == "benign-mcp":
     send({"method":"mcpServer/startupStatus/updated","params":{"private":"PRIVATE"}})
 if mode == "benign-account":
     send({"method":"account/updated","params":{"private":"PRIVATE"}})
+if mode == "policy-bad-model":
+    req["params"]["_fakePolicyResponseMutation"] = "bad-model"
+if mode == "policy-network-on":
+    req["params"]["_fakePolicyResponseMutation"] = "network-on"
+if mode == "policy-extra-root":
+    req["params"]["_fakePolicyResponseMutation"] = "extra-root"
+if mode == "policy-non-ephemeral":
+    req["params"]["_fakePolicyResponseMutation"] = "non-ephemeral"
 if mode == "remote-disabled":
     send({"method":"remoteControl/status/changed",
           "params":{"status":"disabled","serverName":"PRIVATE_SERVER_NAME",
@@ -119,7 +127,7 @@ if mode == "bad-model-verification":
     send({"method":"model/verification","params":{"private":"PRIVATE"}})
     sys.exit(0)
 p = req["params"]
-send({"id":2,"result":{
+response={"id":2,"result":{
     "approvalPolicy":p["approvalPolicy"],"model":p["model"],
     "reasoningEffort":"medium","cwd":p["cwd"],
     "sandbox":{"type":"workspaceWrite","writableRoots":[p["cwd"]],
@@ -127,7 +135,17 @@ send({"id":2,"result":{
                "excludeSlashTmp":True},
     "thread":{"id":"PRIVATE_WORKER_ID","ephemeral":True,"turns":[]},
     "instructionSources":[]
-}})
+}}
+if mode == "policy-bad-model":
+    response["result"]["model"] = "PRIVATE_OTHER_MODEL"
+if mode == "policy-network-on":
+    response["result"]["sandbox"]["networkAccess"] = True
+if mode == "policy-extra-root":
+    response["result"]["sandbox"]["writableRoots"].append(
+        "C:\\PRIVATE\\SECRET" if os.name=="nt" else "/PRIVATE/SECRET")
+if mode == "policy-non-ephemeral":
+    response["result"]["thread"]["ephemeral"] = False
+send(response)
 time.sleep(.02)
 '''
 
@@ -359,6 +377,66 @@ class RealH12OfflineTests(unittest.TestCase):
                         app.perform_exchange([sys.executable, "-B", str(self.fake), "good"],
                                              self.env, self.root, self.home, self.workspace,
                                              init_timeout=3, thread_timeout=3)
+
+    def test_allowlisted_policy_diagnostics_do_not_echo_rejected_values(self):
+        cases = {
+            "POLICY_ECHO_MISMATCH",
+            "REASONING_ECHO_MISMATCH",
+            "SANDBOX_NETWORK_UNPROVEN",
+            "UNEXPECTED_WRITABLE_ROOT",
+            "THREAD_NOT_EPHEMERAL",
+            "INSTRUCTION_OUTSIDE_ISOLATION",
+            "INVALID_ABSOLUTE_PATH",
+        }
+        for reason in cases:
+            with self.subTest(reason=reason):
+                exc = app.policy.PolicyError(reason)
+                safe = app._safe_policy_code(exc)
+                self.assertEqual(safe, "THREAD_ECHO_VALIDATION_FAILED:" + reason)
+                exported = app._safe_code(app.GateError("THREAD_ECHO_VALIDATION_FAILED", safe))
+                self.assertEqual(exported, safe)
+                self.assertNotIn("PRIVATE", exported)
+
+    def test_untrusted_policy_exception_text_is_redacted(self):
+        cases = [
+            app.policy.PolicyError("PRIVATE_KEY_VALUE"),
+            app.policy.PolicyError("POLICY_ECHO_MISMATCH", "PRIVATE"),
+            ValueError("PRIVATE_LOCAL_PATH"),
+            KeyError("PRIVATE_SESSION"),
+        ]
+        for exc in cases:
+            with self.subTest(exc_type=type(exc).__name__):
+                safe = app._safe_policy_code(exc)
+                self.assertEqual(
+                    safe, "THREAD_ECHO_VALIDATION_FAILED:OTHER_POLICY_VALIDATION_FAILURE")
+                self.assertNotIn("PRIVATE", app._safe_code(
+                    app.GateError("THREAD_ECHO_VALIDATION_FAILED", safe)))
+
+    def test_policy_reason_cannot_be_injected_into_gate_error(self):
+        for value in (
+                "THREAD_ECHO_VALIDATION_FAILED:PRIVATE",
+                "THREAD_ECHO_VALIDATION_FAILED:POLICY_ECHO_MISMATCH:PRIVATE",
+                "POLICY_ECHO_MISMATCH",
+        ):
+            with self.subTest(value=value):
+                self.assertEqual(app._safe_code(
+                    app.GateError("THREAD_ECHO_VALIDATION_FAILED", value)),
+                    "EXTERNAL_SCRIPT_FAILURE")
+
+    @unittest.skipUnless(os.name == "nt", "actual Windows path policy only")
+    def test_fake_server_policy_mismatches_return_exact_stop_category(self):
+        cases = {
+            "policy-bad-model": "POLICY_ECHO_MISMATCH",
+            "policy-network-on": "SANDBOX_NETWORK_UNPROVEN",
+            "policy-extra-root": "UNEXPECTED_WRITABLE_ROOT",
+            "policy-non-ephemeral": "THREAD_NOT_EPHEMERAL",
+        }
+        for mode, reason in cases.items():
+            with self.subTest(mode=mode):
+                with self.assertRaises(app.GateError) as caught:
+                    self.execute_fake(mode)
+                expected = "THREAD_ECHO_VALIDATION_FAILED:" + reason
+                self.assertEqual(app._safe_code(caught.exception), expected)
 
     def test_fixed_error_classifications(self):
         self.assertEqual(app._safe_code(app.GateError("THREAD_RPC_REJECTED")),
