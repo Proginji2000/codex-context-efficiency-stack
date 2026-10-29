@@ -33,26 +33,36 @@ class RepeatPairsTests(unittest.TestCase):
             digest=lambda b: hashlib.sha256(b).hexdigest(),
             read_file=lambda path: path.read_bytes(),
         )
-        tui = SimpleNamespace(runner=runner)
+        tui = SimpleNamespace(runner=runner, PROMPT_CONTRACT=app.CONTRACT)
         return pilot, repo, state, tui
 
     def args(self, pilot, repo, out_base, **values):
         params = dict(
             pilot=str(pilot), repo=str(repo), output_base=str(out_base),
             codex_cli="C:/Dev/codex-cli-0165/node_modules/.bin/codex.cmd",
-            start_pair=2, pairs=2, execute=True, audited_restore=True,
+            start_pair=4, pairs=2, execute=True, audited_restore=True,
         )
         params.update(values)
         return Namespace(**params)
 
-    def test_pair02_reversed_pair03_original_order(self):
+    def test_mismatched_prompt_contract_blocks_before_paid_call(self):
+        with tempfile.TemporaryDirectory() as name:
+            pilot, repo, state, tui = self.create(Path(name))
+            tui.PROMPT_CONTRACT = "p1.1-git-diff-selfcheck-v2"
+            tui.run = Mock(side_effect=AssertionError("NO_MODEL"))
+            with patch.object(app, "contexts", return_value=(tui, None, None)):
+                with self.assertRaisesRegex(ValueError, "PROMPT_CONTRACT_MISMATCH"):
+                    app.run(self.args(pilot, repo, Path(name) / "trial"))
+            tui.run.assert_not_called()
+
+    def test_pair04_reversed_pair05_original_order(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
             pilot, repo, _, _ = self.create(root)
-            _, _, planned = app.paths(pilot, repo, root / "trial", (2, 3))
+            _, _, planned = app.paths(pilot, repo, root / "trial", (4, 5))
             self.assertEqual([(pair, arm) for pair, arm, _ in planned], [
-                (2, "candidate"), (2, "baseline"),
-                (3, "baseline"), (3, "candidate"),
+                (4, "candidate"), (4, "baseline"),
+                (5, "baseline"), (5, "candidate"),
             ])
             self.assertEqual(len(set(str(o) for _, _, o in planned)), 4)
 
@@ -148,14 +158,14 @@ class RepeatPairsTests(unittest.TestCase):
                   patch.object(app, "preflight"),
                   patch.object(app, "verify_report", side_effect=AssertionError("NO_VERIFICATION")),
                   contextlib.redirect_stdout(io.StringIO())):
-                with self.assertRaisesRegex(ValueError, "RUN_FAILED_P02_CANDIDATE"):
+                with self.assertRaisesRegex(ValueError, "RUN_FAILED_P04_CANDIDATE"):
                     app.run(self.args(pilot, repo, Path(name) / "trial"))
             tui.run.assert_called_once()
 
     def test_existing_second_output_blocks_entire_batch_before_model(self):
         with tempfile.TemporaryDirectory() as name:
             pilot, repo, state, tui = self.create(Path(name))
-            already = Path(name) / "trial-pair03-candidate"
+            already = Path(name) / "trial-pair05-candidate"
             already.mkdir()
             def validate(_pilot, output, _repo):
                 if Path(output).exists():
