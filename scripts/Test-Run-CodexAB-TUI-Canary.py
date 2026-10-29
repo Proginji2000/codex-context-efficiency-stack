@@ -773,7 +773,13 @@ class TuiCanaryTests(unittest.TestCase):
             baseline_cmd = recorded["baseline"][0]
             candidate_cmd = recorded["candidate"][0]
             self.assertEqual(baseline_cmd[-1], candidate_cmd[-1])
-            self.assertEqual(baseline_cmd, candidate_cmd)
+            self.assertEqual(baseline_cmd.index("--cd"), candidate_cmd.index("--cd"))
+            normalized_baseline = baseline_cmd.copy()
+            normalized_candidate = candidate_cmd.copy()
+            # Only the intentionally distinct disposable workspace paths may differ.
+            normalized_baseline[normalized_baseline.index("--cd") + 1] = "<workspace>"
+            normalized_candidate[normalized_candidate.index("--cd") + 1] = "<workspace>"
+            self.assertEqual(normalized_baseline, normalized_candidate)
             self.assertEqual(
                 (pilot / "baseline-home" / "config.toml").read_bytes(), config)
             self.assertEqual(
