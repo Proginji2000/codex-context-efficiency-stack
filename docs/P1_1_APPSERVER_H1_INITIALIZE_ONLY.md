@@ -26,6 +26,16 @@ La révision suivante conserve les mêmes permissions et messages JSON-RPC mais 
 
 **Aucun modèle réel n'est invoqué pour ce correctif.** Les tests de diagnostic sont entièrement synthétiques. Le démarrage local reste derrière `--execute-local-preflight`, sans élévation, sans désactivation de MXC ni accès aux profils historiques. S'il échoue à nouveau, **ne pas lancer de relance en boucle** : utiliser la catégorie précise pour décider du correctif ciblé.
 
+## Diagnostic H1 confirmé — absence de `jsonrpc` dans le protocole épinglé
+
+Un nouveau préflight local du 29/10/2026 a passé **19/19** tests synthétiques et le plan, puis s'est arrêté sur `H1_LOCAL_PREFLIGHT_FAILED:INVALID_JSONRPC_VERSION`. **La connexion réelle reste non validée** à cette date : ce résultat ne prouve pas une initialisation réussie.
+
+La cause de la **classification d'erreur** a été vérifiée directement dans [le code officiel Codex `rust-v0.165.0` `rpc.rs`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/app-server-protocol/src/rpc.rs) : `We do not do true JSON-RPC 2.0, as we neither send nor expect the "jsonrpc": "2.0" field.` Les messages réponse `JSONRPCResponse` ne comportent que `id` et `result`, et les notifications `method` / `params`. L'ancien client exigeait indûment `payload.jsonrpc == "2.0"`.
+
+**Correctif :** l'enveloppe de requête sortante suit désormais le protocole sans `jsonrpc` ; le parseur accepte l'absence du champ dans une réponse, accepte `"jsonrpc":"2.0"` pour rester tolérant et rejette toute valeur contradictoire. Les tests reproduisent ces trois scénarios avec un faux serveur, sous Windows et Ubuntu. Aucun changement de politique MXC, de sandbox, d'autorisation ou de `CODEX_HOME` ; aucun appel modèle et aucune lecture de session historique.
+
+Le prochain essai réel reste une action locale **explicitement autorisée et bornée à une seule tentative**. Ne pas recycler les anciennes sorties ni déclarer H1 validé tant que le véritable serveur n'a pas répondu correctement au handshake complet.
+
 ## Contrôle sans vrai Codex : peut être exécuté immédiatement après Git pull
 
 ```powershell
