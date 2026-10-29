@@ -33,7 +33,7 @@ def powershell_python_fallback_command(interpreter):
     backslashes, not a JSON-escaped string or a bare executable expression.
     """
     path = str(interpreter)
-    if not path or any(c in path for c in ("\\x00", "\\r", "\\n")):
+    if not path or any(c in path for c in (chr(0), chr(13), chr(10))):
         raise ValueError("PYTHON_HINT_INTERPRETER_UNAVAILABLE")
     return "& '" + path.replace("'", "''") + "' -B -m unittest discover -s tests -q"
 
