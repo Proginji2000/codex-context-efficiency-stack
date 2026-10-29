@@ -121,7 +121,8 @@ def assert_thread_policy(req, response):
     params = req["params"]
     if (params.get("approvalPolicy") != "never"
             or params.get("sandbox") != "workspace-write"
-            or params.get("model") != MODEL or params.get("ephemeral") is not True):
+            or params.get("model") != MODEL or params.get("ephemeral") is not True
+            or params.get("config") != {"windows": {"sandbox": "mxc"}, "model_reasoning_effort": "medium"}):
         raise HarnessError("INVALID_THREAD_REQUEST")
     if result.get("model") != MODEL or result.get("approvalPolicy") != "never":
         raise HarnessError("POLICY_ECHO_MISMATCH")
@@ -162,6 +163,12 @@ class MockEndpoint:
         self.thread_id = "SYNTHETIC_THREAD"
         self.messages = []
 
+    def notify(self, notice):
+        if notice != {"jsonrpc": "2.0", "method": "initialized"} or self.state != "initialized":
+            raise HarnessError("INVALID_INITIALIZED_NOTIFICATION")
+        self.messages.append("initialized")
+        self.state = "ready"
+
     def call(self, req):
         self.messages.append(req["method"])
         if req["method"] == "initialize" and self.state == "created":
@@ -169,7 +176,7 @@ class MockEndpoint:
             return {"jsonrpc": "2.0", "id": req["id"],
                     "result": {"userAgent": "synthetic", "platformFamily": "windows",
                                "platformOs": "windows", "codexHome": "/SYNTHETIC-NOT-REAL"}}
-        if req["method"] == "thread/start" and self.state == "initialized":
+        if req["method"] == "thread/start" and self.state == "ready":
             self.state = "thread"
             return {"jsonrpc": "2.0", "id": req["id"], "result": {
                 "thread": {"id": self.thread_id},
@@ -222,6 +229,7 @@ def simulate(case, endpoint=None):
     initialized = rpc_result(initialize_request(), endpoint.call(initialize_request()))
     if initialized.get("platformOs") != "windows":
         raise HarnessError("PLATFORM_MISMATCH")
+    endpoint.notify({"jsonrpc": "2.0", "method": "initialized"})
     start = thread_request(valid[case])
     thread_id = assert_thread_policy(start, endpoint.call(start))
     turn = turn_request(valid[case], thread_id)
