@@ -108,3 +108,24 @@ Le futur lanceur réel H1.3a refuse désormais dès le préflight les builds 261
 Le classificateur traite maintenant les chaînes explicites du code source officiel [`mxc-sandbox/src/windows.rs` (version rust-v0.165.0)](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/mxc-sandbox/src/windows.rs) et [`mxc-sandbox/src/lib.rs`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/mxc-sandbox/src/lib.rs) **avant** de classer tout « warning » générique : `MXC_NATIVE_UNAVAILABLE`, `MXC_LAUNCHER_FAILURE` ou `MXC_POLICY_RESTRICTION`. Ce diagnostic ne publie ni texte d'erreur, ni répertoire, ni HRESULT, ni ID, ni secret ; **tout stderr non vide provoque toujours STOP** et ne peut pas être ignoré.
 
 **Décision actuelle :** avant une nouvelle tentative réelle, exécuter uniquement l'option de lecture de build Windows et analyser le résultat. Aucun fallback de sandbox, installation, UAC, modification de configuration Windows, désactivation MXC, ancien profil Codex, `turn/start` ou modèle IA n'est autorisé.
+
+## Quatrième vérification — build Windows valide, backend natif toujours non qualifié (29/10/2026)
+
+Le dernier rapport de l'opérateur sur main `f5b0895eae38ca2639f39eab0d107daa77f3feca` montre : **36/36** tests synthétiques du lanceur PASS, `mode=READ_ONLY_OS_BUILD_CHECK`, `windows_build=26200`, `windows_revision=9711`, seuil documenté `26200.9278`, `os_threshold_status=DOCUMENTED_BUILD_THRESHOLD_MET`, `processes_launched=0`, `model_calls_made=0`. **Le manque de révision Windows n'explique donc pas la difficulté observée sur ce poste** ; la disponibilité native de `ProcessSecurityEnvironmentApi` ainsi que la permission MXC gérée restent **non démontrées**.
+
+Selon le code épinglé [`codex-rs/mxc-sandbox/src/availability.rs`](https://github.com/openai/codex/blob/rust-v0.165.0/codex-rs/mxc-sandbox/src/availability.rs), la disponibilité n'est pas un simple test de build : Codex charge l'API native, crée un environnement de sécurité et construit ses attributs de démarrage **sans lancer de processus**. Cela peut échouer même sur un OS dont la version dépasse le seuil documenté.
+
+### Nouveau mode de diagnostic H1.3a : une compatibilité seulement
+
+L'option séparée `--execute-local-mxc-compat-only` du script `scripts/Probe-CodexAB-H13MXC.py` vise à éviter de répéter à l'aveugle le test de confinement complet. Elle :
+
+- vérifie Windows non administrateur, version exacte `codex-cli 0.165.0` et éligibilité du build documenté ;
+- crée un `CODEX_HOME` et un workspace temporaires **neufs**, sans recopier sessions, identifiants, projets ni configurations de profil utilisateur ;
+- exécute **au maximum une seule** commande standalone de compatibilité `codex -c windows.sandbox=mxc sandbox --include-managed-config --permission-profile :workspace -- cmd.exe /d /c echo MXC_OK` ;
+- impose stdout exactement `MXC_OK`, stderr vide, exit code 0 ; toute erreur ou avertissement donne STOP avec catégorie fixe, sans texte brut, chemin ni secret ;
+- **ne crée aucune sentinelle extérieure et ne démarre pas le test Python d'écriture**, même si le contrôle de compatibilité réussit. Aucun `thread/start`, `turn/start`, modèle, worker ou benchmark A/B ;
+- sépare explicitement une possible réussite de cette commande de toute preuve de confinement de fichiers, sécurité réseau, provenance worker, nettoyage des descendants et parité app-server.
+
+La version affichée par défaut reste `PLAN_ONLY_NO_PROCESS`. Les trois options `--check-windows-build`, `--execute-local-mxc-compat-only` et `--execute-local-mxc-probe` sont mutuellement exclusives. Les tests CI ne lancent pas de vrai Codex, utilisent de faux retours, vérifient l'absence de seconde commande après échec et la confidentialité des diagnostics.
+
+Une réussite du mode compatibilité ne vaudrait **que** `MXC_COMPAT_STANDALONE_ECHO_PASS_NOT_ENFORCEMENT`. Si le résultat est encore `GENERAL_WARNING`, sa cause restera **non identifiée** à partir d'une catégorie anonymisée : il faudra alors envisager une inspection strictement locale et contrôlée du message du CLI, sans divulguer de texte sensible. Il ne faut ni supprimer l'avertissement, ni demander UAC, ni modifier la configuration globale ou changer de backend pour obtenir artificiellement un PASS.
