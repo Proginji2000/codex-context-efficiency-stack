@@ -4,6 +4,8 @@ Start here when installing, updating, troubleshooting or extending the Codex Con
 
 ## Choose by goal
 
+**Latest handoff (30 October 2026):** [Codex stack state after Serena, shadcn and Supermemory local tests](CODEX_STACK_HANDOFF_2026-10-30.md). **Supermemory health/auth/write/search passed in operator-reported local tests; integration with Codex hooks is still pending.** Start there when resuming the project.
+
 **Current living plan:** [Codex qualification, dashboard tooling and isolated VM pilot roadmap (October 2026)](QUALIFICATION_ROADMAP_2026.md). This differentiates real runtime evidence from synthetic tests and future milestones.
 
 | Goal | Read |
