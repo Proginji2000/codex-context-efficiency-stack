@@ -2,6 +2,12 @@
 
 **Reference : 28 octobre 2026.** Projet : `codex-context-efficiency-stack`. Ce document est un backlog vivant : ajouter de nouveaux P1/P2/P3 apres les resultats sans retrograder des blocages connus. Priorite = importance et dependances, pas pourcentage d'avancement ni date de livraison.
 
+## Mise à jour de continuité — 30 octobre 2026 (mémoire/outillage)
+
+**Document canonique pour la reprise opérationnelle :** [passation du 30/10](CODEX_STACK_HANDOFF_2026-10-30.md). Résultats *rapportés par l'opérateur*, sans accès distant direct : Serena 2.1.0 (navigation LSP, mémoire Markdown intersessions) et shadcn MCP (recherche registre, 7 outils) ont passé les tests ciblés ; PR #91 et #92 sont fusionnées et la mise à jour locale du worker UI + ajout ciblé dans AGENTS global ont produit des PASS avec sauvegardes. Supermemory Local 0.0.9 est démarré sous Docker Linux avec API liée à localhost ; health, API authentifiée, écriture d'un document fictif et recherche sémantique ont **PASS**. Ollama 0.40.13 et qwen3:8b ont été installés ; la connectivité conteneur → Ollama est prouvée, **pas l'usage effectif de chaque fournisseur et l'absence de trafic cloud**. Le volume persistant existe et n'a pas été effacé ; aucune sauvegarde restaurable n'est attestée. **Hooks Codex SessionStart/PostToolUse inchangés : intégration automatique Supermemory non faite.**
+
+**Action prioritaire :** intégrer Supermemory à Codex en opt-in avec audit préalable des hooks existants et de l'API locale, protections des secrets et rollback ; ne pas recommencer les installations ni créer d'app de démonstration. Le jalon VM reste ultérieur. **La PR #14 est toujours OPEN** et les limites de l'A/B P1.1 demeurent inchangées.
+
 ## Mise à jour vérifiée — 29 octobre 2026 (P1.1, après qualification V3)
 
 Ce bloc complète la baseline historique du 28 octobre ci-dessous, qui n'est pas modifiée rétroactivement. Références : [suivi #61](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/61), [qualification #34](https://github.com/Proginji2000/codex-context-efficiency-stack/issues/34) et [PR #14](https://github.com/Proginji2000/codex-context-efficiency-stack/pull/14).
