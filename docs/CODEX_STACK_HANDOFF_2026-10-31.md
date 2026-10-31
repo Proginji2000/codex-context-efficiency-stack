@@ -2,6 +2,12 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Broker + MCP V2 : 24/24 PASS sous Windows (dernier résultat du 31/10/2026)
+
+Sortie PowerShell 5.1 de l'opérateur, archive ZIP SHA256 vérifiée : `BROKER_MCP_V2_INTEGRITY_PASS`, `Ran 24 tests in 6.751s`, `OK`, `BROKER_MCP_OFFLINE_TESTS_PASS`, `NO_SECRETS_NO_PRODUCTION_CHANGES`, `BROKER_MCP_V2_WINDOWS_PASS`. Les 24 tests utilisent des jetons factices et une API simulée, sans exécuter Codex, Docker, Ollama ou Supermemory en production. Extraction du ZIP en dossier temporaire unique puis cleanup par le wrapper PowerShell. **Jalon Windows hors ligne validé ; aucune qualification d'isolation d'identité, de service broker ni de recherche live Codex n'est encore réalisée.** Ne pas rejouer les tests hors ligne à code identique.
+
+**Prochaine priorité :** inventaire non destructif Windows (compte opérateur, groupes Docker/Admin, existence éventuelle d'un compte local standard distinct, disponibilité du port broker 6811, absence de secret dans l'environnement) pour fixer les identités de confiance et d'agent. Ne pas créer de compte, changer les ACL, exposer la clé réelle ou lancer Codex avec cette clé sans décision de déploiement et tests négatifs. Détails : [SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
+
 ## Nouveau livrable : broker + MCP V2 offline (31/10/2026)
 
 Une V2 indépendante du prototype initial est construite : broker Python `POST /search` namespace fixe + pont MCP JSON-RPC stdio `search` uniquement avec jeton de lecture limité, **sans `SUPERMEMORY_API_KEY` dans la passerelle**. 24 tests offline PASS dans l'environnement de préparation, dont exécution de la passerelle comme sous-processus. Aucun test Windows/opérateur ni déploiement n'a été effectué. ZIP de conversation `Supermemory_Readonly_Broker_MCP_Offline_V2_20261031.zip`, SHA256 `A0A40F07D0C4272647D54E3839A5163067BE48ACF5F9D509C07B8165FDD811B5`. Spécification et instructions : [SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md). L'archive n'est pas hébergée par GitHub ; elle est attachée dans la conversation.
