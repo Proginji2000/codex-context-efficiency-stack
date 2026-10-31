@@ -2,6 +2,16 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Contrôle documentaire du canary existant — 31/10/2026 (plus récent)
+
+**`EXISTING_CANARY_METADATA_CHECK_COMPLETE` ; `DOCUMENT_INDEXED_PASS`**, d'après sortie opérateur Windows PowerShell : `POST /ns/codex_llm_canary_c58e251be7bf/list/documents?limit=10` avec corps `{}` en lecture seule, clé API masquée, a renvoyé `DOCUMENTS_FOUND=1`, `DOCUMENT_STATUS=done`, `DREAMING_STATUS=ABSENT`, `MEMORY_COUNT=ABSENT`, `DREAMING_STATUS_UNCONFIRMED`.
+
+**Conclusion exacte :** le document synthétique est bien indexé, mais ces deux métadonnées n'ont pas été incluses dans cette réponse, pas plus que `dreamingStatus` lors du `GET /document/{id}` antérieur. **Ne pas traiter ABSENT comme erreur d'extraction ni comme extraction achevée.** Aucun nouveau document créé ; pas de test de restauration ou d'inférence Ollama directe nécessaire.
+
+**Prochain geste minimal :** `POST /ns/codex_llm_canary_c58e251be7bf/list/memories?limit=10`, corps `{}`, consulter uniquement le décompte sans afficher les textes/ID secrets. Un résultat >0 prouve l'existence de souvenirs extraits ; 0 ne prouve pas l'échec (le texte synthétique peut ne générer aucun souvenir). Après cette lecture, ne pas continuer une série de tests de métadonnées absentes : qualifier l'origine des 3 requêtes Ollama avec observation fiable ou passer à une stratégie de canary Codex↔MCP contrôlant la clé API, uniquement après validation des limites de sécurité.
+
+La branche adaptateur `codex/supermemory-local-adapter-20261030` est toujours locale à `e4fd34e`, non poussée ; ne pas écraser au moyen d'un `git pull` ou de nettoyage forcé. Ce document de passation est suivi sur GitHub `main` ; les scripts et clés restent sur le PC.
+
 ## Corrélation Supermemory → Ollama — essai synthétique du 31/10/2026 (résultat le plus récent)
 
 **`SUPERMEMORY_OLLAMA_CORRELATION_INCONCLUSIVE`**, et non PASS. L'opérateur a exécuté un unique test synthétique depuis PowerShell 5.1, avec lecture des nouveaux octets du journal Ollama `%LOCALAPPDATA%\Ollama\server.log` après création du document.
