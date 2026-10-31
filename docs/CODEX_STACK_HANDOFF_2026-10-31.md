@@ -2,6 +2,14 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Verification Ollama Qwen3 — 31/10/2026 (dernier resultat)
+
+**`OLLAMA_QWEN3_INFERENCE_PASS`** rapporte par la sortie Windows PowerShell operateur : `GET http://127.0.0.1:11434/api/tags` annonce `qwen3:8b` et `POST /api/generate` (prompt synthetique "OK", `stream=false`, `think=false`, `num_predict=32`) renvoie `model=qwen3:8b`, `done=true`, `eval_count=2`. Marqueurs `OLLAMA_MODEL_AVAILABLE_PASS`, `OLLAMA_QWEN3_INFERENCE_PASS`.
+
+**Ce qui est acquis :** Ollama Windows sait generer effectivement et localement avec qwen3:8b, independamment de Codex. Controle sans ecriture dans les memoires Supermemory.
+
+**Ce qui reste distinct :** ce test **ne prouve pas** qu'un traitement Supermemory a appele Ollama, ni l'absence d'autres sorties/fallback reseau cloud. Prochaine qualification : appel synthetique Supermemory sur namespace dedie avec preuves observees du parcours Supermemory → Ollama, isolation des donnees de test et aucun secret affiche ; puis canary Codex ↔ MCP en lecture seule. Ne pas refaire inference Ollama directe, backup V5, ou plan d'embeddings 6/6.
+
 ## Validation embeddings — 31/10/2026 (dernier gate valide)
 
 **`EMBEDDING_PLAN_SNAPSHOT_RUNTIME_PASS` : 6/6 comparaisons conformes**, d'apres la sortie PowerShell de l'operateur. Le fichier persistant `embedding-plan.json` existe dans le snapshot froid `snapshot-20261031-003115/data` et dans le conteneur de production `supermemory-supermemory-1`. Schema observe : `provider`, `modelId`, `dimensions` (**`modelId`, pas `model`**).
