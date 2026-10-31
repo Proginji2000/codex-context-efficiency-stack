@@ -2,6 +2,17 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Qualification de l'extraction du canary — 31 octobre 2026 (dernier résultat)
+
+**`EXTRACTED_MEMORIES_PRESENT_PASS`** : sortie Windows PowerShell communiquée par l'opérateur. Un **unique contrôle en lecture seule**, `POST http://127.0.0.1:6767/ns/codex_llm_canary_c58e251be7bf/list/memories?limit=10`, JSON `{}`, a renvoyé :
+
+- `MEMORIES_RETURNED=3`, `MEMORIES_TOTAL=3` ; `MEMORY_LIST_READ_PASS`, `EXTRACTED_MEMORIES_PRESENT_PASS`, `EXISTING_CANARY_MEMORY_CHECK_COMPLETE`.
+- Le document unique du namespace était déjà `system.status=done`. On a donc une preuve de **trois mémoires réellement disponibles via l'API de lecture** pour le document synthétique, même si `system.dreamingStatus` et `system.memoryCount` n'étaient pas présents dans les réponses de métadonnées antérieures.
+- Aucune nouvelle ingestion ni altération de production n'a eu lieu lors de ce contrôle. Ne pas refaire les tests document/status/mémoire, ni le backup/restore, ni le plan d'embeddings ou l'inférence Ollama directe.
+- Les **3 requêtes de génération Ollama** observées durant l'ingestion restent des **indices corrélatifs**, pas une preuve d'attribution à ce processus ou à `qwen3:8b`, ni une preuve d'absence de fallback cloud.
+
+**Prochain bloc prioritaire :** instrumenter l'attribution locale Supermemory→Ollama / l'absence d'egress inapproprié, puis préparer un **canary Codex MCP lecture seule** avec cloisonnement de la clé complète Supermemory. Le test Python direct MCP est déjà PASS ; **ne pas transmettre `SUPERMEMORY_API_KEY` dans l'environnement de Codex ou de ses descendants** sans solution de moindre privilège. L'adaptateur est encore uniquement local sur `codex/supermemory-local-adapter-20261030` au commit `e4fd34e`, et n'est pas dans le dépôt GitHub. Définir un mécanisme broker/proxy filtrant ou autre gestion de crédentiel indépendante avant tout usage avec données sensibles. Ne pas écraser la branche locale en synchronisant main.
+
 ## Contrôle documentaire du canary existant — 31/10/2026 (plus récent)
 
 **`EXISTING_CANARY_METADATA_CHECK_COMPLETE` ; `DOCUMENT_INDEXED_PASS`**, d'après sortie opérateur Windows PowerShell : `POST /ns/codex_llm_canary_c58e251be7bf/list/documents?limit=10` avec corps `{}` en lecture seule, clé API masquée, a renvoyé `DOCUMENTS_FOUND=1`, `DOCUMENT_STATUS=done`, `DREAMING_STATUS=ABSENT`, `MEMORY_COUNT=ABSENT`, `DREAMING_STATUS_UNCONFIRMED`.
