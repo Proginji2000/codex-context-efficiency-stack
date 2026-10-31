@@ -2,6 +2,12 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Nouveau livrable : broker + MCP V2 offline (31/10/2026)
+
+Une V2 indépendante du prototype initial est construite : broker Python `POST /search` namespace fixe + pont MCP JSON-RPC stdio `search` uniquement avec jeton de lecture limité, **sans `SUPERMEMORY_API_KEY` dans la passerelle**. 24 tests offline PASS dans l'environnement de préparation, dont exécution de la passerelle comme sous-processus. Aucun test Windows/opérateur ni déploiement n'a été effectué. ZIP de conversation `Supermemory_Readonly_Broker_MCP_Offline_V2_20261031.zip`, SHA256 `A0A40F07D0C4272647D54E3839A5163067BE48ACF5F9D509C07B8165FDD811B5`. Spécification et instructions : [SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md). L'archive n'est pas hébergée par GitHub ; elle est attachée dans la conversation.
+
+**Prochain gate :** Windows offline 24/24, puis séparation Windows/VM réelle des identités et permissions avant tests avec la clé de production. Ne pas répéter sondes MXC/Docker, réinitialiser Supermemory ni écraser la branche adaptateur locale `e4fd34e`.
+
 ## MXC V3 terminé et broker read-only prototypé — 31/10/2026 (dernier état)
 
 L'opérateur a exécuté la sonde MXC V3 avec checksum vérifié. **`V3_DOCKER_DAEMON_EXIT=1`, `V3_DOCKER_EXEC_EXIT=1`, `V3_DOCKER_FAILURE_CLASS=ACCESS_DENIED`, `V3_SANDBOX_DOCKER_ACCESS_NOT_DEMONSTRATED`**, sur un processus enfant sandboxé (MXC 0.164.0). L'exécutable Docker était présent mais le daemon inaccessible. **Ce résultat ne prouve pas la protection de l'environnement du parent Codex ou des serveurs MCP** ; le compte Windows hors MXC possède toujours Docker. `NO_MODEL_CALLS_NO_SECRET_CONTENT`. **Probes Docker V1-V3 closes.** Aucun autre test Docker similaire n'est demandé.
