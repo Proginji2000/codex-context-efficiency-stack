@@ -2,6 +2,19 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Corrélation Supermemory → Ollama — essai synthétique du 31/10/2026 (résultat le plus récent)
+
+**`SUPERMEMORY_OLLAMA_CORRELATION_INCONCLUSIVE`**, et non PASS. L'opérateur a exécuté un unique test synthétique depuis PowerShell 5.1, avec lecture des nouveaux octets du journal Ollama `%LOCALAPPDATA%\Ollama\server.log` après création du document.
+
+- Production `supermemory-supermemory-1` **healthy** ; `SUPERMEMORY_OLLAMA_PREFLIGHT_PASS`.
+- Un document non personnel a été accepté dans le namespace dédié **`codex_llm_canary_c58e251be7bf`** (`SYNTHETIC_DOCUMENT_ACCEPTED_PASS`).
+- La lecture `GET /ns/{namespace}/document/{id}` renvoie **`system.status=done`** : traitement/indexation du document achevé. **`system.dreamingStatus` renvoie vide/absent** ; ne pas interpréter comme `done`, `failed` ou `dreaming`. La variable `$id` était locale au scriptblock PowerShell et sa valeur n'a pas été imprimée ; éviter de demander un nouvel ingest simplement pour l'obtenir.
+- **3 requêtes POST de génération** ont été détectées dans le segment du log Ollama suivant le début du test (`OLLAMA_NEW_GENERATION_REQUESTS=3`, `OLLAMA_GENERATION_TRAFFIC_OBSERVED`). Le motif couvre `/v1/chat/completions`, `/v1/completions`, `/v1/responses`, `/api/chat`, `/api/generate` ; **aucune attribution formelle au seul conteneur Supermemory ou au modèle `qwen3:8b`**, car d'autres clients peuvent solliciter Ollama.
+- Condition d'origine `status=done AND dreamingStatus=done AND requests>0` non satisfaite à cause du champ `dreamingStatus` non renseigné. **Ne pas ajouter de PASS de corrélation** à ce stade.
+- Les docs publiques v5 `apps/docs/ingestion/document-operations.mdx` indiquent que `POST /ns/{namespace}/list/documents?limit=10` (corps `{}`) renvoie la liste des documents `system.status`, `system.dreamingStatus`, `system.memoryCount` sans inclure le contenu par défaut. Les docs indiquent que `status=done` ne garantit pas que l'extraction des mémoires est achevée ; `dreamingStatus` peut ne pas être exposé dans certaines réponses. **Prochain contrôle recommandé : lister uniquement les métadonnées du namespace existant, sans nouvelle écriture ni logs bruts**. Si l'état dreaming reste absent, résultat « inconnu », pas « failed ».
+- Après cela, pour prouver le routage précis Supermemory→Ollama, prévoir une attribution instrumentée par origine/modèle ou isolation contrôlée du trafic et vérifier l'absence de fallback externe ; ne pas prétendre démontrer le « zéro egress » avec un compteur de POST.
+- La sauvegarde et restauration V5 PASS, le plan BGE-M3 6/6 PASS, Ollama Qwen3 direct PASS, l'adaptateur MCP read-only hors Codex PASS restent acquis : **ne pas les rejouer**. Premier canary Codex↔MCP toujours en attente, avec risque d'héritage de cle complète de l'API dans l'environnement descendant.
+
 ## MCP Supermemory live smoke — 31/10/2026 (dernier resultat, hors Codex)
 
 **`SUPERMEMORY_MCP_READONLY_SMOKE_PASS`**, sortie PowerShell 5.1 rapportee par l'operateur, sans lancer Codex :
