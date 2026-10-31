@@ -18,6 +18,23 @@ Conversation artifact `Supermemory_Readonly_Broker_MCP_Offline_V2_20261031.zip`,
 
 Use PowerShell 5.1: verify ZIP SHA256, extract it to a unique temporary folder, run `Invoke-BrokerOfflineQualification.ps1`, inspect `BROKER_MCP_OFFLINE_TESTS_PASS`, clean temporary extraction, no production changes. Never unzip into the local adapter branch and never run `broker.py` with production credentials yet.
 
+## Windows PowerShell 5.1 qualification — PASS, 31 October 2026
+
+The operator executed the exact checksum-pinned, single-run offline ZIP test from `Downloads`. The PowerShell transcript provides:
+```text
+BROKER_MCP_V2_INTEGRITY_PASS
+NO_CODEX_NO_DOCKER_NO_OLLAMA_NO_PRODUCTION_API
+Ran 24 tests in 6.751s
+OK
+BROKER_MCP_OFFLINE_TESTS_PASS
+NO_SECRETS_NO_PRODUCTION_CHANGES
+BROKER_MCP_V2_WINDOWS_PASS
+```
+
+**Decision:** offline prototype V2 code/protocol is now qualified on Windows as well as the preparation environment, with no live server, no real key, no Codex model call and no production data touched. The test wrapper removed its uniquely created temporary extraction directory. **This is NOT a live search, not a secure deployment, and not evidence that the operator and Codex identities are isolated.** Avoid rerunning 24 tests absent code changes.
+
+**Next gate:** read-only Windows identity / ACL and port availability inventory, without creating accounts or changing Docker permissions. After deciding the restricted runner account and broker trust account/VM, add concrete service hardening, ACL tests, rollback, and a real negative test from the restricted identity. The agent's inherited environment and Docker access are explicitly in scope. Only then stage a live broker and a capped real Codex→MCP→broker→Supermemory query, with a limited client token exposed to MCP but **never** the production API key.
+
 ## Important limitations
 
 **The broker code is not a security boundary on its own.** Its built-in thread server is still prototype-grade: no bounded worker concurrency, service hardening, machine-level ACL enforcement, operational rotation, robust client identity controls, or full audit/rollback. It binds localhost, but this does not segregate Windows users or prevent another local process from reaching the service. The real API key must be retained in a trusted service identity. Codex must run under a restricted **different identity or VM** unable to access Docker, the production secret, protected files or service controls. Its accessible broker token must be limited to read-only search on the project namespace.
