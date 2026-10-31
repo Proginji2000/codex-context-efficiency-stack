@@ -2,6 +2,14 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Résultat le plus récent — audit de la frontière Codex/Supermemory
+
+**`SECURITY_AUDIT_EXECUTION_COMPLETE`, mais `SANDBOX_PROBE_INCONCLUSIVE_OR_UNSUPPORTED` : aucun feu vert pour brancher la clé réelle dans Codex.** L'opérateur a confirmé `ADAPTER_LOCAL_HEAD_PASS`, `ADAPTER_ENV_SECRET_INHERITANCE_RISK_CONFIRMED`, `PRODUCTION_HEALTH_PASS`, `HOST_LOOPBACK_ONLY_PASS`, `WINDOWS_OPERATOR_CAN_USE_DOCKER_EXEC_ON_SECRET_FILE`, `PARENT_PROCESS_HAS_SUPERMEMORY_KEY=False`, `NO_CODEX_MODEL_CALLS`, `NO_SECRETS_PRINTED_OR_MUTATED`. Le compte Windows hôte peut accéder via Docker aux métadonnées du fichier clé ; la preuve de la restriction sandbox manque. **Un `inconclusive` n'est ni un blocage Docker prouvé ni une exposition prouvée depuis le processus sandboxé.**
+
+**Prochaine étape immédiate :** sonde sans modèle `Test-CodexMxcDockerBoundary-v2-20261031.ps1` SHA256 `64C04CB0CBC960248CF462C88F2E42D19B1167666B65D1B9AB2948B0CD637999` (artefact du chat, non poussé sur GitHub). Elle force MXC uniquement pour l'invocation, vérifie un echo inoffensif puis `docker exec stat` sans lire la clé ; distingue échec de démarrage vs accès Docker. La sortie de cette V2 reste à obtenir. Spécifications détaillées : [SUPERMEMORY_CODEX_SECURITY_GATE_2026-10-31.md](SUPERMEMORY_CODEX_SECURITY_GATE_2026-10-31.md).
+
+**Ne pas remettre la clé réelle dans l'environnement Codex**, activer des hooks ou installer des outils. Les validations V5, plan BGE, Ollama direct, 3 mémoires synthétiques et MCP Python hors Codex restent acquises.
+
 ## Nouveau chantier actif : frontière de secrets Codex / Supermemory
 
 Plan et audit non destructif : [SUPERMEMORY_CODEX_SECURITY_GATE_2026-10-31.md](SUPERMEMORY_CODEX_SECURITY_GATE_2026-10-31.md). **Aucun canary Codex avec la clé API réelle tant que l'identité Codex pourrait accéder à Docker ou hériter des secrets.** Prochaine preuve attendue : sortie de l'audit Windows sans appel modèle. Le plan BGE-M3, la restauration V5, l'inférence Ollama directe, les 3 mémoires extraites et le smoke-test MCP Python restent valides et ne doivent pas être relancés. Ce document d'architecture ne constitue pas une nouvelle preuve d'isolement ou d'accès effectif Codex.
