@@ -28,7 +28,16 @@ Finaliser l'integration **Supermemory Local 0.0.9 ↔ Codex CLI** en **opt-in, p
 - Production `docker exec id` : `uid=10001(supermemory)`, `gid=10001(supermemory)` ; `/data` **10001:10001 mode 700** et `/data/api-key` **10001:10001 mode 600**. Le clone V1-V3 a ete reconstruit par un conteneur utilitaire execute en root depuis un repertoire hote NTFS. **Hypothese forte non encore prouvee : proprietaires des fichiers restaures devenus root:root, rendant /data inaccessible au serveur non-root.** Ne pas conclure que les donnees sont corrompues ou que le LLM est responsable.
 - Emplacements testes `/data/.cache`, `/data/cache`, `/root/.cache`, `/home/node/.cache` : NOT_VISIBLE_OR_ABSENT. Ne pas en conclure que tous les caches de modeles sont absents.
 
-## Prochain gate : tester les droits uniquement sur volume temporaire (V4)
+## Nouvelle tentative V4 et correctif V5 (31/10, apres la presente passation)
+
+- **V4 NON VALIDEE**. La commande de l'operateur a rencontre un dossier d'extraction deja existant (garde initiale declenchant `STOP`), puis a continue ligne par ligne malgre les erreurs. Le ZIP d'origine et le script local ont toutefois passe leur verification SHA256 ; il ne faut pas traiter le `Write-Host SUPERMEMORY_V4_PASS` manuel comme preuve de succes.
+- V4 a cree un volume temporaire et lance la copie ; `docker /bin/sh -c` a echoue avec `syntax error: unexpected end of file (expecting \")\")`. Cause de script : expression shell `\"$(stat ...)\"` dans un programme multiligne transmis par l'interface native de **Windows PowerShell 5.1**, dont le passage de guillemets ne preservait pas le code. Aucun `RESTORED_TEMP_OWNERSHIP_PASS` n'a ete obtenu ; l'hypothese ownership reste **ouverte**, pas prouvee.
+- Le script V4 a affiche `ISOLATED_CONTAINER_CLEANUP_PASS` et `ISOLATED_VOLUME_CLEANUP_PASS` apres l'echec, mais un nouvel inventaire externe des orphelins n'a pas encore ete realise a cette date.
+- **V5 preparee, pas encore executee sur Windows**. Fichier `Test-SupermemoryIsolatedAppRestore-v5-ownerfix.ps1` (artefact de conversation), SHA256 `712B7A2DAFA208CCC7B0E78B7F69A62FFE283FCE01E089EBA445F05DAEBDCC86`. ZIP `Supermemory_Restore_V5_20261031.zip`, SHA256 `8D8B27F6E32FEB7A767D0C00FDF5A70C5C8D7621372B95C057DFC5D39B5B57EB`. Les scripts POSIX extraits ont passe `sh -n`, plus controle statique des chemins de montage ; **aucun PASS Docker/PowerShell effectif revendique**.
+- V5 monte des petits fichiers shell LF/UTF-8 via bind Docker, executes avec `/bin/sh /tmp/restore.sh` et `/bin/sh /tmp/read.sh`, plutot que de transmettre le programme multiligne via `-c`. V5 doit restaurer et comparer le volume clone, corriger **uniquement sur clone** vers UID/GID 10001:10001 et les modes 700/600, tester health/API sous isolation, puis nettoyer les ressources temporaires.
+- Prochain retour demande : **sortie V5 et son marqueur interne `ISOLATED_APP_RESTORE_FULL_PASS` seulement si reellement emis par le script**. Si health echoue apres permissions corrigees, la prochaine analyse ciblera les erreurs au demarrage, sans exposer les logs bruts ni assouplir sans motif l'isolation reseau.
+
+## Prochain gate : tester les droits uniquement sur volume temporaire (V5)
 
 1. Garder la production en marche ; verifier `healthy`, image, montage, et integrite des fichiers de sauvegarde sans lire les secrets.
 2. Creer un nouveau volume temporaire nomme/labelise avec nonce. Copier le snapshot, comparer les fichiers **avant correction des metadonnees**.
