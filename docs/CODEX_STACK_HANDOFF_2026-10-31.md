@@ -2,6 +2,10 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Classification comptes Windows — résultat plus récent (31/10/2026)
+
+`ACCOUNT_CLASSIFICATION_PASS` : `INITIAL_CANDIDATES=2`, `CURRENT_USER_OVERLAPS=0`, `BUILTIN_RID_ACCOUNTS=0`, `OTHER_LOCAL_ACCOUNTS=2`, `OTHER_PASSWORD_REQUIRED=2`, `INDIRECT_PERMISSIONS_NOT_VERIFIED`. Les deux comptes locaux activés ne sont ni l'opérateur ni des identités Windows intégrées RID <1000, et ne sont pas listés directement dans Admin/docker-users. **Aucun compte n'est encore autorisé pour Codex :** vérifier l'usage par services/tâches, puis les droits effectifs avec son identité et l'isolation des secrets. Aucun utilisateur, permission, secret ou service n'a été modifié. Spécification de la suite : [SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
+
 ## Inventaire Windows broker : lecture seule PASS (plus récent, 31/10/2026)
 
 Sortie PowerShell de l'opérateur : `CURRENT_TOKEN_ADMIN=False`, `PARENT_SUPERMEMORY_KEY_PRESENT=False`, `DOCKER_USERS_GROUP_PRESENT=True`, `STANDARD_ACCOUNT_CANDIDATES=2`, `ACCOUNT_INVENTORY_COMPLETE`, `BROKER_PORT_6811=NO_LISTENER`, `NO_ACCOUNTS_CREATED`, `NO_PERMISSIONS_CHANGED`, `NO_SECRETS_READ`, `WINDOWS_IDENTITY_PREFLIGHT_COMPLETE`.
