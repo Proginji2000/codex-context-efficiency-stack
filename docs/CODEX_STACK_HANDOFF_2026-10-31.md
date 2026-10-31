@@ -2,6 +2,18 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## MCP Supermemory live smoke — 31/10/2026 (dernier resultat, hors Codex)
+
+**`SUPERMEMORY_MCP_READONLY_SMOKE_PASS`**, sortie PowerShell 5.1 rapportee par l'operateur, sans lancer Codex :
+
+- `MCP_PREFLIGHT_PASS` : branche de travail locale `codex/supermemory-local-adapter-20261030`, HEAD `e4fd34e`, conteneur `supermemory-supermemory-1` healthy.
+- Lancement `py -3 -B .\scripts\supermemory_mcp.py` en stdio JSON-RPC sous `C:\Dev\codex-context-efficiency-stack`. Cle Supermemory lue directement du conteneur sans etre affichee ; variables de processus restaurees par `finally`. Namespace du depot et `SUPERMEMORY_ALLOW_SAVE=0` (lecture seule).
+- Requetes `initialize`, `notifications/initialized`, `tools/list`, `tools/call` avec `name=search` sur une requete synthetique. Retours `MCP_INITIALIZE_PASS`, `MCP_READONLY_TOOLS_PASS` (un seul outil `search`), `MCP_LIVE_SEARCH_PASS` (pas d'erreur JSON-RPC/MCP et contenu renvoye).
+- **Alimentation du namespace non exigee :** un resultat de recherche vide reste acceptable. Ce test valide la couche MCP jusqu'a l'API Supermemory, **pas** la pertinence des souvenirs ni l'inference LLM.
+- **Limite securite** : une cle API Supermemory complete presente dans l'environnement d'un processus Python est accessible a ses descendants eventuels. Ne pas l'exposer a Codex ni a des donnees sensibles sans decision explicite d'isolation/secret.
+
+**Gate acquis :** adaptateur Python ↔ Supermemory Local, en lecture seule, hors Codex. **Gates ouverts :** (1) verifier via preuve instrumentee Supermemory → Ollama `qwen3:8b` sur une seule entree synthetique ; (2) controle d'egress et de fallback cloud ; (3) premier canary Codex ↔ MCP lecture seule avec controle de l'heritage de la cle ; (4) synchroniser sans ecraser la branche adaptateur toujours exclusivement locale, puis PR code et autres priorites P1/P2. Les backup/restore, plan d'embeddings, et Ollama /api/generate direct sont deja PASS, ne pas les rejouer.
+
 ## Verification Ollama Qwen3 — 31/10/2026 (dernier resultat)
 
 **`OLLAMA_QWEN3_INFERENCE_PASS`** rapporte par la sortie Windows PowerShell operateur : `GET http://127.0.0.1:11434/api/tags` annonce `qwen3:8b` et `POST /api/generate` (prompt synthetique "OK", `stream=false`, `think=false`, `num_predict=32`) renvoie `model=qwen3:8b`, `done=true`, `eval_count=2`. Marqueurs `OLLAMA_MODEL_AVAILABLE_PASS`, `OLLAMA_QWEN3_INFERENCE_PASS`.
