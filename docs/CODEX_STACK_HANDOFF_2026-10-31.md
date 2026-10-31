@@ -2,6 +2,12 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## MXC V2 — résultat réel du 31 octobre 2026 (le plus récent)
+
+La sonde V2 lancée par l'opérateur a **démarré MXC sans modèle** (`MXC_ECHO_PASS`, `MXC_ECHO_EXIT_CODE=0`) sous Codex CLI `0.164.0`, avec clé API Supermemory absente de l'environnement parent. Le test Docker depuis MXC a affiché `SANDBOX_DOCKER_EXEC_NOT_OBSERVED` et `MXC_DOCKER_EXIT_CODE=0`. **Attention :** le code de sortie 0 correspond au PowerShell de la sonde ; le code Docker interne était **non nul**, sinon le marqueur aurait été `SANDBOX_DOCKER_EXEC_REACHABLE`. Le diagnostic de cette erreur Docker reste masqué (permissions, pipe ou contexte indéterminés). Aucun secret lu ; pas de modèle ni modification globale.
+
+**Prochain contrôle unique :** `Test-CodexMxcDockerBoundary-v3-diagnostic-20261031.ps1` SHA256 `AFEB2060FFC63B352512AC0E900462F95A6BDB75A841DF148599D858F280275F` (script du chat, pas de commit dans le dépôt). Permet de distinguer accès daemon Docker vs échec de `docker exec stat`, et catégorise le refus, sans afficher de log brut. Même un refus démontré ne suffira pas à garantir qu'une clé entière héritée serait protégée par Codex ou les serveurs MCP. La production Supermemory, les hooks, le code local e4fd34e restent inchangés ; choisir une vraie séparation de secrets (compte/VM) après cette sonde et arrêter les tests répétitifs.
+
 ## Résultat le plus récent — audit de la frontière Codex/Supermemory
 
 **`SECURITY_AUDIT_EXECUTION_COMPLETE`, mais `SANDBOX_PROBE_INCONCLUSIVE_OR_UNSUPPORTED` : aucun feu vert pour brancher la clé réelle dans Codex.** L'opérateur a confirmé `ADAPTER_LOCAL_HEAD_PASS`, `ADAPTER_ENV_SECRET_INHERITANCE_RISK_CONFIRMED`, `PRODUCTION_HEALTH_PASS`, `HOST_LOOPBACK_ONLY_PASS`, `WINDOWS_OPERATOR_CAN_USE_DOCKER_EXEC_ON_SECRET_FILE`, `PARENT_PROCESS_HAS_SUPERMEMORY_KEY=False`, `NO_CODEX_MODEL_CALLS`, `NO_SECRETS_PRINTED_OR_MUTATED`. Le compte Windows hôte peut accéder via Docker aux métadonnées du fichier clé ; la preuve de la restriction sandbox manque. **Un `inconclusive` n'est ni un blocage Docker prouvé ni une exposition prouvée depuis le processus sandboxé.**

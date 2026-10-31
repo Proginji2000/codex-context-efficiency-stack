@@ -41,6 +41,18 @@ Script initial SHA256 conforme : `SECURITY_AUDIT_INTEGRITY_PASS`, puis `SECURITY
 
 Ce probe teste le **processus de commande sandboxé**, pas nécessairement le processus Codex lui-même ou un serveur MCP externe. Même un refus Docker dans ce probe ne suffit pas à autoriser l'envoi du secret à Codex. La décision du broker doit reposer sur une véritable frontière d'identité ou VM et sur la démonstration des refus d'accès directs.
 
+## Audit MXC V2 exécuté — 31 octobre 2026
+
+L'opérateur a validé SHA256 et exécuté `Test-CodexMxcDockerBoundary-v2-20261031.ps1`, sans modèle ni lecture de secrets :
+
+- `MXC_PROBE_INTEGRITY_PASS`, `ADAPTER_LOCAL_HEAD_PASS`, `PARENT_SUPERMEMORY_API_KEY_ABSENT_PASS`, `CODEX_VERSION=codex-cli 0.164.0`.
+- `MXC_ECHO_EXIT_CODE=0` et `MXC_ECHO_PASS` : démarrage de l'invocation `codex -c windows.sandbox=mxc sandbox --include-managed-config --permission-profile :workspace -- powershell.exe -EncodedCommand …` démontré.
+- `MXC_DOCKER_EXIT_CODE=0` concerne **la commande PowerShell externe**, et non `docker exec` : inspection du script V2 montre qu'il émet `SANDBOX_DOCKER_EXEC_NOT_OBSERVED` après **un code de sortie non nul de `docker exec stat -c '%u' /data/api-key` dans MXC**. L'exécutable Docker était sur PATH (sinon le script aurait émis `SANDBOX_DOCKER_NOT_ON_PATH`). La cause exacte est non observée puisque le script cache toutes les erreurs Docker.
+- `NO_MODEL_CALLS_NO_SECRET_READS`, `MXC_DIAGNOSTIC_COMPLETE`, `MXC_PROBE_EXECUTION_COMPLETE`.
+- **Conclusions limitées :** l'appel Docker exec sur le fichier de clé a échoué depuis **ce sous-processus sandboxé**. Cela ne garantit ni l'isolement des processus Codex/MCP hors sandbox, ni la protection contre l'héritage de `SUPERMEMORY_API_KEY`, ni l'impossibilité pour le compte Windows opérateur d'utiliser Docker hors MXC. **Ne pas déclarer l'isolation globale PASS.**
+
+**V3 diagnostique préparé, non exécuté sur Windows :** `Test-CodexMxcDockerBoundary-v3-diagnostic-20261031.ps1`, SHA256 `AFEB2060FFC63B352512AC0E900462F95A6BDB75A841DF148599D858F280275F` (artefact de chat hors dépôt GitHub). Une seule invocation MXC, dans laquelle les commandes **lecture seule** `docker version --format` et `docker exec stat` sont exécutées. Leurs codes de sortie sont affichés (pas leur contenu). L'erreur est classée comme accès refusé, daemon/pipe inaccessible, contexte Docker manquant, conteneur non visible ou autre. Aucune clé affichée ; pas de modèle, conteneur/volume modifié, config, hook ni changement Git. Si Docker est accessible par une autre voie, ne pas inférer la sécurité de tout le processus agent. Après ce seul diagnostic ciblé, privilégier une isolation par compte Windows indépendant ou VM avec Docker hôte inaccessible plutôt que des boucles de probes.
+
 ## Architecture proposée : deux phases à ne pas confondre
 
 **Phase A — canary purement technique sans secret réel :** après l'audit, tester l'exposition MCP dans Codex CLI depuis un dépôt jetable en `--sandbox read-only --ask-for-approval never`, sans autorisation supplémentaire et avec une clé factice incapable d'accéder aux données de production. Ce canary peut seulement démontrer l'initialisation de l'outil ou un refus d'authentification attendu ; **ce n'est pas une preuve de recherche réelle Codex→Supermemory**. Désactiver les MCP non nécessaires pour réduire le contexte et les accès, sous un profil d'invocation et sans mutation de `config.toml`.
