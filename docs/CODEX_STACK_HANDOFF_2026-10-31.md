@@ -2,6 +2,12 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## MXC V3 terminé et broker read-only prototypé — 31/10/2026 (dernier état)
+
+L'opérateur a exécuté la sonde MXC V3 avec checksum vérifié. **`V3_DOCKER_DAEMON_EXIT=1`, `V3_DOCKER_EXEC_EXIT=1`, `V3_DOCKER_FAILURE_CLASS=ACCESS_DENIED`, `V3_SANDBOX_DOCKER_ACCESS_NOT_DEMONSTRATED`**, sur un processus enfant sandboxé (MXC 0.164.0). L'exécutable Docker était présent mais le daemon inaccessible. **Ce résultat ne prouve pas la protection de l'environnement du parent Codex ou des serveurs MCP** ; le compte Windows hors MXC possède toujours Docker. `NO_MODEL_CALLS_NO_SECRET_CONTENT`. **Probes Docker V1-V3 closes.** Aucun autre test Docker similaire n'est demandé.
+
+**Livrable préparatoire hors production :** `Supermemory_Readonly_Broker_Prototype_20261031.zip`, SHA256 `C8F52A948C450945994198E427EF857442018AC448F6E38D251EBB2570637DA8` (3 fichiers Python / tests / README, disponible comme artefact du chat, pas dans le repo). **14 tests unitaires PASS sur clés factices**, endpoint `/search` seul, namespace fixé et jeton broker distinct, aucune redirection ou route d'écriture. **Non déployé, pas encore une frontière de sécurité**. Prochaine étape : identité Windows/VM séparée pour Codex sans accès Docker/clé amont, broker de confiance, ACL/permissions et passerelle MCP avec seulement un jeton de lecture. L'adaptateur local `e4fd34e` et Supermemory prod intacts. Spécification : [SUPERMEMORY_CODEX_SECURITY_GATE_2026-10-31.md](SUPERMEMORY_CODEX_SECURITY_GATE_2026-10-31.md).
+
 ## MXC V2 — résultat réel du 31 octobre 2026 (le plus récent)
 
 La sonde V2 lancée par l'opérateur a **démarré MXC sans modèle** (`MXC_ECHO_PASS`, `MXC_ECHO_EXIT_CODE=0`) sous Codex CLI `0.164.0`, avec clé API Supermemory absente de l'environnement parent. Le test Docker depuis MXC a affiché `SANDBOX_DOCKER_EXEC_NOT_OBSERVED` et `MXC_DOCKER_EXIT_CODE=0`. **Attention :** le code de sortie 0 correspond au PowerShell de la sonde ; le code Docker interne était **non nul**, sinon le marqueur aurait été `SANDBOX_DOCKER_EXEC_REACHABLE`. Le diagnostic de cette erreur Docker reste masqué (permissions, pipe ou contexte indéterminés). Aucun secret lu ; pas de modèle ni modification globale.
