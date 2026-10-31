@@ -2,6 +2,14 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Inventaire Windows broker : lecture seule PASS (plus récent, 31/10/2026)
+
+Sortie PowerShell de l'opérateur : `CURRENT_TOKEN_ADMIN=False`, `PARENT_SUPERMEMORY_KEY_PRESENT=False`, `DOCKER_USERS_GROUP_PRESENT=True`, `STANDARD_ACCOUNT_CANDIDATES=2`, `ACCOUNT_INVENTORY_COMPLETE`, `BROKER_PORT_6811=NO_LISTENER`, `NO_ACCOUNTS_CREATED`, `NO_PERMISSIONS_CHANGED`, `NO_SECRETS_READ`, `WINDOWS_IDENTITY_PREFLIGHT_COMPLETE`.
+
+**Ne pas interpréter 2 comme deux identités de runner utilisables :** le filtre n'éliminait pas le compte courant ayant accès Docker hors sandbox, ni les comptes intégrés/système, ni les appartenances indirectes. `CURRENT_TOKEN_ADMIN=False` indique l'absence de privilège Administrateur actif dans ce jeton, pas l'absence de toute appartenance admin. Le port 6811 est actuellement sans écouteur, pas réservé. **Pas d'isolation d'identités démontrée ; aucun compte créé ou modifié.**
+
+**Prochain gate :** classement local en lecture seule, sans imprimer de noms ni de SID, des deux candidats. Exclure compte courant, RID intégrés et comptes de service; ne pas réutiliser de compte système. Ensuite, si aucun compte adapté, spécifier la création d'un compte local standard exclusivement pour Codex et un compte broker distinct, avec ACL et tests de refus effectifs avant le premier canary live. Détails : [SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
+
 ## Broker + MCP V2 : 24/24 PASS sous Windows (dernier résultat du 31/10/2026)
 
 Sortie PowerShell 5.1 de l'opérateur, archive ZIP SHA256 vérifiée : `BROKER_MCP_V2_INTEGRITY_PASS`, `Ran 24 tests in 6.751s`, `OK`, `BROKER_MCP_OFFLINE_TESTS_PASS`, `NO_SECRETS_NO_PRODUCTION_CHANGES`, `BROKER_MCP_V2_WINDOWS_PASS`. Les 24 tests utilisent des jetons factices et une API simulée, sans exécuter Codex, Docker, Ollama ou Supermemory en production. Extraction du ZIP en dossier temporaire unique puis cleanup par le wrapper PowerShell. **Jalon Windows hors ligne validé ; aucune qualification d'isolation d'identité, de service broker ni de recherche live Codex n'est encore réalisée.** Ne pas rejouer les tests hors ligne à code identique.

@@ -35,6 +35,27 @@ BROKER_MCP_V2_WINDOWS_PASS
 
 **Next gate:** read-only Windows identity / ACL and port availability inventory, without creating accounts or changing Docker permissions. After deciding the restricted runner account and broker trust account/VM, add concrete service hardening, ACL tests, rollback, and a real negative test from the restricted identity. The agent's inherited environment and Docker access are explicitly in scope. Only then stage a live broker and a capped real Codex→MCP→broker→Supermemory query, with a limited client token exposed to MCP but **never** the production API key.
 
+## Windows identity preflight — operator transcript, 31 October 2026
+
+The operator executed an unchanged read-only PowerShell 5.1 inventory:
+
+```text
+CURRENT_TOKEN_ADMIN=False
+PARENT_SUPERMEMORY_KEY_PRESENT=False
+DOCKER_USERS_GROUP_PRESENT=True
+STANDARD_ACCOUNT_CANDIDATES=2
+ACCOUNT_INVENTORY_COMPLETE
+BROKER_PORT_6811=NO_LISTENER
+NO_ACCOUNTS_CREATED
+NO_PERMISSIONS_CHANGED
+NO_SECRETS_READ
+WINDOWS_IDENTITY_PREFLIGHT_COMPLETE
+```
+
+**Scope and limits:** `CURRENT_TOKEN_ADMIN=False` means the current process is not running with an enabled Administrator role; it does **not** establish that the underlying Windows user is not an administrator or cannot access Docker. This operator has already proven access to Docker outside MXC. The inventory counted exactly two **enabled local users not directly listed** in local Administrators/docker-users; **these two are not yet approved runner candidates**. They could include the current Docker-capable operator account, built-in/system identities, service accounts or users with indirect/transitive privileges. `NO_LISTENER` is a point-in-time observation, not a reserved port.
+
+**Next gate, no mutation:** a single local-identity classification with no account names/SIDs in output. Recreate the filtering; count current-user overlaps, built-in/system SIDs (RID < 1000), password policy, and inspect whether any *other* candidate remains for an isolated runner. Print ordinal candidate flags only, never passwords, account names or profile paths. If none can be deemed plausible, design a **new dedicated standard account** rather than repurpose WDAGUtilityAccount/Guest/DefaultAccount/service principals. No account should be created until deliberate design and authorization. No inference about effective denial of Docker or access to the production key may be made without testing the actual selected identity's token and ACLs. Avoid repeating MXC, broker offline, and Supermemory baseline tests.
+
 ## Important limitations
 
 **The broker code is not a security boundary on its own.** Its built-in thread server is still prototype-grade: no bounded worker concurrency, service hardening, machine-level ACL enforcement, operational rotation, robust client identity controls, or full audit/rollback. It binds localhost, but this does not segregate Windows users or prevent another local process from reaching the service. The real API key must be retained in a trusted service identity. Codex must run under a restricted **different identity or VM** unable to access Docker, the production secret, protected files or service controls. Its accessible broker token must be limited to read-only search on the project namespace.
