@@ -2,6 +2,10 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Nouveau chantier actif : frontière de secrets Codex / Supermemory
+
+Plan et audit non destructif : [SUPERMEMORY_CODEX_SECURITY_GATE_2026-10-31.md](SUPERMEMORY_CODEX_SECURITY_GATE_2026-10-31.md). **Aucun canary Codex avec la clé API réelle tant que l'identité Codex pourrait accéder à Docker ou hériter des secrets.** Prochaine preuve attendue : sortie de l'audit Windows sans appel modèle. Le plan BGE-M3, la restauration V5, l'inférence Ollama directe, les 3 mémoires extraites et le smoke-test MCP Python restent valides et ne doivent pas être relancés. Ce document d'architecture ne constitue pas une nouvelle preuve d'isolement ou d'accès effectif Codex.
+
 ## Qualification de l'extraction du canary — 31 octobre 2026 (dernier résultat)
 
 **`EXTRACTED_MEMORIES_PRESENT_PASS`** : sortie Windows PowerShell communiquée par l'opérateur. Un **unique contrôle en lecture seule**, `POST http://127.0.0.1:6767/ns/codex_llm_canary_c58e251be7bf/list/memories?limit=10`, JSON `{}`, a renvoyé :
