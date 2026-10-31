@@ -26,6 +26,21 @@ Artefact de conversation: `Test-CodexSupermemorySecurityBoundary-20261031.ps1`, 
 
 Ce script a été examiné statiquement mais **pas exécuté sur le PC Windows**. Ne pas revendiquer de résultat de sandbox avant la sortie opérateur.
 
+## Audit exécuté — sortie opérateur du 31 octobre 2026
+
+Script initial SHA256 conforme : `SECURITY_AUDIT_INTEGRITY_PASS`, puis `SECURITY_AUDIT_EXECUTION_COMPLETE`. Observations directes :
+
+- `ADAPTER_LOCAL_HEAD_PASS` (branche locale `codex/supermemory-local-adapter-20261030`, HEAD `e4fd34e`).
+- `ADAPTER_ENV_SECRET_INHERITANCE_RISK_CONFIRMED` : risque architectural de fuite de la clé API complète dans l'environnement de Codex.
+- `PRODUCTION_HEALTH_PASS`, `HOST_LOOPBACK_ONLY_PASS` : production Supermemory healthy, publication Docker sur `127.0.0.1:6767` uniquement.
+- `WINDOWS_OPERATOR_CAN_USE_DOCKER_EXEC_ON_SECRET_FILE` : **le compte Windows opérateur peut exécuter `docker exec stat` sur le fichier API-key** (métadonnées seulement). Cette capacité doit être retirée/isolée du contexte agent, indépendamment de la présence du secret dans ses variables d'environnement.
+- `PARENT_PROCESS_HAS_SUPERMEMORY_KEY=False` : pas de variable de clé dans le processus PowerShell du test (n'invalide pas la possibilité de la lire via Docker).
+- `SANDBOX_PROBE_INCONCLUSIVE_OR_UNSUPPORTED` : l'ancien script masque la sortie native et le code d'erreur détaillé ; **pas de preuve de blocage ou de réussite** dans la sandbox. `NO_CODEX_MODEL_CALLS`, `NO_SECRETS_PRINTED_OR_MUTATED`.
+
+**Correctif de diagnostic V2 préparé mais non exécuté sur le PC** : artefact `Test-CodexMxcDockerBoundary-v2-20261031.ps1`, SHA256 `64C04CB0CBC960248CF462C88F2E42D19B1167666B65D1B9AB2948B0CD637999`. Le test lance explicitement, pour cette seule invocation, `codex -c windows.sandbox=mxc sandbox --include-managed-config --permission-profile :workspace -- powershell.exe ...`, d'abord `CODEX_MXC_ECHO_OK`, puis `docker exec stat` **sans lire la clé** seulement si le démarrage MXC réussit. Sorties d'erreur récapitulées en catégories, pas de logs bruts. **Ne modifie pas config.toml ni les hooks**. Compatible en principe avec la CLI ≥0.162 selon la documentation Windows actuelle, mais son comportement réel sous PowerShell 5.1 reste à confirmer.
+
+Ce probe teste le **processus de commande sandboxé**, pas nécessairement le processus Codex lui-même ou un serveur MCP externe. Même un refus Docker dans ce probe ne suffit pas à autoriser l'envoi du secret à Codex. La décision du broker doit reposer sur une véritable frontière d'identité ou VM et sur la démonstration des refus d'accès directs.
+
 ## Architecture proposée : deux phases à ne pas confondre
 
 **Phase A — canary purement technique sans secret réel :** après l'audit, tester l'exposition MCP dans Codex CLI depuis un dépôt jetable en `--sandbox read-only --ask-for-approval never`, sans autorisation supplémentaire et avec une clé factice incapable d'accéder aux données de production. Ce canary peut seulement démontrer l'initialisation de l'outil ou un refus d'authentification attendu ; **ce n'est pas une preuve de recherche réelle Codex→Supermemory**. Désactiver les MCP non nécessaires pour réduire le contexte et les accès, sous un profil d'invocation et sans mutation de `config.toml`.
