@@ -2,6 +2,21 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Validation V5 effective — 31/10/2026 (nouvel etat canonique)
+
+**Restauration applicative Supermemory Local 0.0.9 : PASS, phase close.** Sortie Windows PowerShell fournie par l'operateur :
+
+- `V5_INTEGRITY_PASS` (SHA256 du script attendu verifie avant lancement).
+- `OFFLINE_HELPERS_PASS` ; `CLONED_CONTENT_MATCH_PASS` ; `RESTORED_TEMP_OWNERSHIP_PASS` (UID/GID 10001:10001, /data 700, api-key 600 **sur copie temporaire seulement**).
+- `ISOLATION_NO_NETWORK_NO_PORTS_PASS` ; `RESTORED_APP_HEALTH_PASS` ; `RESTORED_AUTHENTICATED_READ_PASS` (GET /v3/projects a l'interieur de la namespace reseau du clone).
+- `ISOLATED_CONTAINER_CLEANUP_PASS` ; `ISOLATED_VOLUME_CLEANUP_PASS` ; `LOCAL_SCRIPT_CLEANUP_PASS` ; `ISOLATED_APP_RESTORE_FULL_PASS` ; `SUPERMEMORY_V5_PASS`.
+
+**Interpretation :** le passage de la copie par NTFS necessite la restauration explicite des proprietaires et permissions Linux sur le volume cible. La procedure V5 le fait sur un volume ephemere ; les donnees sont restituables et l'application demarre avec lecture API authentifiee. Le succes ne demontre pas isoleement que l'ownership etait l'unique cause des echec V2/V3 (V5 a egalement repare le quoting des scripts shell). La production n'a pas ete modifiee ; pas de nouveau backup necessaire pour ce jalon. V1-V4 restent des historiques d'echecs, pas des tests a refaire.
+
+**Prochain gate actif :** verifier l'effectivite du plan d'embeddings verrouille `local / Xenova/bge-m3 / 1024`, puis le chemin d'inference `qwen3:8b` via Ollama, en distinguant configuration declaree, mesures observables et preuve d'absence de trafic vers des fournisseurs externes. Lancer ensuite un canary Codex ↔ MCP en **lecture seule** et resoudre la diffusion de la cle d'API vers les processus descendants avant donnees sensibles. **Brancher la branche de travail locale `e4fd34e` seulement apres ces gates ; le code de l'adaptateur n'est toujours pas sur main.** Ne pas redeployer, relancer les tests de sauvegarde, activer des hooks globaux ou ingerer des donnees reelles sans controles.
+
+Les sections V1-V4 et l'ancien « prochain gate V5 » ci-dessous sont conservees comme historique et sont **supplantees** par ce resultat.
+
 ## Priorite
 
 Finaliser l'integration **Supermemory Local 0.0.9 ↔ Codex CLI** en **opt-in, projet autorise, lecture seule en premier**, sans modifier les hooks globaux ni divulguer la cle API. Ne pas relancer installations, tests anciens ni benchmarks P1.1. Le pilote VM/full-access demeure ulterieur.
