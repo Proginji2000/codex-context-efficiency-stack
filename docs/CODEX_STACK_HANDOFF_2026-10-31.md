@@ -2,6 +2,20 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## Validation embeddings — 31/10/2026 (dernier gate valide)
+
+**`EMBEDDING_PLAN_SNAPSHOT_RUNTIME_PASS` : 6/6 comparaisons conformes**, d'apres la sortie PowerShell de l'operateur. Le fichier persistant `embedding-plan.json` existe dans le snapshot froid `snapshot-20261031-003115/data` et dans le conteneur de production `supermemory-supermemory-1`. Schema observe : `provider`, `modelId`, `dimensions` (**`modelId`, pas `model`**).
+
+| Champ du plan | Snapshot | Runtime |
+| --- | --- | --- |
+| `provider` | `local` — MATCH | `local` — MATCH |
+| `modelId` | `Xenova/bge-m3` — MATCH | `Xenova/bge-m3` — MATCH |
+| `dimensions` | `1024` — MATCH | `1024` — MATCH |
+
+Le serveur de production est `healthy` pendant cette lecture. **Plan persistant et configuration embeddings conformes ; ne pas reinitialiser la base, changer de modele, refaire le backup/restore, ni relancer V1-V5.** Cela ne constitue pas une preuve d'inference effective du modele sur toute requete ni de zero trafic sortant.
+
+**Prochain gate actif :** qualifier l'inference reelle `qwen3:8b` via Ollama (et l'absence de fallback cloud) avec observation locale securisee ; ensuite canary Codex ↔ MCP en lecture seule et controle du secret d'API. La branche adaptateur `codex/supermemory-local-adapter-20261030` au commit local `e4fd34e` est non poussee et a ete creee avant les dernieres mises a jour de docs sur main. Ne pas perdre ni ecraser les commits locaux en synchronisant plus tard. PR #14 P1.1 toujours ouverte, benchmarks distincts.
+
 ## Validation V5 effective — 31/10/2026 (nouvel etat canonique)
 
 **Restauration applicative Supermemory Local 0.0.9 : PASS, phase close.** Sortie Windows PowerShell fournie par l'operateur :
