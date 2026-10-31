@@ -64,6 +64,27 @@ These two *enabled local accounts* are not the current account, have a RID at le
 
 **Next targeted read-only check:** count, per pseudonymous candidate ordinal, Win32_Service StartName and scheduled-task Principal.UserId references plus direct local group memberships, without printing account names, SIDs, task names or service names. If either enumeration fails or counts are ambiguous, report `INCONCLUSIVE` rather than zero. Do not alter or repurpose an existing account based only on this classification. Prefer a dedicated newly authorized standard runner if existing candidates belong to other applications. No secret may be inherited by Codex/MCP; the real Supermemory key remains only in a separate trusted broker identity. Actual negative tests under that identity still required.
 
+## Windows account-usage audit — operator transcript, 31 October 2026
+
+The operator repeated the same **two local candidate accounts** (not the operator, RID >= 1000, password required, not direct members of local Administrators or docker-users) and executed a read-only scan of accessible `Win32_Service.StartName` and `Get-ScheduledTask` principals:
+
+```text
+ACCOUNT_1_SERVICE_REFERENCES=0
+ACCOUNT_1_TASK_REFERENCES=0
+ACCOUNT_2_SERVICE_REFERENCES=0
+ACCOUNT_2_TASK_REFERENCES=0
+VISIBLE_SERVICE_TASK_AUDIT_PASS
+NO_ACCOUNT_NAMES_OR_SIDS_PRINTED
+NO_SYSTEM_CHANGES
+ACCOUNT_USAGE_AUDIT_COMPLETE
+```
+
+**Interpretation:** the two accounts had no exact-alias matches in the service or scheduled-task principals **visible to that enumeration**. This does **not** establish that either account is unused or safe to repurpose: account aliases, indirect service launch, scheduled task visibility, user profile contents and application ownership, indirect group privileges and effective Docker/secret access remain outside this test. Do **not** silently adopt or modify them.
+
+**Architecture decision / proposed default:** stop repeating account census. Prefer creating a **dedicated restricted local `codex-runner` identity**, under a deliberately approved administrative provisioning step, unless the operator explicitly confirms that an existing candidate is theirs and can be dedicated exclusively to this project. Codex runner has no local Administrators or docker-users membership, no host Docker access, no production API key, no access to trusted broker's credential store. The broker must have a distinct identity, fixed namespace/route and least-privilege client token. Do not copy the operator's `.codex` auth/profile, SSH keys, vault or cached cloud credentials into that account. The proposed Windows account creation, ACL setting, broker service and MCP connection are **not yet executed**; establish a rollback plan and request explicit operator approval before mutating OS accounts or trusted secret stores.
+
+**Next actionable milestone:** design a reversible one-time Windows provisioning plan for the dedicated runner (preflight for name collision, admin requirement, secure password prompt, `Users` membership, deny Docker/secret access, independent Codex auth, narrowly-scoped disposable workspace). Qualify the runner token with actual negative Docker/credential/host-shares probes before exposing a synthetic broker token. Perform live Supermemory API access only afterward.
+
 ## Important limitations
 
 **The broker code is not a security boundary on its own.** Its built-in thread server is still prototype-grade: no bounded worker concurrency, service hardening, machine-level ACL enforcement, operational rotation, robust client identity controls, or full audit/rollback. It binds localhost, but this does not segregate Windows users or prevent another local process from reaching the service. The real API key must be retained in a trusted service identity. Codex must run under a restricted **different identity or VM** unable to access Docker, the production secret, protected files or service controls. Its accessible broker token must be limited to read-only search on the project namespace.
