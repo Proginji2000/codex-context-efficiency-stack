@@ -1,5 +1,7 @@
 # Passation — Codex Stack IA & Autonomie — 30 octobre 2026
 
+> **Mise à jour :** la qualification Supermemory a avancé le **31 octobre 2026** (adaptateur local commit `e4fd34e`, sauvegarde à froid, restauration binaire validée, restauration applicative encore bloquée sur les droits possibles du clone). **Pour toute nouvelle reprise, lire d’abord [la passation opérationnelle du 31/10](CODEX_STACK_HANDOFF_2026-10-31.md)**. Cette page du 30/10 reste un historique et ses statuts ne sont pas actualisés rétroactivement.
+
 **Document de reprise après les tests Serena, shadcn et Supermemory Local.** Preuves : sorties Windows PowerShell/TUI communiquées par l'opérateur et état du dépôt GitHub. L'assistant n'a pas inspecté la machine directement. Ancien main : `55fdaa75cfbebfefa850e88c8f739f1d2fd0ce2a` avant la présente documentation ; ne pas figer ce SHA après fusion.
 
 ## Priorité du projet
