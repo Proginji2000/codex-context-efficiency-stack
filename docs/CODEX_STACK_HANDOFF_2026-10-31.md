@@ -1,5 +1,7 @@
 # Passation operationnelle — Codex Stack IA & Autonomie — 31 octobre 2026
 
+**Actualisation du 1 novembre 2026 :** [passation 2026-11-01](CODEX_STACK_HANDOFF_2026-11-01.md), avec la preuve effective de refus ACL depuis `codex-runner` et la prochaine étape d'identité `codex-broker` (non encore créée).
+
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
 ## 1 novembre 2026 — staging du broker V2 hors ligne sous ACL protégées : PASS
