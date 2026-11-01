@@ -2,6 +2,16 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 1 novembre 2026 — broker HTTP synthétique Windows PASS (dernier résultat)
+
+L'opérateur a démarré le **véritable** `C:\ProgramData\CodexMemoryBrokerStage-V2\app\broker.py` avec l'interpréteur CPython embedded `C:\ProgramData\CodexMemoryPython314\python.exe` sous l'identité `codex-broker`. Empreinte source préalablement vérifiée (`BROKER_CODE_INTEGRITY_PASS`). Serveur lié à `127.0.0.1` sur un port éphémère et upstream simulé en mémoire : `BROKER_SYNTHETIC_AUTHORIZED_SEARCH_PASS` (200), `BROKER_SYNTHETIC_INVALID_TOKEN_PASS` (401), `BROKER_SYNTHETIC_METHOD_DENY_PASS` (405), `BROKER_SYNTHETIC_NAMESPACE_OVERRIDE_DENY_PASS` (400), `BROKER_SYNTHETIC_HTTP_PASS`, `NO_PRODUCTION_KEYS_OR_API_CALLS`, `BROKER_SYNTHETIC_TEST_COMPLETE`.
+
+**Décision :** blocage Python Store résolu par interpréteur autonome, et **qualification du broker HTTP synthétique sous l'identité Windows dédiée terminée**. Pas de clé API Supermemory de production, aucune recherche vraie, aucun service permanent, ni Codex CLI pendant ce test. Les validations ACL de `codex-broker` et `codex-runner` restent acquises (cf. section précédente). Le prototype HTTP V2 reste à durcir avant emploi d'un secret réel (concurrence non bornée, timeouts, service lifecycle et token custody).
+
+**Prochain jalon — vraie chaîne cross-account MCP, toujours synthétique :** artefact de conversation `Codex_Supermemory_MCP_CrossAccount_Synthetic_20261101.zip`, SHA256 `7A33D857EFFF7F294EE8F8D491C7ECBDF0C3FBBF5BC1A07EFB55C81EADE00E30`. Inclut un script de stage privilégié à confirmation `PREPARER MCP SYNTHETIQUE`, le `mcp_readonly_bridge.py` **identique au ZIP V2** (SHA256 `69D7A984EE48F39C57819CCC6E98D27CB60A1FF2E582099B94A9898191329A79`), et deux lanceurs de test à exécuter séparément par `codex-broker` (serveur localhost:6811 upstream fictif, auto-stop 10 min) et `codex-runner` (MCP stdio subprocess, fichier jeton fictif temporaire). Le script admin ne modifie que l'ACE RX du runner sur le Python embedded, crée `%ProgramData%\CodexMemoryMcpStage-V2` protégé avec code MCP RX pour runner, et place un lanceur factice à côté de broker.py. **N'exécute aucune clé, service, Docker ni Codex.** Vérifié : parsing Python et intégration MCP→broker simulée **PASS dans le conteneur d'essai** ; kit staging PowerShell **non encore exécuté ou certifié sur Windows**. À exécuter uniquement avec consentement administrateur et rollback documenté.
+
+Ne pas répéter les tests précédents. Après `MCP_BROKER_CROSS_IDENTITY_SYNTHETIC_PASS` sous Windows seulement, passer au durcissement du broker et à l'architecture des deux jetons pour la première requête réelle Codex→Supermemory.
+
 ## 1 novembre 2026 — les DEUX identités ACL PASS, test broker HTTP Windows BLOCKED par Python Store
 
 L'opérateur a exécuté le contrôle de non-régression sous `codex-runner` : `ROOT_LIST=DENIED_PASS`, `CODE_READ=DENIED_PASS`, `CODE_WRITE=DENIED_PASS`, `SECRETS_LIST=DENIED_PASS`, `RUNNER_ACL_REGRESSION_PASS`, `NO_FILES_MODIFIED`.
