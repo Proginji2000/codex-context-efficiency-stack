@@ -2,6 +2,20 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 1 novembre 2026 — les DEUX identités ACL PASS, test broker HTTP Windows BLOCKED par Python Store
+
+L'opérateur a exécuté le contrôle de non-régression sous `codex-runner` : `ROOT_LIST=DENIED_PASS`, `CODE_READ=DENIED_PASS`, `CODE_WRITE=DENIED_PASS`, `SECRETS_LIST=DENIED_PASS`, `RUNNER_ACL_REGRESSION_PASS`, `NO_FILES_MODIFIED`.
+
+Le contrôle effectif `codex-broker` est à nouveau confirmé : `ROOT_LIST=ALLOWED_PASS`, `CODE_READ=ALLOWED_PASS`, `CODE_WRITE_HANDLE=DENIED_PASS`, `SECRETS_LIST=DENIED_PASS`, `BROKER_EFFECTIVE_ACL_PASS`, `NO_FILES_MODIFIED`, `NO_SECRET_CONTENT_READ`.
+
+**Jalon ACL deux comptes clos. Ne pas répéter ces tests sans changement d'ACL.**
+
+Tentative suivante : test serveur HTTP synthétique du vrai `broker.py` sous `codex-broker`, avec `py.exe -3 -B -`. **BLOCKED avant exécution Python :** `Unable to create process using ... C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_...\python3.13.exe -B - : Accès refusé`. `BROKER_SYNTHETIC_HTTP_FAILED`. Aucun `BROKER_SYNTHETIC_HTTP_PASS` Windows, aucun serveur HTTP démarré, aucun secret réel ou accès à Supermemory. Cause observée : lanceur Python Microsoft Store résout vers un exécutable WindowsApps non exécutable par le compte distinct `codex-broker`; **ne pas desserrer les ACL WindowsApps ni copier le profil Python de l'opérateur.** Le même scénario de test, exécuté séparément dans le conteneur de l'assistant contre le véritable `broker.py` du ZIP V2, confirme les statuts HTTP `200,401,405` et une unique recherche simulée ; cela ne remplace pas le test Windows.
+
+**Correctif d'environnement proposé, pas encore exécuté :** un Python CPython **3.14.10** 64-bit *embeddable* officiel python.org déployé dans `%ProgramData%\\CodexMemoryPython314`, répertoire isolé à ACL protégées avec compte opérateur/SYSTEM/Administrateurs FullControl et `codex-broker` ReadAndExecute, sans droits runner, sans changement PATH, registre, service, Python Store ni configuration Codex. ZIP fournisseur vérifié SHA256 `90905E64A840557D8C1BC4F5B74DB3D7EE85E3FFB217611CAC1C7813ACEA4159` d'après https://www.python.org/downloads/release/python-31410/ (publication du 25 octobre 2026). Script local de la conversation `Install-CodexBrokerPortablePython-20261101.ps1`, SHA256 `21A343C7E44215E9B357BA436276C9BF870626D373A3441AC792F94DF1316736`, **préparé statiquement et non encore exécuté/qualifié sous Windows**. Action volontaire : confirme `DEPLOYER PYTHON BROKER`, télécharge uniquement depuis python.org, vérifie le hash avant extraction, crée le nouveau dossier sous ACL contrôlées, vérifie les imports stdlib, rollback du nouveau dossier sur échec. Exécution du script avec élévation explicite opérateur. Pas de clé production ni de réseau Supermemory.
+
+**Prochain gate :** `BROKER_PYTHON_EMBED_RUNTIME_READY` depuis compte opérateur, puis test de lancement réel `%ProgramData%\\CodexMemoryPython314\\python.exe` sous `codex-broker` et reprise du canary HTTP synthétique avec cet exécutable explicite. Pas de boucle de préflight / tests ACL. Le Python embarqué restant sans pip, il sert uniquement au broker stdlib; les questions de service, secrets et durcissement restent ouvertes.
+
 ## 1 novembre 2026 — ACL lecture seule codex-broker appliquée au staging (dernier résultat)
 
 L'opérateur a exécuté en PowerShell élevé `Grant-CodexBrokerStageReadOnly-20261101.ps1` après vérification SHA256 `64A5D4C31C1D7B9E5B7A143CFB2612D1B3D48A1E2B3AC31E47C3B1048D7324EB` et confirmation explicite `AUTORISER LECTURE BROKER`. Sorties : `BROKER_ACL_SCRIPT_INTEGRITY_PASS`, `BROKER_STAGE_ACL_PREFLIGHT_PASS`, `BROKER_STAGE_ROOT_READONLY_ACE_PASS`, `BROKER_STAGE_APP_READONLY_ACE_PASS`, `BROKER_STAGE_SECRETS_UNCHANGED_PASS`, `NO_CODE_OR_SECRET_CONTENT_MODIFIED`, `NO_SERVICE_OR_PRODUCTION_API_CHANGED`, `BROKER_STAGE_BROKER_ACL_APPLIED`.
