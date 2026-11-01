@@ -2,6 +2,18 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 1 novembre 2026 — profil Codex CLI isolé + MCP synthétique enregistré : PASS (dernier résultat)
+
+L'opérateur a exécuté le script PowerShell **V2** sous l'identité réelle `codex-runner`. Le premier essai s'était arrêté AVANT création de profil à cause de l'emploi de la variable PowerShell protégée `$home` (alias insensible à la casse de `$HOME`), corrigé en `$isolatedCodexHome` sans changer le comportement de sécurité.
+
+Dernière sortie effective : `RUNNER_CODEX_AND_BRIDGE_INTEGRITY_PASS`, `ISOLATED_CODEX_HOME_CREATED_PASS`, `ISOLATED_MCP_REGISTERED_PASS`, `ISOLATED_MCP_CONFIG_VERIFIED_PASS`, `CODEX_RUNNER_SYNTHETIC_MCP_CONFIG_PASS`, `NO_AUTH_OR_MODEL_CALLS`, `NO_PRODUCTION_KEYS_USED`.
+
+**Acquis :** profil séparé `%LOCALAPPDATA%\\CodexSM-Synthetic-0165` sous le **compte runner**, activé par `$env:CODEX_HOME` dans la session ; entrée MCP stdio `sm_synthetic` enregistrée via `codex mcp add`, correspondant au Python embarqué `C:\ProgramData\CodexMemoryPython314\python.exe` et au pont `C:\ProgramData\CodexMemoryMcpStage-V2\mcp_readonly_bridge.py` dont l'empreinte SHA256 a été vérifiée. `codex mcp get ... --json` et `mcp list --json` ont réussi. Le jeton sous `synthetic-token.txt` est **fictif et prédéterminé**, jamais utilisable en production. Pas de copie du `.codex` ni d'authentification du compte principal, pas d'appel de modèle.
+
+**Limite :** validation de **configuration déclarative uniquement** ; pas encore de démarrage MCP par `codex exec`, ni d'appel effectif à `search` par un agent. Le test synthétique intercomptes direct (hors Codex) reste PASS. Le profil `CODEX_HOME` doit être sélectionné explicitement dans toute nouvelle session PowerShell sous runner, par exemple `$env:CODEX_HOME = Join-Path $env:LOCALAPPDATA 'CodexSM-Synthetic-0165'` ; ne pas lancer Codex depuis le profil principal.
+
+**Prochain gate :** contrôler localement `codex login status` avec le `CODEX_HOME` isolé, puis si absent procéder à une authentification volontaire **indépendante** via `codex login --device-auth`, sans copier de tokens. N'effectuer un premier vrai `codex exec` que sur le serveur HTTP **synthétique** `codex-broker`, avec sandbox read-only, approbations désactivées, workspace vierge, appel explicite `sm_synthetic.search(query='synthetic probe')` et aucune écriture, Docker ou clé Supermemory. Le démarrage d'un modèle Codex consommera éventuellement du quota ; ne pas le confondre avec le canary live Supermemory (non autorisé/qualifié).
+
 ## 1 novembre 2026 — Codex CLI 0.165.0 sous codex-runner : PASS (dernier résultat)
 
 L'opérateur a exécuté `Install-CodexRunnerCLI-0165-20261101.ps1`, SHA256 `D31F77A5901B932735A1718387695D0DB03AC9BF28CA43A48053CC784AB59026`, et a confirmé `INSTALLER CODEX RUNNER`. Les marqueurs sont : `CODEX_RUNNER_INSTALL_SCRIPT_INTEGRITY_PASS`, `CODEX_RUNNER_CLI_PREFLIGHT_PASS`, `CODEX_RELEASE_SHA256_PASS`, `CODEX_RUNNER_CLI_PROTECTED_STAGE_PASS`, `CODEX_RUNNER_CLI_VERSION_0165_PASS`, `NO_AUTH_OR_MCP_CONFIG_CHANGED`, `CODEX_RUNNER_CLI_STAGE_COMPLETE`, `CODEX_RUNNER_INSTALL_SCRIPT_EXECUTION_COMPLETE`. Vérification distincte de l'exécutable via PowerShell : `& 'C:\ProgramData\CodexRunnerCLI-0165\bin\codex.exe' --version` → `codex-cli 0.165.0`.
