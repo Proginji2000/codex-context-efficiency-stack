@@ -2,6 +2,14 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 1 novembre 2026 — canary Codex→MCP synthétique V2 NON QUALIFIÉ (dernier résultat)
+
+Dans la session Windows **`codex-runner`** authentifiée, avec le profil isolé `CodexSM-Synthetic-0165` et un broker synthétique joignable au port localhost 6811 : `SYNTHETIC_BROKER_TCP_READY_PASS`, `CODEX_EXEC_V2_START`, `CODEX_EXEC_V2_EXIT=0`, `MCP_COMPLETED_CALLS=0`, `MCP_VALID_RESULTS=0`, `UNEXPECTED_LOCAL_ACTIONS=0`, `CODEX_MCP_SYNTHETIC_V2_NOT_QUALIFIED`, `STOP_NO_RETRY`, `NO_PRODUCTION_SUPERMEMORY_KEYS`, `CODEX_MCP_CANARY_V2_COMPLETE`. `codex exec --json -` a donc terminé, **sans événement correspondant à un appel MCP achevé** selon le filtre JSONL actuel. L'absence de résultat n'établit pas encore si l'agent n'a pas appelé `sm_synthetic.search`, si MCP a échoué avant/pendant l'appel, si un événement n'a pas été exposé dans le JSONL, ou si l'analyse des événements est inexacte.
+
+Premier essai V1 : erreur d'arguments Windows du prompt multiligne `unexpected argument 'probe}` avant appel MCP ; V2 transmet le prompt par stdin et atteint `codex exec` exit 0. **Ne pas relancer un troisième appel de modèle** avant analyse des deux journaux V2.
+
+**Prochain contrôle non destructif, sans modèle :** lire localement et résumer uniquement métadonnées/compteurs des fichiers `%LOCALAPPDATA%\CodexSM-Synthetic-0165\first-mcp-canary-v2.jsonl` et `first-mcp-canary-v2-stderr.txt` : nombre de lignes JSON valides, répartitions des `type`, `item.type` et statuts, présence de messages `turn.failed`/erreur MCP, identifiant factice attendu, présence de stderr. Ne pas imprimer texte brut des réponses agent, tokens, identifiants de session, arguments ni le contenu des journaux. Conserver les fichiers. Interpréter ensuite avant toute décision de nouveau canary ou de modification du profil MCP/broker. Validation antérieure du serveur MCP direct et des ACL restent PASS.
+
 ## 1 novembre 2026 — device auth ChatGPT Codex réussi sous codex-runner (dernier résultat)
 
 L'opérateur a sélectionné explicitement `CODEX_HOME` dans `%LOCALAPPDATA%\CodexSM-Synthetic-0165` depuis la session `codex-runner` puis exécuté `C:\ProgramData\CodexRunnerCLI-0165\bin\codex.exe login --device-auth`. Le terminal affiche `Successfully logged in` et `codex login status` confirme `Logged in using ChatGPT`. L'option de connexion par code d'appareil a dû être activée préalablement dans les paramètres ChatGPT. **Aucun code temporaire, adresse e-mail ni jeton n'est conservé dans cette passation.**
