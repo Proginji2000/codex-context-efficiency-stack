@@ -2,6 +2,28 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 1 novembre 2026 — chaîne MCP intercomptes synthétique PASS (dernier résultat)
+
+Sortie fournie par l'opérateur depuis **PowerShell `codex-runner`** après préparation du kit intercomptes et lancement du broker synthétique `codex-broker` :
+
+```text
+MCP_RUNNER_IDENTITY_PASS
+MCP_BRIDGE_SOURCE_INTEGRITY_PASS
+MCP_INITIALIZE_PASS
+MCP_READONLY_TOOLS_PASS
+MCP_SEARCH_THROUGH_BROKER_PASS
+MCP_WRITE_TOOL_DENIED_PASS
+MCP_BROKER_CROSS_IDENTITY_SYNTHETIC_PASS
+NO_PRODUCTION_KEYS_OR_SUPERMEMORY_CALLS
+RUNNER_MCP_SYNTHETIC_TEST_COMPLETE
+```
+
+**Conclusion :** la chaîne **pont MCP stdio sous codex-runner → broker HTTP localhost sous codex-broker → upstream fictif** a fonctionné, avec rejet d'outil d'écriture, sans clé Supermemory ou appel de production. Le pont V2 n'offre que `search(query)`; aucune connexion **Codex CLI** au pont, aucun vrai moteur Supermemory et aucun service broker durable n'ont été qualifiés. La sortie du lancement du serveur synthétique et du staging administratif n'est pas dans ce dernier message, mais le succès du test MCP atteste qu'un serveur compatible était accessible.
+
+**Jalon clos :** tests ACL des deux comptes, broker HTTP synthétique Windows et MCP intercomptes synthétique. **Ne plus rejouer ces validations sur code inchangé.**
+
+**Suite de qualification :** durcir le serveur V2 avant tout secret réel (concurrence de requêtes/connexions limitée, timeout client, arrêt supervisé, journalisation sans secrets), isoler le stockage des clés Supermemory **uniquement côté broker** (runner n'aura qu'un jeton local limité), puis vérifier cette séparation avec jetons factices et tests d'accès négatifs. Ensuite, premier canary réel sur **namespace synthétique dédié** (aucune donnée privée) `codex_llm_canary_c58e251be7bf`, suivi de l'intégration au Codex CLI sous `codex-runner` ; ne jamais donner la clé API production à Codex. Le broker actuel reste un prototype et n'a pas été démarré avec le secret réel.
+
 ## 1 novembre 2026 — broker HTTP synthétique Windows PASS (dernier résultat)
 
 L'opérateur a démarré le **véritable** `C:\ProgramData\CodexMemoryBrokerStage-V2\app\broker.py` avec l'interpréteur CPython embedded `C:\ProgramData\CodexMemoryPython314\python.exe` sous l'identité `codex-broker`. Empreinte source préalablement vérifiée (`BROKER_CODE_INTEGRITY_PASS`). Serveur lié à `127.0.0.1` sur un port éphémère et upstream simulé en mémoire : `BROKER_SYNTHETIC_AUTHORIZED_SEARCH_PASS` (200), `BROKER_SYNTHETIC_INVALID_TOKEN_PASS` (401), `BROKER_SYNTHETIC_METHOD_DENY_PASS` (405), `BROKER_SYNTHETIC_NAMESPACE_OVERRIDE_DENY_PASS` (400), `BROKER_SYNTHETIC_HTTP_PASS`, `NO_PRODUCTION_KEYS_OR_API_CALLS`, `BROKER_SYNTHETIC_TEST_COMPLETE`.
