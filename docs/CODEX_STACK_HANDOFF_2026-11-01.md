@@ -2,6 +2,16 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 1 novembre 2026 — Codex CLI absent du compte restreint (dernier contrôle)
+
+Après reconfirmation `MCP_BROKER_CROSS_IDENTITY_SYNTHETIC_PASS`, l'opérateur a exécuté sous la véritable identité `codex-runner` un préflight `Get-Command codex -All` / `--version` sans appel de modèle. Sortie : `RUNNER_IDENTITY_PASS`, `RUNNER_CODEX_CLI_NOT_FOUND`, `NO_CONFIG_CHANGED`, `NO_MODEL_CALLS`, `RUNNER_CODEX_PREFLIGHT_COMPLETE`.
+
+**Interprétation :** Codex CLI n'est pas trouvable comme application/script par la recherche de commande dans cet environnement Windows. Ne pas le confondre avec un échec MCP ou ACL et ne pas réutiliser implicitement le CLI, le profil `.codex`, la connexion ChatGPT, les secrets ou les dépendances installés sous le compte opérateur.
+
+**Prochain livrable préparé, NON exécuté sous Windows :** fichier local de conversation `Install-CodexRunnerCLI-0165-20261101.ps1` SHA256 `D31F77A5901B932735A1718387695D0DB03AC9BF28CA43A48053CC784AB59026`. Télécharge depuis la release GitHub **officielle OpenAI** `rust-v0.165.0` le paquet x64 Windows `codex-package-x86_64-pc-windows-msvc.tar.gz`, avec hash officiel déjà épinglé par Scoop `2A64BEB5856C3170738793E0AA65B44AA3F2D7B8F53221A3F72BDAFE6485D119` ; vérifie avant décompression. Demande confirmation opérateur `INSTALLER CODEX RUNNER`. Stage uniquement un nouveau `C:\ProgramData\CodexRunnerCLI-0165` sous ACL non héritées SYSTEM/Administrateurs FullControl et `codex-runner` ReadAndExecute ; aucun autre compte ni PATH ni profil Codex modifié. Vérifie `bin\codex.exe --version` 0.165.0, nettoie le téléchargement et supprime le seul stage nouveau en cas d'échec. Pas de configuration MCP/auth et aucun appel modèle ; **le PowerShell de stage n'a pas été exécuté sur le poste**.
+
+**Après stage :** depuis `codex-runner`, exécuter uniquement `C:\ProgramData\CodexRunnerCLI-0165\bin\codex.exe --version` et rapporter `RUNNER_CODEX_VERSION_0165_PASS`. Ne pas encore faire de login, accepter une approbation réseau, activer des hooks globaux, ni copier auth.json/config.toml du compte opérateur. Ensuite travailler la connexion MCP dans un profil indépendant sous `codex-runner`, avec serveur broker encore synthétique ; secrets réels uniquement après durcissement du broker.
+
 ## 1 novembre 2026 — chaîne MCP intercomptes synthétique PASS (dernier résultat)
 
 Sortie fournie par l'opérateur depuis **PowerShell `codex-runner`** après préparation du kit intercomptes et lancement du broker synthétique `codex-broker` :
