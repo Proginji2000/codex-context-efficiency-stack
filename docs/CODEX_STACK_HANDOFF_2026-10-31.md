@@ -2,6 +2,14 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## 1 novembre 2026 — staging du broker V2 hors ligne sous ACL protégées : PASS
+
+L'opérateur a lancé le script de staging PowerShell avec empreinte SHA256 conforme (`BROKER_STAGE_SCRIPT_INTEGRITY_PASS`). Résultat : `STAGE_PREFLIGHT_PASS`, `BROKER_STAGE_CREATED_PASS`, `BROKER_STAGE_ACL_PROTECTED_PASS`, `BROKER_STAGE_NO_RUNNER_DIRECT_ACE_PASS`, `BROKER_STAGE_SECRETS_EMPTY_PASS`, `NO_PRODUCTION_KEY_ACCESSED`, `NO_SERVICE_OR_MCP_CONFIG_CHANGED`, `BROKER_OFFLINE_STAGING_COMPLETE`, `BROKER_STAGE_EXECUTION_COMPLETE`.
+
+**Interprétation :** répertoire `C:\\ProgramData\\CodexMemoryBrokerStage-V2` créé avec héritage ACL coupé, trustees déclarés opérateur/SYSTEM/Administrateurs ; copie **code seulement** (`broker.py` et README) et sous-dossier `secrets-empty` vide. Le script a testé les ACE à la racine, **pas encore le refus effectif de lecture/écriture depuis le compte réel `codex-runner`**. Aucun service, port, API réelle, clé ni MCP Codex n'a été lancé ou configuré. **Ne jamais assimiler staging à déploiement sécurisé du broker.**
+
+**Prochain contrôle ciblé :** dans la session PowerShell `codex-runner`, tentatives d'énumération du répertoire et d'ouverture lecture/écriture de `app\\broker.py` via API .NET, avec gestion `UnauthorizedAccessException`, sans création/modification de fichier. Marquer PASS seulement pour refus d'accès observé, et INCONCLUSIVE pour fichiers absents/erreurs autres. Ne pas relancer les tests antérieurs ni ouvrir les secrets ; ensuite définir une identité de service broker distincte, durcir le serveur expérimental et tester la séparation du jeton limité avant une recherche Codex réelle.
+
 ## 1 novembre 2026 — codex-runner : test du jeton effectif et accès Docker négatif observé
 
 L'opérateur a lancé une **nouvelle session PowerShell sous `codex-runner`** via `runas`. Résultats directement fournis : `RUNNER_IDENTITY_PASS`, `RUNNER_NO_ACTIVE_ADMIN_PASS`, `RUNNER_NO_DOCKER_GROUP_PASS`, `RUNNER_NO_INHERITED_API_KEY_PASS`, `DOCKER_PIPE_1_RESULT=1`, `DOCKER_PIPE_2_RESULT=1`, `RUNNER_DOCKER_ACCESS_NOT_OBSERVED`, `NO_MODEL_CALLS`, `NO_SECRET_CONTENT_READ`, `RUNNER_SECURITY_GATE_COMPLETE`.
