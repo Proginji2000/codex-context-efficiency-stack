@@ -2,6 +2,14 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## Incident création codex-broker — 1 novembre 2026, 14:50 (dernier état)
+
+L'opérateur a exécuté le script initial `Provision-CodexBrokerIdentity-20261101.ps1`, SHA256 vérifiée `AD9F75661A70C13965D093AFC8260F97557C2A38D647E29BBF49C4F4208AEB4B`. `BROKER_IDENTITY_PREFLIGHT_PASS` puis confirmation `CREER CODEX-BROKER` et saisie SecureString. **Échec lors du binding des paramètres de `New-LocalUser`** : la description `Restricted Supermemory broker identity - no service installed` comporte **61 caractères**, et l'implémentation Windows accepte **48 maximum**. Aucun `BROKER_IDENTITY_CREATED_PASS` ni `BROKER_IDENTITY_PROVISIONING_COMPLETE` n'a été émis. Préflight initial avait constaté l'absence de compte ; le binding d'arguments a échoué avant la création ; **vérifier à nouveau l'absence du compte avant retry**. Pas de modification volontaire des ACL, services ou secrets.
+
+**Correctif minimal V2 préparé et non encore exécuté sur Windows :** `Provision-CodexBrokerIdentity-V2-20261101.ps1`, SHA256 `6E8EFDC03D39D6F5C8C2FC4DF72930C1AF0CC76170EB1EEEC77B9365E4345991`. Différence unique vérifiée statiquement : description abrégée `Supermemory broker - no service installed` (**41 caractères**). Le mot de passe SecureString, la confirmation interactive, les conditions Admin/Users/docker-users et le rollback restent identiques. La V2 n'est pas un nouveau succès de provisionnement avant la preuve Windows ; l'utilisateur doit exécuter la nouvelle archive uniquement après vérification du SHA256. Le mot de passe de la première tentative ne peut pas être réutilisé automatiquement.
+
+**Prochain jalon :** `BROKER_IDENTITY_PROVISIONING_COMPLETE` avec compte local standard et groupes directs vérifiés. Aucun service, API réelle, clé, MCP ou modification de production ne doivent être entrepris avant la qualification séparée du compte et des ACL.
+
 ## Validations acquises — ne pas rejouer sans modification de code
 
 - Supermemory Local Docker v0.0.9 healthy, sauvegarde/restauration V5 PASS ; BGE-M3 provider local/Xenova/bge-m3/1024 confirmé ; inférence directe Ollama qwen3:8b PASS.
