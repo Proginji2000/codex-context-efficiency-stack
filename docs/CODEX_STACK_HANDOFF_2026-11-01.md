@@ -2,6 +2,14 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 1 novembre 2026 — Codex CLI 0.165.0 sous codex-runner : PASS (dernier résultat)
+
+L'opérateur a exécuté `Install-CodexRunnerCLI-0165-20261101.ps1`, SHA256 `D31F77A5901B932735A1718387695D0DB03AC9BF28CA43A48053CC784AB59026`, et a confirmé `INSTALLER CODEX RUNNER`. Les marqueurs sont : `CODEX_RUNNER_INSTALL_SCRIPT_INTEGRITY_PASS`, `CODEX_RUNNER_CLI_PREFLIGHT_PASS`, `CODEX_RELEASE_SHA256_PASS`, `CODEX_RUNNER_CLI_PROTECTED_STAGE_PASS`, `CODEX_RUNNER_CLI_VERSION_0165_PASS`, `NO_AUTH_OR_MCP_CONFIG_CHANGED`, `CODEX_RUNNER_CLI_STAGE_COMPLETE`, `CODEX_RUNNER_INSTALL_SCRIPT_EXECUTION_COMPLETE`. Vérification distincte de l'exécutable via PowerShell : `& 'C:\ProgramData\CodexRunnerCLI-0165\bin\codex.exe' --version` → `codex-cli 0.165.0`.
+
+**Acquis :** executable officiel versionné dans staging ProgramData protégé, permissions de lecture/exécution pour `codex-runner`, CLI fonctionnel sans changement de PATH, login, config MCP, Docker, service ou environnement principal. Ce test ne prouve pas que Codex est connecté à ChatGPT, qu'un modèle peut s'exécuter, ou qu'une requête MCP a été émise *depuis Codex CLI*. Le préflight précédent `RUNNER_CODEX_CLI_NOT_FOUND` est clos. Le broker + MCP intercomptes en dehors du CLI restent synthétiquement PASS.
+
+**Prochain gate sans appel de modèle :** créer depuis le vrai `codex-runner` un répertoire `CODEX_HOME` propre et nouveau dans son `LocalAppData` ; enregistrer uniquement le serveur stdio `sm_synthetic` avec `codex mcp add sm_synthetic --env BROKER_CLIENT_TOKEN_FILE=<chemin du jeton **fictif**> -- C:\ProgramData\CodexMemoryPython314\python.exe -I -B C:\ProgramData\CodexMemoryMcpStage-V2\mcp_readonly_bridge.py`. Fichier jeton fictif stocké seulement sous ce profil. Confirmer `codex mcp get sm_synthetic --json` et `codex mcp list --json`; aucun `codex exec`, modèle, `login`, secret Supermemory réel ou copie de `.codex` de l'opérateur. La réussite est une **configuration déclarative**, non une connexion réelle Codex/MCP. Le serveur synthétique existant peut rester arrêté.
+
 ## 1 novembre 2026 — Codex CLI absent du compte restreint (dernier contrôle)
 
 Après reconfirmation `MCP_BROKER_CROSS_IDENTITY_SYNTHETIC_PASS`, l'opérateur a exécuté sous la véritable identité `codex-runner` un préflight `Get-Command codex -All` / `--version` sans appel de modèle. Sortie : `RUNNER_IDENTITY_PASS`, `RUNNER_CODEX_CLI_NOT_FOUND`, `NO_CONFIG_CHANGED`, `NO_MODEL_CALLS`, `RUNNER_CODEX_PREFLIGHT_COMPLETE`.
