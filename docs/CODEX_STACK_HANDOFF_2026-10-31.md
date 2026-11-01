@@ -2,6 +2,14 @@
 
 **Etat rapporte et verifie par sorties de PowerShell fournies dans ChatGPT, non par acces distant au PC.** Ce document prolonge [la passation du 30 octobre](CODEX_STACK_HANDOFF_2026-10-30.md) et la [roadmap](QUALIFICATION_ROADMAP_2026.md), sans remplacer leurs historiques de qualification. Il sert a reprendre le projet apres saturation d'une conversation.
 
+## 1 novembre 2026 — compte codex-runner cree, verification de privileges requise
+
+L'operateur a execute explicitement le provisionnement Windows du compte local dedie `codex-runner` depuis PowerShell avec privileges administrateur et confirmation `CREER CODEX-RUNNER`. Sorties : `RUNNER_PREFLIGHT_PASS`, `RUNNER_CREATED_PASS`, `RUNNER_USERS_GROUP_PASS`, `RUNNER_NO_ADMIN_DIRECT_PASS`, `RUNNER_NO_DOCKER_DIRECT_PASS`, `RUNNER_PROVISIONING_COMPLETE`. **Le compte existe**, est membre direct du groupe local Users et n'appartient directement ni a Administrateurs ni a docker-users d'apres les controles. Les anciens comptes locaux candidats n'ont pas ete modifies par ce script. Pas de modification Supermemory/Docker ni de lancement Codex.
+
+**Point a retenir :** la condition de longueur du mot de passe a ete modifiee par l'operateur de 16 a 10 caracteres (`if ($password.Length -lt 10)`). Le script ne fournit **aucune preuve de longueur effective** du mot de passe ni de qualite. Si longueur <16, rotation conseillee avec saisie securisee, sans afficher ni transmettre le mot de passe.
+
+**PROCHAIN GATE IMMEDIAT :** `runas /user:<machine>\\codex-runner powershell.exe -NoProfile -NoExit` depuis une console normale, saisie du mot de passe sans le publier, puis tests read-only **sous l'identite reelle** pour confirmer token non admin, absence groupe docker-users, absence variable de cle, et refus/unavailability de Docker daemon. Ne pas confondre impossibilite de trouver `docker.exe` ou absence du contexte `desktop-linux` avec une preuve d'ACL refusee. Refus Docker depuis MXC n'etablit pas l'isolation du parent Codex/MCP. Aucun secret, profil Codex existant, compte cloud, SSH ou fichier personnel ne doit etre copie dans le runner. Puis seulement concevoir le compte broker de confiance, ACL/service et le canary synthetique.
+
 ## Vérification d'usage des deux comptes locaux — 31/10/2026 (dernier état)
 
 Sortie PowerShell opérateur : `ACCOUNT_1_SERVICE_REFERENCES=0`, `ACCOUNT_1_TASK_REFERENCES=0`, `ACCOUNT_2_SERVICE_REFERENCES=0`, `ACCOUNT_2_TASK_REFERENCES=0`, `VISIBLE_SERVICE_TASK_AUDIT_PASS`, `NO_ACCOUNT_NAMES_OR_SIDS_PRINTED`, `NO_SYSTEM_CHANGES`, `ACCOUNT_USAGE_AUDIT_COMPLETE`. Dans le périmètre visible et avec les alias recherchés, aucune référence dans les services Windows ni les tâches planifiées. **Cela ne prouve pas que les comptes sont inutilisés ou sécurisés :** profils et applications, droits hérités, comptes utilisés autrement et accès Docker ne sont pas couverts.
