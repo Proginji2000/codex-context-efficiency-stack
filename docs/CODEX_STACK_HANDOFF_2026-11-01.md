@@ -2,6 +2,14 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 1 novembre 2026 — ACL lecture seule codex-broker appliquée au staging (dernier résultat)
+
+L'opérateur a exécuté en PowerShell élevé `Grant-CodexBrokerStageReadOnly-20261101.ps1` après vérification SHA256 `64A5D4C31C1D7B9E5B7A143CFB2612D1B3D48A1E2B3AC31E47C3B1048D7324EB` et confirmation explicite `AUTORISER LECTURE BROKER`. Sorties : `BROKER_ACL_SCRIPT_INTEGRITY_PASS`, `BROKER_STAGE_ACL_PREFLIGHT_PASS`, `BROKER_STAGE_ROOT_READONLY_ACE_PASS`, `BROKER_STAGE_APP_READONLY_ACE_PASS`, `BROKER_STAGE_SECRETS_UNCHANGED_PASS`, `NO_CODE_OR_SECRET_CONTENT_MODIFIED`, `NO_SERVICE_OR_PRODUCTION_API_CHANGED`, `BROKER_STAGE_BROKER_ACL_APPLIED`.
+
+**Portée :** la racine `C:\ProgramData\CodexMemoryBrokerStage-V2` et `app` portent désormais les ACE de lecture/exécution attendues pour `codex-broker` ; l'ACL de `secrets-empty` n'a pas été changée. Aucun secret, service Windows, code, configuration MCP ou API de production modifié. **Cela prouve l'application des ACE, pas encore les droits effectifs sous le jeton `codex-broker` ; ne pas supposer l'accès à `secrets-empty` définitivement refusé sans test sous cette identité.**
+
+**Prochain gate unique :** ouvrir un PowerShell sous `codex-broker` avec `runas`, puis vérifier un `File.Open` en lecture (attendu accordé), en écriture sans mutation (attendu refusé) sur `app\broker.py`, ainsi que l'énumération de `secrets-empty` (attendu refusée). Après changement d'ACL, vérifier également que `codex-runner` reste sans lecture du code. Aucun jeton, clé réelle, service ou agent Codex n'est nécessaire. Suivant ces tests, concevoir des secrets séparés et une exploitation de service durcie : le broker V2 reste un prototype hors ligne.
+
 ## 1 novembre 2026 — codex-broker créé, provisionnement V2 PASS (dernier résultat)
 
 L'opérateur a lancé `Provision-CodexBrokerIdentity-V2-20261101.ps1` après vérification SHA256 `6E8EFDC03D39D6F5C8C2FC4DF72930C1AF0CC76170EB1EEEC77B9365E4345991`, a confirmé `CREER CODEX-BROKER` et saisi localement un mot de passe SecureString (minimum **16** caractères contrôlé par le script). Marqueurs : `BROKER_IDENTITY_V2_INTEGRITY_PASS`, `BROKER_IDENTITY_PREFLIGHT_PASS`, `BROKER_IDENTITY_CREATED_PASS`, `BROKER_IDENTITY_USERS_ONLY_DIRECT_PASS`, `BROKER_IDENTITY_NO_ADMIN_DIRECT_PASS`, `BROKER_IDENTITY_NO_DOCKER_DIRECT_PASS`, `NO_SERVICE_OR_SECRET_CONFIGURED`, `BROKER_IDENTITY_PROVISIONING_COMPLETE`, `BROKER_IDENTITY_V2_EXECUTION_COMPLETE`.
