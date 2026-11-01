@@ -2,6 +2,14 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 1 novembre 2026 — device auth ChatGPT Codex réussi sous codex-runner (dernier résultat)
+
+L'opérateur a sélectionné explicitement `CODEX_HOME` dans `%LOCALAPPDATA%\CodexSM-Synthetic-0165` depuis la session `codex-runner` puis exécuté `C:\ProgramData\CodexRunnerCLI-0165\bin\codex.exe login --device-auth`. Le terminal affiche `Successfully logged in` et `codex login status` confirme `Logged in using ChatGPT`. L'option de connexion par code d'appareil a dû être activée préalablement dans les paramètres ChatGPT. **Aucun code temporaire, adresse e-mail ni jeton n'est conservé dans cette passation.**
+
+**Jalon :** authentification ChatGPT indépendante établie dans le profil Codex du runner. Pas d'appel modèle ni d'appel MCP depuis Codex dans le transcript de connexion. Le terminal peut ouvrir une requête modèle dès le prochain `codex exec`; cela utilisera le quota du compte. Ne pas recopier le fichier `auth.json` ni le transmettre. Aucun droit de lire les fichiers broker ou clé production n'a été octroyé au runner.
+
+**Prochain et unique canary autorisé :** redémarrer sous `codex-broker` le service HTTP synthétique `C:\ProgramData\CodexMemoryBrokerStage-V2\app\BrokerSyntheticServer.ps1` (faux jeton, faux upstream, `127.0.0.1:6811`, auto-stop 600s), puis lancer depuis `codex-runner` **un seul** `codex exec` avec `CODEX_HOME` isolé, sandbox `read-only`, approbations `never`, espace de travail jetable dédié, `--json`, et une instruction explicite `sm_synthetic.search(query="synthetic probe")` sans shell ni autre outil. La réussite nécessite **un événement JSON `item.completed` avec `item.type=mcp_tool_call`, `server=sm_synthetic`, `tool=search`, `status=completed` et résultat `mcp-cross-account-synthetic`** ; ne pas qualifier sur la seule affirmation du modèle. Si le serveur manque ou outil annulé, STOP et consigner BLOCKED. Aucun Supermemory réel, Docker, profil opérateur ou accès production.
+
 ## 1 novembre 2026 — profil Codex CLI isolé + MCP synthétique enregistré : PASS (dernier résultat)
 
 L'opérateur a exécuté le script PowerShell **V2** sous l'identité réelle `codex-runner`. Le premier essai s'était arrêté AVANT création de profil à cause de l'emploi de la variable PowerShell protégée `$home` (alias insensible à la casse de `$HOME`), corrigé en `$isolatedCodexHome` sans changer le comportement de sécurité.
