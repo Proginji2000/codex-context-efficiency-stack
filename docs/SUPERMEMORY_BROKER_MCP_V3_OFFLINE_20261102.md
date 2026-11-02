@@ -40,3 +40,30 @@ Les 24 tests V2 existants sont conservés, complétés par 12 tests : surcharge 
 5. Gérer superviseur, firewall, règles egress et watchdog. Loopback ne protège pas contre les autres utilisateurs locaux ; annotation MCP ne remplace pas les ACL/autorisation.
 
 **Décision :** V3 **PREPARED_OFFLINE_36_PASS** dans l'environnement de préparation, **WINDOWS_NOT_YET_QUALIFIED**, **PRODUCTION_NOT_AUTHORIZED**. Les tests V1–V3 de l'ancien canary synthétique sont clos et ne doivent pas être rejoués sans changement justifié.
+
+## Résultat Windows V3 et correctif V3.1 — 2 novembre 2026
+
+Le premier test V3 sur le poste de l'opérateur, avec le Python autonome **3.14.10**, a été exécuté depuis son compte standard (ni `codex-runner` ni `codex-broker`). Après une première tentative arrêtée avant les tests par l'alias `python` du Microsoft Store et une deuxième arrêtée avant les tests par une commande `python -c` mal échappée, le véritable banc V3 a produit :
+
+```text
+BROKER_V3_PYTHON_RUNTIME_PASS
+BROKER_V3_OFFLINE_PREFLIGHT_PASS
+NO_PRODUCTION_API_NO_DOCKER_NO_CODEX_MODEL
+LOCALHOST_EPHEMERAL_TEST_SOCKETS_ONLY
+ERROR: test_concurrent_slot_overload_returns_503_then_recovers
+ConnectionAbortedError: [WinError 10053]
+Ran 36 tests in 11.913s
+FAILED (errors=1)
+```
+
+**Interprétation :** 35/36 tests sans échec signalé ; le scénario de saturation exigeait systématiquement un **statut HTTP 503** lors d'un refus immédiat. Sur Windows, le client peut recevoir à la place `WSAECONNABORTED` si le serveur ferme la connexion alors que le POST n'a pas été entièrement lu. Ce résultat ne suffit pas à prouver une vulnérabilité du broker ; il invalide néanmoins le critère initial strict « toujours recevoir 503 ». La V3 n'est **pas qualifiée sous Windows**. Un `ResourceWarning` sur socket cliente non fermée et le marqueur `BROKER_V3_HANDLER_ERROR_REDACTED` ont aussi été observés.
+
+**Correctif préparé : V3.1** dans une **nouvelle archive** de conversation `Supermemory_Readonly_Broker_MCP_Offline_V3_1_20261102.zip`, **SHA256 `5DE450447253960CC47A9A951A290483824A37CBA1FC2404A5304BDAD3FF96D2`**. Dossier distinct `Supermemory_Broker_MCP_V3_1` ; ne pas écraser le dossier de tests V3, le stage V2 sous ProgramData ou l'adaptateur local.
+- Test de surcharge refactoré : autorise `503` **ou** fermeture TCP (reset/abort/broken pipe) comme **refus de saturation**, mais exige impérativement **qu'aucune requête supplémentaire n'atteigne le callback upstream**, que la requête en cours soit servie, puis que le service récupère sa capacité. Un `200` sur le client refusé est un échec.
+- Client HTTP de test fermé dans `finally` sur chemin succès **et** erreur, pour éviter les sockets orphelines.
+- Un test de régression additionnel simule `ConnectionAbortedError(10053, ...)` et vérifie qu'un succès HTTP accidentel est rejeté.
+- Code de capacité et limite de concurrence du broker **fonctionnellement inchangé** ; documentation précise dorénavant **503 best effort**, pas une garantie Windows. Les marqueurs deviennent `BROKER_V3_1_OFFLINE_37_TESTS_PASS`.
+- Préparation Linux Python 3.13.5 : **37/37 PASS** ; trois répétitions des 13 tests de durcissement PASS chacune. ZIP vérifié, aucun appel de modèle/Docker/Supermemory, aucune clé réelle. **Windows V3.1 non encore testé**.
+
+**Prochain gate unique :** vérifier le SHA256 de la nouvelle archive, extraire vers un **dossier inédit** dans Downloads, exécuter `Invoke-BrokerV3OfflineQualification.ps1 -Python 'C:\ProgramData\CodexMemoryPython314\python.exe'` depuis PowerShell ordinaire. Attendre `BROKER_V3_1_OFFLINE_37_TESTS_PASS` et `BROKER_V3_1_WINDOWS_OFFLINE_PASS` du wrapper opérateur. En cas d'échec, STOP, ne pas modifier les ACL, ne pas lancer de service ou de canary modèle.
+
