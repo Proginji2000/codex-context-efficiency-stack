@@ -2,6 +2,32 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 2 novembre 2026 — véritable agent Codex CLI → MCP → broker HTTP synthétique : V3 PASS (dernier résultat)
+
+**Preuve : sortie PowerShell fournie par l'opérateur sous `codex-runner`, sans accès distant au poste.** Le broker HTTP fictif sous `codex-broker` était déjà lancé. Préflight HTTP authentifié POST `/search` avec identifiant `mcp-cross-account-synthetic` : `SYNTHETIC_BROKER_HTTP_PASS`. Puis **un seul** `codex exec` V3 sous profil isolé `%LOCALAPPDATA%\CodexSM-Synthetic-0165`, sandbox `read-only`, `approval_policy='never'` global, override CLI éphémère `mcp_servers.sm_synthetic.tools.search.approval_mode="approve"`, prompt par stdin, JSONL local.
+
+Sortie V3 observée :
+```text
+SYNTHETIC_BROKER_HTTP_PASS
+CODEX_MCP_V3_SINGLE_EXEC_START
+CODEX_EXEC_V3_EXIT=0
+MCP_TARGET_STARTED=1
+MCP_TARGET_COMPLETED=1
+MCP_FAILED=0
+MCP_VALID_RESULTS=1
+OTHER_MCP_EVENTS=0
+UNEXPECTED_LOCAL_ACTIONS=0
+CONFIG_UNCHANGED=True
+CODEX_TO_MCP_TO_BROKER_SYNTHETIC_V3_PASS
+CODEX_MCP_V3_COMPLETE
+```
+
+**Jalon désormais QUALIFIÉ dans le périmètre synthétique :** l'agent Codex 0.165.0 a découvert puis appelé réellement l'outil `sm_synthetic.search` via le pont MCP Python stdio, qui a obtenu le marqueur de réponse attendu du broker HTTP fictif sur `127.0.0.1:6811`. Un seul appel attendu, aucun appel MCP concurrent, aucune commande locale ni modification de fichier détectée par les événements JSONL, configuration persistante inchangée. La permission supplémentaire ciblée, plutôt qu'un assouplissement global des approbations, a résolu l'échec V2. Ne pas refaire V1/V2/V3 en l'absence de modification des composants.
+
+**Ce jalon ne prouve PAS :** fonctionnement ou sûreté des secrets et de l'API Supermemory réelle sous `codex-broker`, absence exhaustive de trafic réseau, confinement des outils tiers, isolation au niveau VM, capacité opérationnelle du broker Python avec charge/attaques ou autorisation permanente de l'outil. `approval_mode="approve"` signifie que cet outil MCP est autorisé **sans confirmation** et que le résultat dépend des garanties propres du broker. **Pas de migration en production.**
+
+**Prochain gate prioritaire (sécurité/production) :** réviser et durcir le broker réel séparément du serveur synthétique : serveur HTTP limité en concurrence, délais de lecture des connexions et requêtes, limites des réponses, rejet des méthodes d'écriture, journalisation assainie ; ACL des fichiers secret sous `codex-broker` seulement, clé upstream non héritable par `codex-runner`, namespace Supermemory **fictif et figé** ; gestion de démarrage/arrêt, rotation et rollback. Ajouter `annotations.readOnlyHint=true` au `tools/list` du bridge en tant que signal pour les clients (pas une barrière de sécurité) après tests/qualification du code ; conserver l'override temporaire ciblé tant que nécessaire. Exécuter d'abord tests offline + négatifs, puis un seul canary réel sur namespace synthétique, sans accès aux données existantes, et seulement avec l'approbation utilisateur pour le raccordement de clés et de services.
+
 ## 2 novembre 2026 — préflight override MCP ciblé PASS (dernier résultat)
 
 Depuis la session `codex-runner`, l'opérateur a sélectionné `CODEX_HOME=%LOCALAPPDATA%\CodexSM-Synthetic-0165` et exécuté **sans modèle** la commande `codex -c 'mcp_servers.sm_synthetic.tools.search.approval_mode="approve"' mcp get sm_synthetic --json`. Résultat : `MCP_SYNTHETIC_SERVER_CONFIG_PASS`, `MCP_SCOPED_APPROVAL_OVERRIDE_PARSED_PASS`, `CODEX_CONFIG_UNCHANGED_PASS`, `NO_MODEL_CALLS`, `NO_PRODUCTION_ACCESS`, `CODEX_MCP_APPROVAL_PREFLIGHT_COMPLETE`. Hash SHA256 de `config.toml` inchangé ; le serveur rapporté était activé, transport stdio pointant vers le pont MCP prévu.
