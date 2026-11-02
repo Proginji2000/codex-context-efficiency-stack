@@ -2,6 +2,14 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 2 novembre 2026 — préflight override MCP ciblé PASS (dernier résultat)
+
+Depuis la session `codex-runner`, l'opérateur a sélectionné `CODEX_HOME=%LOCALAPPDATA%\CodexSM-Synthetic-0165` et exécuté **sans modèle** la commande `codex -c 'mcp_servers.sm_synthetic.tools.search.approval_mode="approve"' mcp get sm_synthetic --json`. Résultat : `MCP_SYNTHETIC_SERVER_CONFIG_PASS`, `MCP_SCOPED_APPROVAL_OVERRIDE_PARSED_PASS`, `CODEX_CONFIG_UNCHANGED_PASS`, `NO_MODEL_CALLS`, `NO_PRODUCTION_ACCESS`, `CODEX_MCP_APPROVAL_PREFLIGHT_COMPLETE`. Hash SHA256 de `config.toml` inchangé ; le serveur rapporté était activé, transport stdio pointant vers le pont MCP prévu.
+
+**Limite de preuve importante :** sous Codex 0.165.0, `mcp get --json` renvoie l'identité/transport du serveur, mais **n'expose pas l'approval_mode par outil** ; on a validé l'acceptation sans erreur de surcharge de configuration, **pas son effet d'approbation à l'exécution**. Aucun `codex exec` n'a encore été effectué avec cet override.
+
+**Prochain gate :** redémarrer sous `codex-broker` le broker HTTP de test uniquement (`BROKER_SYNTHETIC_CROSS_ACCOUNT_READY`, auto-stop 10 min). Effectuer au maximum un canary V3 sous `codex-runner` avec l'override temporaire **uniquement** `sm_synthetic.search.approval_mode="approve"`, `approval_policy="never"` global, `--sandbox read-only`, `CODEX_HOME` déjà isolé et prompt passé par stdin (`codex exec --json -`) afin d'éviter le problème d'arguments V1. Fichiers nouveaux `first-mcp-canary-v3.jsonl` et `...-stderr.txt` ; pas de retry si présents. Qualification uniquement si un événement réel `mcp_tool_call` achevé pour `sm_synthetic.search` contient l'identifiant de résultat `mcp-cross-account-synthetic`, aucun appel local inattendu et exit 0 ; sinon STOP et analyser les journaux, sans divulguer auth/tokens. Une connexion TCP au port 6811 seule ne démontre pas la réussite du POST. Aucun secret Supermemory de production ne doit être présent chez runner ou broker synthétique.
+
 ## 2 novembre 2026 — cause d'échec MCP identifiée : approval_policy=never (dernier résultat)
 
 Nouveau diagnostic *offline* sous `codex-runner` du même journal `first-mcp-canary-v2.jsonl`, **sans appel modèle, sans modification**. `FAILED_TARGET_CALLS=1`. L'événement `item.completed` de `type=mcp_tool_call`, `server=sm_synthetic`, `tool=search`, `status=failed` porte exactement `error.message = "MCP tool call requires approval, but approval policy is never"`. L'agent a répondu `BLOCKED: The MCP search required approval, but the approval policy is set to never.`. `SYNTHETIC_TOKEN_FILE_MATCH=True`, `NO_MODEL_CALLS`, `NO_FILES_MODIFIED`.
