@@ -2,6 +2,12 @@
 
 **État fondé sur les sorties PowerShell communiquées par l'opérateur ; aucune connexion distante au PC.** Historique détaillé : [passation du 31 octobre](CODEX_STACK_HANDOFF_2026-10-31.md), [roadmap](QUALIFICATION_ROADMAP_2026.md), [broker V2](SUPERMEMORY_BROKER_MCP_V2_STAGE_20261031.md).
 
+## 2 novembre 2026 — broker MCP V3 borné : préparation offline 36/36 PASS (livrable prêt)
+
+**Nouveau livrable ChatGPT préparé** (non installé sur Windows, aucun effet production) : `Supermemory_Readonly_Broker_MCP_Offline_V3_20261102.zip`, SHA256 `5CC82DAA00272963F1BA57E2B9BEDA28E1BBD02599DFA53FEE23357E178832A6`. Basé sur le code V2 avec `BoundedThreadingHTTPServer` (4 connexions max par défaut, 503 surcharge), idle timeout 3s, deadline absolue 16s par connexion, limite réponse 64 Kio et d'en-têtes 8192 octets, MCP `search` annoté read-only. Les **24 tests V2 + 12 nouveaux = 36/36 PASS** en Python 3.13 hors ligne dans l'environnement assistant (`python -I -B -m unittest discover -s tests -q`). Une trace de BrokenPipe lors d'expiration a été corrigée avant empaquetage final. Aucun déploiement stage V2, Windows, Docker, Codex, API ni clé réelle n'a été effectué avec cette V3.
+
+**Action opérateur suivante :** archive SHA256 validée, extraction neuve dans Downloads puis `Invoke-BrokerV3OfflineQualification.ps1` sous PowerShell normal, avec Python 3.13, sur sockets localhost éphémères et clés fictives. Attendre `BROKER_V3_OFFLINE_36_TESTS_PASS`. Pas de modification de code/ACL/service/secret avant ce gate. Guide complet : [BROKER V3 offline](SUPERMEMORY_BROKER_MCP_V3_OFFLINE_20261102.md). Ensuite seulement revoir la sécurité d'exploitation, les ACL de secrets pour `codex-broker` et le raccordement à un namespace Supermemory strictement fictif.
+
 ## 2 novembre 2026 — véritable agent Codex CLI → MCP → broker HTTP synthétique : V3 PASS (dernier résultat)
 
 **Preuve : sortie PowerShell fournie par l'opérateur sous `codex-runner`, sans accès distant au poste.** Le broker HTTP fictif sous `codex-broker` était déjà lancé. Préflight HTTP authentifié POST `/search` avec identifiant `mcp-cross-account-synthetic` : `SYNTHETIC_BROKER_HTTP_PASS`. Puis **un seul** `codex exec` V3 sous profil isolé `%LOCALAPPDATA%\CodexSM-Synthetic-0165`, sandbox `read-only`, `approval_policy='never'` global, override CLI éphémère `mcp_servers.sm_synthetic.tools.search.approval_mode="approve"`, prompt par stdin, JSONL local.
