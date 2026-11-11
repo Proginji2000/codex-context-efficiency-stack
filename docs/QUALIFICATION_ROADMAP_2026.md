@@ -1,5 +1,8 @@
 # Feuille de route de qualification Codex, outillage UI/dashboard et VM isolee
 
+> **Actualisation — 11 novembre 2026 :** la qualification Homelab de la VM dédiée est **L6 PASS fonctionnel** (la persistance après redémarrage physique de l'hôte reste à qualifier). Claude Code, Codex CLI, l'authentification par abonnement et le plugin de délégation sont prêts dans l'environnement de test. **A-05 est BLOCKED par quota Codex**, et non FAIL ; les fixtures M1–M3 sont figées localement. Reprise prévue après le reset annoncé du 12 novembre 2026. **Aucun GO Core ni mode full access n'est acquis.** Lire le [point de situation opérationnel du 11 novembre](CODEX_VM9501_QUALIFICATION_STATUS_2026-11-11.md) : cette note complète l'historique ci-dessous sans le réécrire.
+
+
 **Reference : 28 octobre 2026.** Projet : `codex-context-efficiency-stack`. Ce document est un backlog vivant : ajouter de nouveaux P1/P2/P3 apres les resultats sans retrograder des blocages connus. Priorite = importance et dependances, pas pourcentage d'avancement ni date de livraison.
 
 ## Mise à jour de priorité — 9 novembre 2026 : VM Codex et rédaction technique
